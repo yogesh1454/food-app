@@ -60,10 +60,6 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 
-# Spring Boot
-application-*.yml
-!application.yml
-!application-example.yml
 
 # Docker volumes
 **/docker/**/data/
