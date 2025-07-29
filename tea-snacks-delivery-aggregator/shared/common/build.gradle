@@ -1,0 +1,26 @@
+bootJar {
+    enabled = true
+}
+
+jar {
+    enabled = false
+}
+
+dependencies {
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    
+    // Database
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    // Cache
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    
+    // Messaging
+    implementation 'org.springframework.kafka:spring-kafka'
+    
+    // Search
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+}

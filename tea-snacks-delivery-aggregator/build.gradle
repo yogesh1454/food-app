@@ -1,0 +1,68 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.3'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+allprojects {
+    group = 'com.teadelivery'
+    version = '0.0.1-SNAPSHOT'
+    
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    dependencies {
+        // Lombok
+        compileOnly 'org.projectlombok:lombok:1.18.30'
+        annotationProcessor 'org.projectlombok:lombok:1.18.30'
+        
+        // Spring Boot Starters
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        
+        // Database
+        runtimeOnly 'org.postgresql:postgresql'
+        
+        // Cache
+        implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+        
+        // Messaging
+        implementation 'org.springframework.kafka:spring-kafka'
+        
+        // Search
+        implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+        
+        // Test dependencies
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+    
+    // Disable bootJar for all subprojects by default
+    bootJar {
+        enabled = false
+    }
+    
+    jar {
+        enabled = true
+    }
+}
+
+// Disable the root project jar task
+jar.enabled = false
+bootJar.enabled = false
