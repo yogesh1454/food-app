@@ -10,9 +10,9 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-        - 'user-management-service:8081'
-        - 'order-catalog-service:8082'
-        - 'payment-management-service:8083'
-        - 'delivery-management-service:8084'
-        - 'notification-service:8085'
-        - 'search-discovery-service:8086'
+        - 'tea-snacks-user-management:8080'
+        - 'tea-snacks-order-catalog:8080'
+        - 'tea-snacks-payment-management:8080'
+        - 'tea-snacks-delivery-management:8080'
+        - 'tea-snacks-notification:8080'
+        - 'tea-snacks-search-discovery:8080'

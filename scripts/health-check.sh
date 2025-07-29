@@ -67,7 +67,7 @@ if command_exists redis-cli;
 fi
 run_check "Kafka" "nc -z localhost 9092"
 run_check "Elasticsearch" "curl -s http://localhost:9200 | grep -q 'You Know, for Search'"
-run_check "Prometheus" "curl -s http://localhost:9090/-/healthy | grep -q 'Prometheus is Healthy.'"
+run_check "Prometheus" "curl -s http://localhost:9090/-/healthy | grep -q 'Prometheus Server is Healthy'"
 run_check "Grafana" "curl -s http://localhost:3000/api/health | grep -q 'ok'"
 echo ""
 
