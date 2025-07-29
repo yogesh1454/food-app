@@ -4,7 +4,7 @@ These standards are MANDATORY for AI agents.
 
 ## Core Standards
 
-  - **Languages & Runtimes:** Java 17, JVM.
+  - **Languages & Runtimes:** Java , JVM.
   - **Style & Linting:** Google Java Format will be enforced via Maven/Gradle plugin and CI. SpotBugs for static analysis.
   - **Test Organization:** Tests must reside in `src/test/java` and mirror the package structure of the source code. Test class names should end with `Test` or `IT` (for Integration Tests).
 

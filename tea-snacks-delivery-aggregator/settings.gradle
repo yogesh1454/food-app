@@ -1,4 +1,12 @@
 rootProject.name = 'tea-snacks-delivery-aggregator'
 
 // Shared modules
-include 'shared:common' 
+include 'shared:common'
+
+// Microservices
+include 'user-management-service'
+include 'order-catalog-service'
+include 'payment-management-service'
+include 'delivery-management-service'
+include 'notification-service'
+include 'search-discovery-service' 

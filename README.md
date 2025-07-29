@@ -8,63 +8,100 @@ A comprehensive food delivery platform built with Spring Boot microservices arch
 
 - Docker Desktop (v20.10+)
 - Docker Compose (v2.0+)
-- Java 17 or higher
+- Java 21 or higher
 - Gradle 8.x
 
-### Environment Setup
+### Build and Run
 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
+   cd food-app
+   ```
+
+2. **Build all services**
+   ```bash
    cd tea-snacks-delivery-aggregator
+   ./gradlew clean build
+   cd ..
    ```
 
-2. **Start the infrastructure**
+3. **Start all services**
    ```bash
-   docker-compose up -d
-   ```
-
-3. **Verify all services are running**
-   ```bash
-   docker-compose ps
+   docker-compose -f infrastructure/docker/docker-compose.yml up -d --build
    ```
 
 4. **Check service health**
    ```bash
-   # PostgreSQL
-   curl http://localhost:5432
-   
-   # Redis
-   redis-cli -h localhost -p 6379 ping
-   
-   # Kafka
-   curl http://localhost:9092
-   
-   # Elasticsearch
-   curl http://localhost:9200
-   
-   # Prometheus
-   curl http://localhost:9090/-/healthy
-   
-   # Grafana
-   curl http://localhost:3000/api/health
-   
-   # Kafka UI
-   curl http://localhost:8080/actuator/health
+   ./scripts/health-check.sh
    ```
 
-## 📊 Service Ports
+### Service Ports
 
-| Service | Port | Description |
-|---------|------|-------------|
-| PostgreSQL | 5432 | Primary database |
-| Redis | 6379 | Caching layer |
-| Kafka | 9092 | Message broker |
-| Zookeeper | 2181 | Kafka coordination |
-| Elasticsearch | 9200 | Search engine |
-| Prometheus | 9090 | Metrics collection |
-| Grafana | 3000 | Monitoring dashboard |
-| Kafka UI | 8080 | Kafka management interface |
+#### Infrastructure Services
+| Service | Port | Health Check URL |
+|---------|------|-----------------|
+| PostgreSQL | 5432 | - |
+| Redis | 6379 | - |
+| Kafka | 9092, 9101 | - |
+| Elasticsearch | 9200, 9300 | http://localhost:9200/_cluster/health |
+| Prometheus | 9090 | http://localhost:9090/-/healthy |
+| Grafana | 3000 | http://localhost:3000/api/health |
+| Kafka UI | 8080 | http://localhost:8080 |
+
+#### Application Services
+| Service | Port | Health Check URL |
+|---------|------|-----------------|
+| User Management Service | 8081 | http://localhost:8081/actuator/health |
+| Order Catalog Service | 8082 | http://localhost:8082/actuator/health |
+| Payment Management Service | 8083 | http://localhost:8083/actuator/health |
+| Delivery Management Service | 8084 | http://localhost:8084/actuator/health |
+| Notification Service | 8085 | http://localhost:8085/actuator/health |
+| Search Discovery Service | 8086 | http://localhost:8086/actuator/health |
+
+### Common Operations
+
+#### Build Commands
+```bash
+# Build all services
+cd tea-snacks-delivery-aggregator
+./gradlew clean build
+
+# Build a specific service
+./gradlew :user-management-service:build
+```
+
+#### Docker Commands
+```bash
+# Start all services
+docker-compose -f infrastructure/docker/docker-compose.yml up -d --build
+
+# View logs for all services
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f
+
+# View logs for a specific service
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f user-management-service
+
+# Stop all services
+docker-compose -f infrastructure/docker/docker-compose.yml down
+
+# Stop and remove volumes
+docker-compose -f infrastructure/docker/docker-compose.yml down -v
+```
+
+#### Health Check Commands
+```bash
+# Check health of all services
+./scripts/health-check.sh
+
+# Check health of a specific service
+curl http://localhost:8081/actuator/health  # User Management Service
+curl http://localhost:8082/actuator/health  # Order Catalog Service
+curl http://localhost:8083/actuator/health  # Payment Management Service
+curl http://localhost:8084/actuator/health  # Delivery Management Service
+curl http://localhost:8085/actuator/health  # Notification Service
+curl http://localhost:8086/actuator/health  # Search Discovery Service
+```
 
 ## 🏗️ Architecture
 
@@ -82,7 +119,7 @@ A comprehensive food delivery platform built with Spring Boot microservices arch
 ```
 tea-snacks-delivery-aggregator/
 ├── shared/                    # Shared libraries and configurations
-├── user-management-service/    # User registration, authentication
+├── user-management-service/   # User registration, authentication
 ├── order-catalog-service/     # Order and catalog management
 ├── search-discovery-service/  # Search and discovery functionality
 ├── delivery-management-service/ # Delivery tracking and management
@@ -90,112 +127,39 @@ tea-snacks-delivery-aggregator/
 └── notification-service/      # Notifications and messaging
 ```
 
-## 🔧 Development
+## 🔍 Troubleshooting
 
-### Starting the Environment
+### Common Issues
 
-```bash
-# Start all services
-docker-compose up -d
+1. **Port Conflicts**: 
+   - Ensure all required ports (5432, 6379, 8080-8086, 9092, 9200, 9090, 3000) are available
+   - Use `lsof -i :PORT` to check if a port is in use
+   - Stop any conflicting services or change the port mapping in `docker-compose.yml`
 
-# View logs
-docker-compose logs -f
+2. **Memory Issues**: 
+   - Increase Docker memory allocation to at least 4GB
+   - Check Docker Desktop settings → Resources → Memory
 
-# Stop all services
-docker-compose down
+3. **Service Startup Failures**:
+   - Check service logs: `docker-compose -f infrastructure/docker/docker-compose.yml logs -f SERVICE_NAME`
+   - Ensure all required environment variables are set
+   - Verify infrastructure services (PostgreSQL, Redis, Kafka) are healthy
 
-# Stop and remove volumes
-docker-compose down -v
-```
+4. **Health Check Failures**:
+   - Run `./scripts/health-check.sh` to identify failing services
+   - Check service logs for detailed error messages
+   - Verify service dependencies are running and accessible
 
-### Database Management
-
-```bash
-# Connect to PostgreSQL
-docker exec -it tea-snacks-postgres psql -U tea_snacks_user -d tea_snacks_db
-
-# Backup database
-docker exec tea-snacks-postgres pg_dump -U tea_snacks_user tea_snacks_db > backup.sql
-
-# Restore database
-docker exec -i tea-snacks-postgres psql -U tea_snacks_user -d tea_snacks_db < backup.sql
-```
-
-### Kafka Management
+### Logs
 
 ```bash
-# List topics
-docker exec tea-snacks-kafka kafka-topics --bootstrap-server localhost:9092 --list
+# View all logs
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f
 
-# Create topic
-docker exec tea-snacks-kafka kafka-topics --bootstrap-server localhost:9092 \
-  --create --topic test-topic --partitions 3 --replication-factor 1
-
-# Produce message
-docker exec tea-snacks-kafka kafka-console-producer --bootstrap-server localhost:9092 \
-  --topic test-topic
-
-# Consume messages
-docker exec tea-snacks-kafka kafka-console-consumer --bootstrap-server localhost:9092 \
-  --topic test-topic --from-beginning
-```
-
-### Redis Management
-
-```bash
-# Connect to Redis CLI
-docker exec -it tea-snacks-redis redis-cli
-
-# Monitor Redis
-docker exec tea-snacks-redis redis-cli monitor
-```
-
-### Elasticsearch Management
-
-```bash
-# Check cluster health
-curl http://localhost:9200/_cluster/health
-
-# List indices
-curl http://localhost:9200/_cat/indices
-
-# Create index
-curl -X PUT "localhost:9200/test-index"
-```
-
-## 📈 Monitoring
-
-### Grafana Dashboards
-
-Access Grafana at http://localhost:3000
-- Username: `admin`
-- Password: `admin`
-
-### Prometheus Metrics
-
-Access Prometheus at http://localhost:9090
-
-### Kafka UI
-
-Access Kafka UI at http://localhost:8080
-
-## 🧪 Testing
-
-### Integration Tests
-
-```bash
-# Run all tests
-./gradlew test
-
-# Run specific service tests
-./gradlew :user-management-service:test
-```
-
-### Environment Validation
-
-```bash
-# Validate all services
-./scripts/validate-environment.sh
+# View specific service logs
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f postgres
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f kafka
+docker-compose -f infrastructure/docker/docker-compose.yml logs -f redis
 ```
 
 ## 📚 Documentation
@@ -204,33 +168,6 @@ Access Kafka UI at http://localhost:8080
 - [API Documentation](docs/api/)
 - [Database Schema](docs/database-schema.md)
 - [Deployment Guide](docs/deployment.md)
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-1. **Port conflicts**: Ensure ports 5432, 6379, 9092, 9200, 9090, 3000, 8080 are available
-2. **Memory issues**: Increase Docker memory allocation to at least 4GB
-3. **Service startup failures**: Check logs with `docker-compose logs <service-name>`
-
-### Health Checks
-
-```bash
-# Check all service health
-./scripts/health-check.sh
-```
-
-### Logs
-
-```bash
-# View all logs
-docker-compose logs
-
-# View specific service logs
-docker-compose logs postgres
-docker-compose logs kafka
-docker-compose logs redis
-```
 
 ## 🤝 Contributing
 

@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'microservices'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+        - 'user-management-service:8081'
+        - 'order-catalog-service:8082'
+        - 'payment-management-service:8083'
+        - 'delivery-management-service:8084'
+        - 'notification-service:8085'
+        - 'search-discovery-service:8086'

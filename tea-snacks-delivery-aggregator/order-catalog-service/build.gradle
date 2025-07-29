@@ -1,0 +1,27 @@
+dependencies {
+    implementation project(':shared:common')
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    
+    // Database
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'org.postgresql:postgresql'
+    
+    // Cache
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    
+    // Messaging
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-actuator-autoconfigure'
+}
+
+bootJar {
+    enabled = true
+}
+
+jar {
+    enabled = false
+} 

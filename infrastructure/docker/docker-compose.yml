@@ -52,6 +52,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -64,7 +65,7 @@ services:
     networks:
       - tea-snacks-network
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -127,7 +128,7 @@ services:
     networks:
       - tea-snacks-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9090/-/healthy || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -158,7 +159,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: tea-snacks-kafka-ui
     ports:
-      - "8081:8080"
+      - "8080:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
@@ -173,6 +174,150 @@ services:
       timeout: 10s
       retries: 3
 
+  # -------------------------------------------
+  # Application Services
+  # -------------------------------------------
+
+  # User Management Service
+  user-management-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/user-management-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-user-management
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Order Catalog Service
+  order-catalog-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/order-catalog-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-order-catalog
+    ports:
+      - "8082:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Payment Management Service
+  payment-management-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/payment-management-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-payment-management
+    ports:
+      - "8083:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Delivery Management Service
+  delivery-management-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/delivery-management-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-delivery-management
+    ports:
+      - "8084:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/notification-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-notification
+    ports:
+      - "8085:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Search Discovery Service
+  search-discovery-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/search-discovery-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-search-discovery
+    ports:
+      - "8086:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   postgres_data:
   kafka_data:
@@ -180,6 +325,8 @@ volumes:
   elasticsearch_data:
   prometheus_data:
   grafana_data:
+
+
 
 networks:
   tea-snacks-network:

@@ -42,9 +42,6 @@ subprojects {
         // Messaging
         implementation 'org.springframework.kafka:spring-kafka'
         
-        // Search
-        implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
-        
         // Test dependencies
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
     }
@@ -53,13 +50,30 @@ subprojects {
         useJUnitPlatform()
     }
     
-    // Disable bootJar for all subprojects by default
-    bootJar {
-        enabled = false
+    // Configure jar tasks based on project type
+    if (project.name.endsWith('-service')) {
+        // Enable bootJar for microservices
+        bootJar {
+            enabled = true
+        }
+        jar {
+            enabled = false
+        }
+    } else {
+        // Disable bootJar for shared libraries
+        bootJar {
+            enabled = false
+        }
+        jar {
+            enabled = true
+        }
     }
-    
-    jar {
-        enabled = true
+}
+
+// Add Elasticsearch dependency only to search-discovery-service
+project(':search-discovery-service') {
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
     }
 }
 

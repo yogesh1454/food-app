@@ -1,11 +1,11 @@
-package com.teadelivery.common;
+package com.teadelivery.usermanagement;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class TeaDeliveryApplication {
+public class UserManagementApplication {
     public static void main(String[] args) {
-        SpringApplication.run(TeaDeliveryApplication.class, args);
+        SpringApplication.run(UserManagementApplication.class, args);
     }
-} 
+}
