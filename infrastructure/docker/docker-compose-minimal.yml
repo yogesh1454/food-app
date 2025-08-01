@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database - Required for User Management Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: tea-snacks-postgres
+    environment:
+      POSTGRES_DB: tea_snacks_db
+      POSTGRES_USER: tea_snacks_user
+      POSTGRES_PASSWORD: tea_snacks_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - tea-snacks-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tea_snacks_user -d tea_snacks_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache - Required for User Management Service (session storage, caching)
+  redis:
+    image: redis:7-alpine
+    container_name: tea-snacks-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - tea-snacks-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Apache Kafka - Required for User Management Service (event publishing)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: tea-snacks-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - tea-snacks-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: tea-snacks-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - tea-snacks-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # User Management Service - Only service needed for Epic 2
+  user-management-service:
+    build:
+      context: ../../tea-snacks-delivery-aggregator/user-management-service
+      dockerfile: Dockerfile
+    container_name: tea-snacks-user-management
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - tea-snacks-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data:
+  kafka_data:
+  redis_data:
+
+networks:
+  tea-snacks-network:
+    driver: bridge

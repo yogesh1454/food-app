@@ -88,27 +88,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Elasticsearch
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: tea-snacks-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    networks:
-      - tea-snacks-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   # Prometheus
   prometheus:
     image: prom/prometheus:v2.47.0
@@ -284,6 +263,12 @@ services:
       - "8085:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - MAIL_USERNAME=test@example.com
+      - MAIL_PASSWORD=test_password
+      - SPRING_MAIL_HOST=smtp.gmail.com
+      - SPRING_MAIL_PORT=587
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
     networks:
       - tea-snacks-network
     depends_on:
@@ -296,33 +281,10 @@ services:
       retries: 5
 
   # Search Discovery Service
-  search-discovery-service:
-    build:
-      context: ../../tea-snacks-delivery-aggregator/search-discovery-service
-      dockerfile: Dockerfile
-    container_name: tea-snacks-search-discovery
-    ports:
-      - "8086:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-    networks:
-      - tea-snacks-network
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
 volumes:
   postgres_data:
   kafka_data:
   redis_data:
-  elasticsearch_data:
   prometheus_data:
   grafana_data:
 

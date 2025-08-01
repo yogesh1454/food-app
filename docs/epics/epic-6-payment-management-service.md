@@ -58,6 +58,50 @@ Payment processing is critical for business operations:
 - `POST /payments/webhook` - Handle payment gateway webhooks
 - `GET /payments/reports/daily` - Generate daily payment reports
 
+## Infrastructure Requirements
+
+### Infrastructure Scaling for Epic 6
+- **ADD**: Payment Management Service (new microservice)
+- **SCALE**: PostgreSQL (payment tables, transaction logs, financial records)
+- **SCALE**: Redis (payment session caching, transaction state management)
+- **SCALE**: Kafka (payment events, order status updates, financial notifications)
+- **REUSE**: User Management Service (customer payment profiles)
+- **REUSE**: Notification Service (payment confirmations, failure alerts)
+
+### Infrastructure Commands
+```bash
+# Start Epic 6 infrastructure (includes all business services)
+docker-compose up -d postgres redis kafka user-management-service notification-service order-catalog-service delivery-management-service payment-management-service
+
+# Full infrastructure for complete payment flow testing
+docker-compose up -d
+```
+
+### Database Schema Extensions
+- **payment_methods** table: Customer payment methods (tokenized)
+- **transactions** table: Payment transaction records
+- **payment_logs** table: Audit trail for all payment activities
+- **refunds** table: Refund processing and status tracking
+- **financial_reports** table: Daily/monthly financial summaries
+
+### Security Requirements
+- **PCI Compliance**: Secure payment data handling
+- **Encryption**: All payment data encrypted at rest and in transit
+- **Tokenization**: Payment methods stored as secure tokens
+- **Audit Logging**: Complete audit trail for financial transactions
+
+### Dependencies on Other Epic Infrastructure
+- **Epic 2**: Customer authentication and payment profiles
+- **Epic 3**: Order data for payment processing
+- **Epic 5**: Delivery fees and partner payments
+- **Epic 7**: Payment notifications and alerts
+- **Epic 9**: Enhanced security and compliance monitoring
+
+### External Integrations
+- **Payment Gateways**: Razorpay, Stripe (webhook handling)
+- **Banking APIs**: For settlement and reconciliation
+- **Compliance Tools**: For PCI DSS compliance monitoring
+
 ## Success Metrics
 - Payment success rate > 98%
 - Payment processing time < 5 seconds

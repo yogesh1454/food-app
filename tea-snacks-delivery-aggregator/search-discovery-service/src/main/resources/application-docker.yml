@@ -20,10 +20,13 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   
+  elasticsearch:
+    uris: http://tea-snacks-elasticsearch:9200
+    connection-timeout: 10s
+    socket-timeout: 30s
+  
   data:
     elasticsearch:
-      cluster-name: docker-cluster
-      cluster-nodes: tea-snacks-elasticsearch:9300
       repositories:
         enabled: true
     redis:
