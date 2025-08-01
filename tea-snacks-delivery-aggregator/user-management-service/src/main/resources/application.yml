@@ -1,0 +1,137 @@
+spring:
+  application:
+    name: user-management-service
+  
+  profiles:
+    active: local
+  
+  security:
+    user:
+      name: admin
+      password: admin
+    basic:
+      enabled: false
+    oauth2:
+      client:
+        registration: {}
+    web:
+      ignoring: "/**"
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tea_snacks_db
+    username: tea_snacks_user
+    password: tea_snacks_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 30000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+  
+  # data:
+  #   redis:
+  #     host: localhost
+  #     port: 6379
+  #     database: 0
+  #     timeout: 2000ms
+  #     lettuce:
+  #       pool:
+  #         max-active: 8
+  #         max-idle: 8
+  #         min-idle: 0
+  
+  # kafka:
+  #   bootstrap-servers: localhost:9092
+  #   producer:
+  #     key-serializer: org.apache.kafka.common.serialization.StringSerializer
+  #     value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  #     acks: all
+  #     retries: 3
+  #     batch-size: 16384
+  #     linger-ms: 5
+  #     buffer-memory: 33554432
+  #   consumer:
+  #     group-id: user-management-service
+  #     auto-offset-reset: earliest
+  #     key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  #     value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  #     enable-auto-commit: false
+  #     properties:
+  #       spring.json.trusted.packages: "com.teadelivery.usermanagement"
+
+server:
+  port: 8081
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+logging:
+  level:
+    com.teadelivery.usermanagement: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:mySecretKey123456789012345678901234567890}
+    access-token-expiry: 900  # 15 minutes
+    refresh-token-expiry: 604800  # 7 days
+    issuer: tea-snacks-delivery
+  
+  sms:
+    enabled: false
+    provider: mock
+  
+  kafka:
+    enabled: true
+    topics:
+      user-events: user.events
+      system-audit: system.audit
+  
+  security:
+    cors:
+      allowed-origins: "*"
+      allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+      allowed-headers: "*"
+      max-age: 3600
