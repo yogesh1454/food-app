@@ -1,46 +1,45 @@
-# Story: Multi-Type User Registration Implementation
+# Story: Basic Email Registration Implementation
 
 **Story ID:** BE-002-01  
-**Story Points:** 8  
+**Story Points:** 3  
 **Priority:** Critical  
 **Sprint:** 1  
+**Status:** ✅ COMPLETED
 
 ### User Story
 **As a** new user of the Tea & Snacks Delivery platform  
-**I want** to register an account using multiple authentication methods (email, phone, social)  
-**So that** I can quickly access the platform and start using personalized features  
+**I want** to register an account using my email and password  
+**So that** I can create a secure account and access the platform  
 
 ### Acceptance Criteria
-- [ ] Users can register with email and password
-- [ ] Users can register with phone number and OTP verification
-- [ ] Users can register using social login (Google, Facebook, Apple)
-- [ ] Guest user accounts can be created
-- [ ] Guest users can convert to registered users
-- [ ] Email and phone number uniqueness is validated
-- [ ] Password strength requirements are enforced
-- [ ] OTP verification is required for phone registration
-- [ ] Social login tokens are validated
-- [ ] Basic profile creation is initiated after registration
-- [ ] Input validation prevents SQL injection and XSS attacks
-- [ ] Registration events are published to Kafka
-- [ ] Rate limiting is applied to prevent abuse
-- [ ] JWT tokens are generated for authenticated sessions
+- [x] Users can register with email and password
+- [x] Email uniqueness is validated
+- [x] Password strength requirements are enforced (minimum 6 characters)
+- [x] User profile is created automatically after registration
+- [x] JWT access and refresh tokens are generated
+- [x] User account is stored in PostgreSQL database
+- [x] Input validation prevents SQL injection and XSS attacks
+- [x] Registration response includes user details and tokens
 
 ### Technical Tasks
-1. [ ] Create User and UserProfile database schema
-2. [ ] Implement UserRepository with Spring Data JPA
-3. [ ] Create RegistrationRequest DTOs for different auth methods
-4. [ ] Implement input validation using Hibernate Validator
-5. [ ] Create UserService with multi-type registration logic
-6. [ ] Implement OTP service for phone verification
-7. [ ] Implement social login validation service
-8. [ ] Create guest user management service
-9. [ ] Add registration endpoints in AuthController
-10. [ ] Configure password encoding with BCrypt
-11. [ ] Implement rate limiting for registration endpoints
-12. [ ] Add Kafka event publishing for registration events
-13. [ ] Implement JWT token generation service
-14. [ ] Write unit and integration tests
+1. [x] Create User and UserProfile database schema
+2. [x] Implement UserRepository with Spring Data JPA
+3. [x] Create RegistrationRequest DTOs for email registration
+4. [x] Implement input validation using Hibernate Validator
+5. [x] Create RegistrationService with email registration logic
+6. [x] Add email registration endpoint in RegistrationController
+7. [x] Configure password encoding with BCrypt
+8. [x] Implement JWT token generation service
+9. [x] Database migration scripts (Flyway)
+10. [x] Spring Security configuration for stateless authentication
+
+### Moved to Other Stories
+- **Phone OTP Registration** → BE-002-01A
+- **Social Login** → BE-002-10
+- **Guest User Management** → BE-002-01B
+- **Rate Limiting** → BE-002-02 (Authentication Service)
+- **Kafka Event Publishing** → BE-002-08
+- **Comprehensive Testing** → BE-002-01C
 
 ### API Specification
 

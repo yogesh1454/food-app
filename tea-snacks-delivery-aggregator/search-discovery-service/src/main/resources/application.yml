@@ -19,15 +19,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   
-  elasticsearch:
-    uris: http://localhost:9200
-    connection-timeout: 10s
-    socket-timeout: 30s
-  
   data:
-    elasticsearch:
-      repositories:
-        enabled: true
     redis:
       host: localhost
       port: 6379
@@ -48,9 +40,14 @@ management:
         enabled: true
       group:
         readiness:
-          include: db,kafka,redis,elasticsearch
+          include: db,kafka,redis
         liveness:
           include: ping
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
 
 logging:
   level:

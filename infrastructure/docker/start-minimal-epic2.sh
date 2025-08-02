@@ -39,7 +39,7 @@ echo "  - User Management Service: localhost:8081"
 echo "  - Notification Service: localhost:8085"
 echo ""
 echo "🛑 Stopped services (to save resources):"
-echo "  - Elasticsearch"
+
 echo "  - Grafana"
 echo "  - Prometheus"
 echo "  - Order Catalog Service"

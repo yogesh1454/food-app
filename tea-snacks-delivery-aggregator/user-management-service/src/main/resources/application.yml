@@ -16,11 +16,14 @@ spring:
         registration: {}
     web:
       ignoring: "/**"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/tea_snacks_db
-    username: tea_snacks_user
-    password: tea_snacks_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/tea_snacks_db}
+    username: ${SPRING_DATASOURCE_USERNAME:tea_snacks_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:tea_snacks_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -80,12 +83,37 @@ spring:
   #       spring.json.trusted.packages: "com.teadelivery.usermanagement"
 
 server:
-  port: 8081
+  port: 8080
   servlet:
     context-path: /
   error:
     include-message: always
     include-binding-errors: always
+
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    doc-expansion: none
+  info:
+    title: Tea & Snacks Delivery - User Management Service API
+    description: REST API for user registration, authentication, and profile management
+    version: v1.0.0
+    contact:
+      name: Tea & Snacks Development Team
+      email: dev@teasnacks.com
+    license:
+      name: MIT License
+      url: https://opensource.org/licenses/MIT
+  servers:
+    - url: http://localhost:8081
+      description: Local Development Server
+    - url: https://api.teasnacks.com
+      description: Production Server
 
 management:
   endpoints:
@@ -95,6 +123,9 @@ management:
   endpoint:
     health:
       show-details: always
+      validate-group-membership: false
+      probes:
+        enabled: false
   health:
     redis:
       enabled: true

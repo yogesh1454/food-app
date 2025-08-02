@@ -166,13 +166,11 @@ services:
     ports:
       - "8081:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db
     networks:
       - tea-snacks-network
     depends_on:
       postgres:
-        condition: service_healthy
-      kafka:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -191,7 +189,7 @@ services:
     ports:
       - "8082:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db
     networks:
       - tea-snacks-network
     depends_on:
@@ -216,7 +214,7 @@ services:
     ports:
       - "8083:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db
     networks:
       - tea-snacks-network
     depends_on:
@@ -239,7 +237,7 @@ services:
     ports:
       - "8084:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db
     networks:
       - tea-snacks-network
     depends_on:
@@ -262,7 +260,7 @@ services:
     ports:
       - "8085:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db
       - MAIL_USERNAME=test@example.com
       - MAIL_PASSWORD=test_password
       - SPRING_MAIL_HOST=smtp.gmail.com

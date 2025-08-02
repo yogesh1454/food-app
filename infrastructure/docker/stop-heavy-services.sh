@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 
 # Stop the resource-heavy services that aren't needed for Epic 2
 echo "📋 Stopping non-essential services..."
-docker-compose stop elasticsearch grafana prometheus
+docker-compose stop grafana prometheus
 docker-compose stop order-catalog-service payment-management-service delivery-management-service
 
 echo "✅ Stopped resource-heavy services!"
@@ -23,7 +23,7 @@ echo "  - User Management Service: localhost:8081"
 echo "  - Notification Service: localhost:8085"
 echo ""
 echo "🔴 Stopped (to save resources):"
-echo "  - Elasticsearch"
+
 echo "  - Grafana"
 echo "  - Prometheus"
 echo "  - Order Catalog Service"

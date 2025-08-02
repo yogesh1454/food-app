@@ -18,3 +18,18 @@ These standards are MANDATORY for AI agents.
   - **Immutability:** Prefer immutable objects for DTOs and value objects to avoid unexpected side effects.
   - **Asynchronous Communication:** All inter-service communication via Kafka should use strongly typed DTOs and adhere to predefined Avro/JSON Schema for messages.
   - **Modularity:** Within OCVMS, ensure clear separation between `order`, `catalog`, `vendor`, and `reporting` modules. Avoid direct coupling between business logic of these modules.
+  - **Controller:** 
+    - Use Clear, RESTful Naming and HTTP Methods
+    - Keep Controller Thin (Delegate to Services): Your controller should:
+      - Accept requests
+      - Validate inputs
+      - Call service layer
+      - Return responses
+      - Don't put business logic in controllers.
+    - Use DTOs Instead of Entities in Controllers
+    - Validate Input Using @Valid and @Validated
+    - Handle Errors Gracefully with @ControllerAdvice
+    - Return Standard HTTP Response Codes
+    - Use @Sf4j for logging, Not System.out.println()
+    - Secure Your Endpoints: Use Spring Security with annotations like: @PreAuthorize("hasRole('ADMIN')")
+    - Use Pagination for Lists
