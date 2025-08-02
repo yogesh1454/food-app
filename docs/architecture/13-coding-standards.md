@@ -6,6 +6,7 @@ These standards are MANDATORY for AI agents.
 
   - **Languages & Runtimes:** Java , JVM.
   - **Style & Linting:** Google Java Format will be enforced via Maven/Gradle plugin and CI. SpotBugs for static analysis.
+  - **Incremental Story Planning:**The restructuring follows your guidance perfectly - small, incremental stories that each deliver working functionality. Each story is now focused on a single feature and can be developed, tested, and deployed independently.
   - **Test Organization:** Tests must reside in `src/test/java` and mirror the package structure of the source code. Test class names should end with `Test` or `IT` (for Integration Tests).
 
 ## Critical Rules
@@ -33,3 +34,8 @@ These standards are MANDATORY for AI agents.
     - Use @Sf4j for logging, Not System.out.println()
     - Secure Your Endpoints: Use Spring Security with annotations like: @PreAuthorize("hasRole('ADMIN')")
     - Use Pagination for Lists
+- **Use Library:** Use Library whereever needed
+  - Use lombok library for builder, getter, data, setter
+  - Use @Sl4f library for logging
+  - Use OpenAPI for API documentation to be shown on swagger UI
+  - Use MapStruct for Mappers

@@ -1,261 +1,311 @@
-# Epic 2: User Management Service - Implementation Plan
+# Epic 2 Implementation Plan - User Management Service
 
 ## Overview
-This document outlines the implementation strategy for Epic 2 (User Management Service), organizing stories into a logical development sequence while respecting dependencies.
+This document outlines the implementation strategy for Epic 2 (User Management Service), organizing stories into a logical development sequence focusing on **core features first**, then security, then performance optimizations.
 
 ## Development Sequence
 
-### Phase 1: Core Infrastructure (Week 1-2)
+### Phase 1: Core Registration Foundation (Week 1-2)
 **Priority**: Critical  
 **Dependencies**: None  
-**Team Size**: 2 developers
+**Team Size**: 2-3 developers
 
-#### BE-002-07: Redis Integration
+#### BE-002-01: Basic Email Registration
 - **Story Points**: 5
 - **Duration**: 3-4 days
+- **Status**: ✅ **COMPLETED**
 - **Deliverables**:
-  * Redis configuration and connection setup
-  * Session management service
-  * Token storage and caching
-  * Health checks and monitoring
+  * Email registration with password validation
+  * User entity creation and persistence
+  * Basic JWT token generation
+  * Input validation and error handling
+  * API documentation with Swagger
 
-#### BE-002-08: Kafka Integration
+#### BE-002-01A: Phone OTP Registration
 - **Story Points**: 5
 - **Duration**: 3-4 days
+- **Dependencies**: Basic Email Registration
 - **Deliverables**:
-  * Kafka configuration and connection setup
-  * Event publishers for user lifecycle
-  * Event schemas and serialization
-  * Health checks and monitoring
+  * OTP generation and validation service
+  * Phone number validation and formatting
+  * OTP storage in database with TTL
+  * Rate limiting for OTP requests
+  * SMS integration (mock/real)
+  * OTP verification endpoints
 
-### Phase 2: Authentication Foundation (Week 2-3)
+#### BE-002-01B: Guest User Management
+- **Story Points**: 3
+- **Duration**: 2-3 days
+- **Dependencies**: Basic Registration
+- **Deliverables**:
+  * Guest user creation with device fingerprinting
+  * Guest session management with database
+  * Guest to registered user conversion
+  * Guest user access control and limitations
+  * Guest user cleanup job
+
+#### BE-002-01C: Registration Testing Suite
+- **Story Points**: 3
+- **Duration**: 2-3 days
+- **Dependencies**: All Registration Stories
+- **Deliverables**:
+  * Comprehensive unit tests (>90% coverage)
+  * Integration tests for database operations
+  * API endpoint tests with TestRestTemplate
+  * Security and validation tests
+  * Performance and load tests
+  * Test reporting and CI/CD integration
+
+### Phase 2: Core Authentication (Week 3)
 **Priority**: Critical  
-**Dependencies**: Redis Integration  
+**Dependencies**: Registration Foundation  
 **Team Size**: 2-3 developers
 
 #### BE-002-02: JWT Authentication Service
 - **Story Points**: 8
 - **Duration**: 4-5 days
+- **Dependencies**: Registration Foundation
 - **Deliverables**:
   * JWT token generation and validation
   * Authentication flows (login/logout)
-  * Session handling with Redis
+  * Session handling with database
   * Token refresh logic
-  * Security configurations
+  * Basic security configurations
+  * Rate limiting for login attempts
+  * Token storage in database (can move to Redis later)
 
-#### BE-002-06: API Gateway Integration
-- **Story Points**: 8
-- **Duration**: 4-5 days
-- **Dependencies**: JWT Authentication
-- **Deliverables**:
-  * Gateway deployment and configuration
-  * Route configuration for User Management Service
-  * JWT validation middleware
-  * Rate limiting setup (per user and IP)
-  * Security headers configuration (CORS, CSP, HSTS)
-  * Load balancing configuration
-  * API documentation integration (Swagger)
-  * Monitoring and health checks
-
-### Phase 3: User Registration & Management (Week 3-4)
+### Phase 3: Core User Management (Week 4)
 **Priority**: High  
 **Dependencies**: Authentication Foundation  
+**Team Size**: 2 developers
+
+#### BE-002-04: Profile Management
+- **Story Points**: 5
+- **Duration**: 3-4 days
+- **Dependencies**: Authentication
+- **Deliverables**:
+  * User profile CRUD operations
+  * Address management
+  * Profile picture upload
+  * Email/phone verification flow
+  * Profile update history
+  * Input validation and business rules
+
+#### BE-002-05: Password Management
+- **Story Points**: 3
+- **Duration**: 2-3 days
+- **Dependencies**: Authentication
+- **Deliverables**:
+  * Password change functionality
+  * Password reset via email
+  * Password strength validation
+  * Password history tracking
+  * Rate limiting for password attempts
+  * Session invalidation on password change
+
+### Phase 4: Advanced Registration Features (Week 5)
+**Priority**: High  
+**Dependencies**: Core User Management  
 **Team Size**: 2 developers
 
 #### BE-002-09: Email and SMS Integration
 - **Story Points**: 5
 - **Duration**: 3-4 days
+- **Dependencies**: Phone OTP Registration
 - **Deliverables**:
   * SendGrid email service integration
   * Gupshup SMS service integration
-  * OTP generation and validation
-  * Template management
+  * Email/SMS templates
   * Async processing setup
-
-#### BE-002-01: Multi-Type User Registration
-- **Story Points**: 8
-- **Duration**: 4-5 days
-- **Dependencies**: Email/SMS Integration
-- **Deliverables**:
-  * Email registration flow
-  * Phone OTP registration flow
-  * Guest user creation
-  * Guest to registered conversion
-  * User validation and business rules
+  * Delivery tracking
+  * Retry mechanism
 
 #### BE-002-10: OAuth and Social Login
 - **Story Points**: 8
 - **Duration**: 4-5 days
-- **Dependencies**: Basic Registration
+- **Dependencies**: Basic Registration, JWT Authentication
 - **Deliverables**:
   * Google OAuth integration
   * Facebook OAuth integration
-  * Apple OAuth integration
   * Social profile mapping
   * Account linking logic
+  * OAuth state management
+  * Error handling for social logins
 
-### Phase 4: User Management & Authorization (Week 4-5)
+### Phase 5: Authorization & Security (Week 6)
 **Priority**: High  
-**Dependencies**: Registration & Authentication  
+**Dependencies**: Core User Management  
 **Team Size**: 2 developers
 
 #### BE-002-03: Role-Based Authorization Framework
 - **Story Points**: 5
 - **Duration**: 3-4 days
+- **Dependencies**: Authentication, Profile Management
+- **Deliverables**:
+  * Role and permission entities
+  * Spring Security role-based configuration
+  * Method-level security annotations
+  * Resource ownership validation
+  * Authorization failure handlers
+  * Audit logging for authorization
+
+#### BE-002-06: API Gateway Integration
+- **Story Points**: 5
+- **Duration**: 3-4 days
 - **Dependencies**: JWT Authentication
 - **Deliverables**:
-  * Role definitions and permissions
-  * Authorization filters and annotations
-  * Access control implementation
-  * Security audit logging
+  * Route protection and filtering
+  * Rate limiting configuration
+  * Security headers
+  * Load balancing configuration
+  * API documentation integration (Swagger)
+  * Monitoring and health checks
 
-#### BE-002-04: User Profile Management
-- **Story Points**: 5
-- **Duration**: 3-4 days
-- **Dependencies**: Registration, Authorization
-- **Deliverables**:
-  * Profile CRUD operations
-  * Address management
-  * Profile validation logic
-  * Event publishing for profile changes
-
-#### BE-002-05: Password Management
-- **Story Points**: 5
-- **Duration**: 3-4 days
-- **Dependencies**: Auth, Email Integration
-- **Deliverables**:
-  * Password change functionality
-  * Password reset flow
-  * Security measures (BCrypt, rate limiting)
-  * Event publishing for password changes
-
-### Phase 5: Advanced Features (Week 5-6)
+### Phase 6: Advanced Features (Week 7)
 **Priority**: Medium  
 **Dependencies**: Core User Management  
 **Team Size**: 1-2 developers
 
 #### BE-002-11: Progressive User Data Collection
 - **Story Points**: 8
-- **Duration**: 5-6 days
-- **Dependencies**: Profile Management, Kafka
+- **Duration**: 4-5 days
+- **Dependencies**: Profile Management
 - **Deliverables**:
   * Comprehensive preference data models
   * Preference CRUD APIs
   * Progress calculation service
   * Preference validation and business rules
-  * Event publishing for preference changes
+  * Preference update history
+  * Integration with profile management
 
-## Dependencies Map
+### Phase 7: Performance Optimizations (Week 8)
+**Priority**: Medium  
+**Dependencies**: All Core Features  
+**Team Size**: 1-2 developers
+
+#### BE-002-07: Redis Integration
+- **Story Points**: 5
+- **Duration**: 3-4 days
+- **Dependencies**: All Core Features
+- **Deliverables**:
+  * Redis configuration and connection setup
+  * Session management service
+  * Token storage and caching
+  * User profile caching
+  * Health checks and monitoring
+  * Cache invalidation strategies
+
+#### BE-002-08: Kafka Integration
+- **Story Points**: 5
+- **Duration**: 3-4 days
+- **Dependencies**: All Core Features
+- **Deliverables**:
+  * Kafka configuration and connection setup
+  * Event publishing for user events
+  * Event schemas and serialization
+  * Health checks and monitoring
+  * Event replay and error handling
+
+## Updated Dependencies Map
 
 ```
-Phase 1: Infrastructure
-├── BE-002-07: Redis Integration
-└── BE-002-08: Kafka Integration
+Phase 1: Core Registration Foundation
+├── BE-002-01: Basic Email Registration ✅
+├── BE-002-01A: Phone OTP Registration
+├── BE-002-01B: Guest User Management
+└── BE-002-01C: Registration Testing Suite
 
-Phase 2: Authentication
-├── BE-002-02: JWT Authentication (depends on Redis)
-└── BE-002-06: API Gateway (depends on JWT)
+Phase 2: Core Authentication
+└── BE-002-02: JWT Authentication (depends on Registration)
 
-Phase 3: Registration
-├── BE-002-09: Email/SMS Integration
-├── BE-002-01: User Registration (depends on Email/SMS)
-└── BE-002-10: OAuth Integration (depends on Registration)
+Phase 3: Core User Management
+├── BE-002-04: Profile Management (depends on Auth)
+└── BE-002-05: Password Management (depends on Auth)
 
-Phase 4: Management
-├── BE-002-03: Authorization (depends on JWT)
-├── BE-002-04: Profile Management (depends on Registration, Auth)
-└── BE-002-05: Password Management (depends on Auth, Email)
+Phase 4: Advanced Registration
+├── BE-002-09: Email/SMS Integration (depends on Phone OTP)
+└── BE-002-10: OAuth Integration (depends on Registration, Auth)
 
-Phase 5: Advanced
-└── BE-002-11: Progressive Data Collection (depends on Profile, Kafka)
+Phase 5: Authorization & Security
+├── BE-002-03: Authorization (depends on Auth, Profile)
+└── BE-002-06: API Gateway (depends on JWT Auth)
+
+Phase 6: Advanced Features
+└── BE-002-11: Progressive Data Collection (depends on Profile)
+
+Phase 7: Performance Optimizations
+├── BE-002-07: Redis Integration (depends on all core features)
+└── BE-002-08: Kafka Integration (depends on all core features)
 ```
 
 ## Development Guidelines
 
-### Parallel Development
-- **Phase 1**: Infrastructure teams can work simultaneously
-- **Phase 2**: Authentication and Gateway can be parallel after Redis is ready
-- **Phase 3**: Email/SMS can start early, Registration and OAuth can be parallel
-- **Phase 4**: Authorization, Profile, and Password can be parallel
-- **Phase 5**: Advanced features after core functionality is stable
+### Core-First Development Approach
+- **Each story delivers working functionality** that can be tested independently
+- **Stories are small and focused** on single features
+- **Clear acceptance criteria** for each story
+- **Comprehensive testing** for each story before moving to next
+- **Code review** required for each story completion
 
-### Integration Points
-- Daily sync between dependent teams
-- Regular API contract reviews
-- Shared test environment for integration testing
-- Feature toggles for gradual rollout
+### Parallel Development Opportunities
+- **Phase 1**: Phone OTP and Guest User can be parallel after Basic Registration
+- **Phase 3**: Profile Management and Password Management can be parallel after Authentication
+- **Phase 4**: Email/SMS and OAuth can be parallel after Authentication
+- **Phase 5**: Authorization and API Gateway can be parallel after Authentication
+- **Phase 7**: Redis and Kafka can be parallel after all core features
 
 ### Testing Strategy
-- Unit tests developed alongside features
-- Integration tests for each phase
-- End-to-end testing when phases merge
-- Performance testing for auth flows
+- **Unit tests** developed alongside each story
+- **Integration tests** for each story
+- **API tests** for all endpoints
+- **Security tests** for authentication and authorization
+- **Performance tests** for critical paths
 
 ## Success Criteria
 
-### Infrastructure
-- All services healthy and monitored
-- Performance metrics within SLAs
-- Security requirements met
-- High availability confirmed
+### Core Registration Foundation
+- Email registration working with validation
+- Phone OTP registration with rate limiting
+- Guest user management with conversion
+- Comprehensive test coverage (>90%)
 
-### Backend Features
-- All authentication methods working
-- Profile and preference APIs functional
-- Authorization correctly enforces access
-- Events properly published and consumed
-- Data validation and business rules enforced
+### Core Authentication
+- JWT authentication with proper security
+- Login/logout flows working
+- Token refresh functionality
+- Rate limiting and security headers
 
-### Quality
-- Test coverage meets requirements (>80%)
-- No critical security issues
-- Performance meets SLAs (<1 second response time)
-- API documentation complete and accurate
-- Data integrity maintained
+### Core User Management
+- Profile management with CRUD operations
+- Password management with reset functionality
+- Address management and validation
+- Profile picture upload and storage
 
-## Risk Mitigation
+### Quality Standards
+- Code follows project coding standards
+- All stories have >90% test coverage
+- API documentation complete with Swagger
+- Security review completed for each story
+- Performance requirements met
 
-### Technical Risks
-- **External Service Dependencies**: Have fallback mechanisms for email/SMS
-- **Performance Issues**: Implement caching and monitoring early
-- **Security Vulnerabilities**: Regular security reviews and penetration testing
+## Benefits of This Approach
 
-### Timeline Risks
-- **Dependency Delays**: Buffer time between phases
-- **Integration Issues**: Early integration testing
-- **Scope Creep**: Strict adherence to story acceptance criteria
+### 1. **Incremental Value Delivery**
+- Each phase delivers working functionality
+- Users can register, authenticate, and manage profiles early
+- Core features are available for testing and feedback
 
-## Monitoring & Metrics
+### 2. **Risk Mitigation**
+- Core features are implemented first
+- Security and performance can be optimized based on real usage
+- Dependencies are minimized in early phases
 
-### Performance Metrics
-- API response time: < 1 second (95th percentile)
-- System availability: > 99.9%
-- Error rate: < 0.1%
-- Database query performance: < 100ms
-- Kafka event publishing: < 50ms
+### 3. **Flexibility**
+- Performance optimizations can be added based on actual needs
+- Security can be enhanced based on real threats
+- Features can be prioritized based on user feedback
 
-### Business Metrics
-- User registration success rate: > 95%
-- Preference data completeness: > 80%
-- Event publishing success rate: > 99.5%
-- Data validation success rate: > 98%
-
-## Documentation Requirements
-
-### API Documentation
-- OpenAPI/Swagger specifications
-- Request/response examples
-- Error code documentation
-- Authentication examples
-
-### Integration Guides
-- Service-to-service communication
-- Event schema documentation
-- Configuration guides
-- Deployment runbooks
-
-### User Guides
-- API usage examples
-- Best practices
-- Troubleshooting guides
-- Performance optimization tips 
+### 4. **Maintainability**
+- Clear separation between core features and optimizations
+- Each phase builds on solid foundation
+- Testing and documentation at each step 
