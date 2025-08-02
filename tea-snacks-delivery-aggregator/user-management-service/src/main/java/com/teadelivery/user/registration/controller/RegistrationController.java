@@ -1,15 +1,20 @@
-package com.teadelivery.usermanagement.controller;
+package com.teadelivery.user.registration.controller;
 
+import com.teadelivery.user.registration.service.RegistrationService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/registration")
-public class SimpleRegistrationController {
+@RequiredArgsConstructor
+public class RegistrationController {
+
+    private final RegistrationService registrationService;
 
     @PostMapping("/email")
     public ResponseEntity<Map<String, Object>> registerWithEmail(
@@ -32,15 +37,27 @@ public class SimpleRegistrationController {
             return ResponseEntity.badRequest().body(createErrorResponse("Name is required"));
         }
         
-        // Mock successful registration
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "User registered successfully");
-        response.put("userId", UUID.randomUUID().toString());
-        response.put("email", email);
-        response.put("name", name);
+        // Use UserService for real registration
+        RegistrationService.UserRegistrationResult result = registrationService.registerWithEmail(email, password, name);
         
-        return ResponseEntity.ok(response);
+        if (result.isSuccess()) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", result.getMessage());
+            response.put("userId", result.getUser().getId().toString());
+            response.put("email", result.getUser().getEmail());
+            response.put("name", result.getUser().getName());
+            response.put("accessToken", result.getAccessToken());
+            response.put("refreshToken", result.getRefreshToken());
+            response.put("userType", result.getUser().getUserType().name());
+            response.put("role", result.getUser().getRole().name());
+            response.put("status", result.getUser().getStatus().name());
+            response.put("profileCompletion", result.getUser().getProfileCompletionPercentage());
+            
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(createErrorResponse(result.getMessage()));
+        }
     }
     
     @PostMapping("/phone")
@@ -59,14 +76,21 @@ public class SimpleRegistrationController {
             return ResponseEntity.badRequest().body(createErrorResponse("Name is required"));
         }
         
-        // Mock OTP sending
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "OTP sent to phone number");
-        response.put("sessionId", UUID.randomUUID().toString());
-        response.put("phoneNumber", phoneNumber);
+        // Use UserService for real phone registration
+        RegistrationService.PhoneRegistrationResult result = registrationService.registerWithPhone(phoneNumber, name);
         
-        return ResponseEntity.ok(response);
+        if (result.isSuccess()) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", result.getMessage());
+            response.put("phoneNumber", result.getPhoneNumber());
+            response.put("sessionId", result.getSessionId());
+            response.put("expiryMinutes", result.getExpiryMinutes());
+            
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.badRequest().body(createErrorResponse(result.getMessage()));
+        }
     }
     
     @GetMapping("/health")
