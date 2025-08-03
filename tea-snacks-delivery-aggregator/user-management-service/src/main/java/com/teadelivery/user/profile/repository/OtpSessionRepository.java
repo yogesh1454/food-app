@@ -1,6 +1,6 @@
-package com.teadelivery.user.registration.repository;
+package com.teadelivery.user.profile.repository;
 
-import com.teadelivery.user.registration.model.OtpSession;
+import com.teadelivery.user.profile.model.OtpSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

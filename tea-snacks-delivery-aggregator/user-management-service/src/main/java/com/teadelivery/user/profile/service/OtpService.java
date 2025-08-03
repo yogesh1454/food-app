@@ -1,13 +1,16 @@
-package com.teadelivery.user.registration.service;
+package com.teadelivery.user.profile.service;
 
-import com.teadelivery.user.registration.dto.OtpRequest;
-import com.teadelivery.user.registration.dto.OtpResponse;
-import com.teadelivery.user.registration.dto.OtpVerificationRequest;
-import com.teadelivery.user.registration.dto.OtpVerificationResponse;
-import com.teadelivery.user.registration.model.OtpSession;
-import com.teadelivery.user.registration.repository.OtpSessionRepository;
+import com.teadelivery.user.profile.dto.OtpRequest;
+import com.teadelivery.user.profile.dto.OtpResponse;
+import com.teadelivery.user.profile.dto.OtpVerificationRequest;
+import com.teadelivery.user.profile.dto.OtpVerificationResponse;
+import com.teadelivery.user.profile.model.OtpSession;
+import com.teadelivery.user.profile.repository.OtpSessionRepository;
+import com.teadelivery.user.auth.service.AuthenticationService;
+import com.teadelivery.user.profile.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,8 @@ public class OtpService {
     private final OtpSessionRepository otpSessionRepository;
     private final PhoneNumberValidator phoneNumberValidator;
     private final SmsService smsService;
+    private final AuthenticationService authenticationService;
+    private final PasswordEncoder passwordEncoder;
     
     private static final int OTP_LENGTH = 6;
     private static final int OTP_EXPIRY_MINUTES = 5;
@@ -183,18 +188,36 @@ public class OtpService {
             // OTP is valid - create user account
             log.info("OTP verified successfully for session: {}", request.getSessionId());
             
-            // TODO: Create user account and generate JWT tokens
-            // This will be implemented in the next step
+            // Create user account from OTP verification
+            String username = request.getPhoneNumber(); // Use phone number as username
+            String password = passwordEncoder.encode("tempPassword123"); // Temporary password
+            String firstName = request.getName();
+            String lastName = ""; // Can be added later
+            String email = request.getEmail();
+            String phoneNumber = request.getPhoneNumber();
             
-            // Mark session as used
-            session.setUsed(true);
-            session.setUsedAt(LocalDateTime.now());
-            otpSessionRepository.save(session);
-            
-            return OtpVerificationResponse.builder()
-                .success(true)
-                .message("OTP verified successfully")
-                .build();
+            try {
+                authenticationService.createUserFromOtpVerification(
+                    username, password, firstName, lastName, email, phoneNumber
+                );
+                
+                // Mark session as used
+                session.setUsed(true);
+                session.setUsedAt(LocalDateTime.now());
+                otpSessionRepository.save(session);
+                
+                return OtpVerificationResponse.builder()
+                    .success(true)
+                    .message("OTP verified successfully. User account created.")
+                    .build();
+                    
+            } catch (Exception e) {
+                log.error("Error creating user account from OTP verification: {}", request.getSessionId(), e);
+                return OtpVerificationResponse.builder()
+                    .success(false)
+                    .message("OTP verification successful but user account creation failed. Please try again.")
+                    .build();
+            }
                 
         } catch (Exception e) {
             log.error("Error verifying OTP for session: {}", request.getSessionId(), e);

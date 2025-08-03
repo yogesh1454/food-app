@@ -180,7 +180,26 @@ This document outlines the implementation strategy for Epic 2 (User Management S
   * Preference update history
   * Integration with profile management
 
-### Phase 7: Performance Optimizations (Week 8)
+### Phase 7: Authentication Enhancements (Week 8)
+**Priority**: Medium  
+**Dependencies**: Core Authentication  
+**Team Size**: 2 developers
+
+#### BE-002-12: Authentication Service Enhancements
+- **Story Points**: 5
+- **Duration**: 3-4 days
+- **Dependencies**: BE-002-02 (JWT Authentication Service)
+- **Deliverables**:
+  * Rate limiting for login attempts
+  * Failed login attempt tracking
+  * Account lockout mechanism
+  * Redis token blacklisting
+  * Comprehensive audit logging
+  * Authentication event handlers
+  * Unit and integration tests
+  * Security review and testing
+
+### Phase 8: Performance Optimizations (Week 9)
 **Priority**: Medium  
 **Dependencies**: All Core Features  
 **Team Size**: 1-2 developers
@@ -235,7 +254,10 @@ Phase 5: Authorization & Security
 Phase 6: Advanced Features
 └── BE-002-11: Progressive Data Collection (depends on Profile)
 
-Phase 7: Performance Optimizations
+Phase 7: Authentication Enhancements
+└── BE-002-12: Authentication Service Enhancements (depends on BE-002-02)
+
+Phase 8: Performance Optimizations
 ├── BE-002-07: Redis Integration (depends on all core features)
 └── BE-002-08: Kafka Integration (depends on all core features)
 ```

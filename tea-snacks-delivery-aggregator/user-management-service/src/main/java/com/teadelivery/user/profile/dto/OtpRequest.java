@@ -1,4 +1,4 @@
-package com.teadelivery.user.registration.dto;
+package com.teadelivery.user.profile.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;

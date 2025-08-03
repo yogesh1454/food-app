@@ -1,10 +1,10 @@
-package com.teadelivery.user.registration.controller;
+package com.teadelivery.user.profile.controller;
 
-import com.teadelivery.user.registration.dto.OtpRequest;
-import com.teadelivery.user.registration.dto.OtpResponse;
-import com.teadelivery.user.registration.dto.OtpVerificationRequest;
-import com.teadelivery.user.registration.dto.OtpVerificationResponse;
-import com.teadelivery.user.registration.service.OtpService;
+import com.teadelivery.user.profile.dto.OtpRequest;
+import com.teadelivery.user.profile.dto.OtpResponse;
+import com.teadelivery.user.profile.dto.OtpVerificationRequest;
+import com.teadelivery.user.profile.dto.OtpVerificationResponse;
+import com.teadelivery.user.profile.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

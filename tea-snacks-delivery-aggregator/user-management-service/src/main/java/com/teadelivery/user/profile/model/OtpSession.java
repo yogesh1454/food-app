@@ -1,4 +1,4 @@
-package com.teadelivery.user.registration.model;
+package com.teadelivery.user.profile.model;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
