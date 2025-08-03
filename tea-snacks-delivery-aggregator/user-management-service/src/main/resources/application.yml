@@ -18,12 +18,12 @@ spring:
       ignoring: "/**"
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
   
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/tea_snacks_db}
-    username: ${SPRING_DATASOURCE_USERNAME:tea_snacks_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:tea_snacks_password}
+    url: jdbc:postgresql://localhost:5432/tea_snacks_db
+    username: tea_snacks_user
+    password: tea_snacks_password
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -47,9 +47,14 @@ spring:
   
   flyway:
     enabled: true
-    locations: classpath:db/migration
     baseline-on-migrate: true
-    validate-on-migrate: true
+    validate-on-migrate: false
+    out-of-order: false
+    ignore-migration-patterns: "*:missing"
+    locations: classpath:db/migration
+    table: flyway_schema_history
+    baseline-version: 0
+    baseline-description: "Initial baseline"
   
   # data:
   #   redis:
@@ -119,7 +124,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
@@ -134,7 +139,7 @@ management:
 
 logging:
   level:
-    com.teadelivery.usermanagement: DEBUG
+    com.teadelivery.user: DEBUG
     org.springframework.security: DEBUG
     org.springframework.kafka: INFO
     org.hibernate.SQL: DEBUG
