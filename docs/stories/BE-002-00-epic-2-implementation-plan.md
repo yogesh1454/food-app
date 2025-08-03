@@ -73,6 +73,8 @@ This document outlines the implementation strategy for Epic 2 (User Management S
   * Basic security configurations
   * Rate limiting for login attempts
   * Token storage in database (can move to Redis later)
+  * **User account creation after OTP verification** (moved from BE-002-01A)
+  * **Integration with OTP verification flow** (create user after successful OTP)
 
 ### Phase 3: Core User Management (Week 4)
 **Priority**: High  

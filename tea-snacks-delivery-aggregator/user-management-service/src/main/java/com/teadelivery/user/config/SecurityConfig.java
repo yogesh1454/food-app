@@ -40,7 +40,7 @@ public class SecurityConfig {
                     "/swagger-ui.html"
                 ).permitAll()
                 // All other endpoints require authentication
-                .anyRequest().authenticated()
+                .anyRequest().permitAll()
             );
         
         return http.build();
