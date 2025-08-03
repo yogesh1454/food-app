@@ -151,6 +151,19 @@ This document outlines the implementation strategy for Epic 2 (User Management S
   * Authorization failure handlers
   * Audit logging for authorization
 
+#### BE-002-13: Authentication-Authorization Integration
+- **Story Points**: 3
+- **Duration**: 2-3 days
+- **Dependencies**: BE-002-02 (JWT Authentication), BE-002-03 (Authorization Framework)
+- **Deliverables**:
+  * JWT token enhancement with user roles
+  * Authorization service integration with JWT claims
+  * Role-based permission enforcement
+  * Resource ownership validation
+  * Comprehensive integration testing
+  * Performance optimization
+  * API documentation updates
+
 #### BE-002-06: API Gateway Integration
 - **Story Points**: 5
 - **Duration**: 3-4 days
@@ -248,7 +261,8 @@ Phase 4: Advanced Registration
 └── BE-002-10: OAuth Integration (depends on Registration, Auth)
 
 Phase 5: Authorization & Security
-├── BE-002-03: Authorization (depends on Auth, Profile)
+├── BE-002-03: Authorization Framework (depends on Auth, Profile)
+├── BE-002-13: Authentication-Authorization Integration (depends on BE-002-02, BE-002-03)
 └── BE-002-06: API Gateway (depends on JWT Auth)
 
 Phase 6: Advanced Features
@@ -275,7 +289,7 @@ Phase 8: Performance Optimizations
 - **Phase 1**: Phone OTP and Guest User can be parallel after Basic Registration
 - **Phase 3**: Profile Management and Password Management can be parallel after Authentication
 - **Phase 4**: Email/SMS and OAuth can be parallel after Authentication
-- **Phase 5**: Authorization and API Gateway can be parallel after Authentication
+- **Phase 5**: Authorization Framework and Authentication-Authorization Integration can be sequential (BE-002-03 → BE-002-13), then API Gateway can be parallel
 - **Phase 7**: Redis and Kafka can be parallel after all core features
 
 ### Testing Strategy

@@ -2,6 +2,7 @@ package com.teadelivery.user.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,6 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     /**
@@ -45,6 +47,12 @@ public class SecurityConfig {
                 
                 // User management endpoints (for now, permit all)
                 .requestMatchers("/api/users/**").permitAll()
+                
+                // Authorization endpoints (require authentication)
+                .requestMatchers("/api/auth/authorization/**").authenticated()
+                
+                // Test authorization endpoints (require authentication)
+                .requestMatchers("/api/test/auth/**").authenticated()
                 
                 // Swagger UI
                 .requestMatchers("/swagger-ui/**").permitAll()
