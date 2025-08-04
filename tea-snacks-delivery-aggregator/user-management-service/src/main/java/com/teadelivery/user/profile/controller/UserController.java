@@ -1,9 +1,8 @@
 package com.teadelivery.user.profile.controller;
 
+import com.teadelivery.user.auth.annotation.HasPermission;
 import com.teadelivery.user.profile.model.User;
 import com.teadelivery.user.profile.repository.UserRepository;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -17,13 +16,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@Tag(name = "User Management", description = "User profile and management endpoints")
 public class UserController {
 
     private final UserRepository userRepository;
 
     @GetMapping("/{userId}")
-    @Operation(summary = "Get user by ID", description = "Retrieves user profile by user ID")
+    @HasPermission(resource = "profile", action = "view", checkOwnership = true, ownerIdParam = "userId")
     public ResponseEntity<User> getUserById(@PathVariable UUID userId) {
         log.info("Getting user by ID: {}", userId);
         
@@ -36,7 +34,7 @@ public class UserController {
     }
 
     @GetMapping("/email/{email}")
-    @Operation(summary = "Get user by email", description = "Retrieves user profile by email address")
+    @HasPermission(resource = "users", action = "view")
     public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
         log.info("Getting user by email: {}", email);
         
@@ -49,7 +47,7 @@ public class UserController {
     }
 
     @GetMapping("/phone/{phoneNumber}")
-    @Operation(summary = "Get user by phone number", description = "Retrieves user profile by phone number")
+    @HasPermission(resource = "users", action = "view")
     public ResponseEntity<User> getUserByPhoneNumber(@PathVariable String phoneNumber) {
         log.info("Getting user by phone number: {}", phoneNumber);
         
@@ -62,7 +60,7 @@ public class UserController {
     }
 
     @GetMapping("/active")
-    @Operation(summary = "Get all active users", description = "Retrieves all active users in the system")
+    @HasPermission(resource = "users", action = "view")
     public ResponseEntity<List<User>> getActiveUsers() {
         log.info("Getting all active users");
         
@@ -74,7 +72,7 @@ public class UserController {
     }
 
     @PutMapping("/{userId}/status")
-    @Operation(summary = "Update user status", description = "Updates the status of a user")
+    @HasPermission(resource = "users", action = "manage")
     public ResponseEntity<User> updateUserStatus(
             @PathVariable UUID userId,
             @RequestParam User.UserStatus status) {
@@ -92,7 +90,6 @@ public class UserController {
     }
 
     @GetMapping("/health")
-    @Operation(summary = "User service health check", description = "Health check for user management service")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("User management service is healthy");
     }

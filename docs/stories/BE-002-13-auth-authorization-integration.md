@@ -158,6 +158,14 @@ curl -H "Authorization: Bearer {token}" \
 - BE-002-03 (Authorization Framework) - ✅ Completed
 - Database with user roles and permissions - ✅ Ready
 
+### Related Backlog Items
+- BE-002-14 (Security Enhancements for Production Deployment) - 📋 Backlog
+  - Account lockout mechanism
+  - Additional security headers (HSTS, CSP)
+  - JWT token blacklisting
+  - Input sanitization
+  - Security monitoring and alerting
+
 ### Risk Assessment
 - **Low Risk**: JWT token modification
 - **Low Risk**: Authorization service integration

@@ -1,5 +1,6 @@
 package com.teadelivery.user.config;
 
+import com.teadelivery.user.auth.filter.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -9,6 +10,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Spring Security configuration for JWT authentication.
@@ -27,10 +30,11 @@ public class SecurityConfig {
      * @throws Exception if configuration fails
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/login").permitAll()
@@ -45,8 +49,8 @@ public class SecurityConfig {
                 // Guest user endpoints
                 .requestMatchers("/api/v1/auth/guest/**").permitAll()
                 
-                // User management endpoints (for now, permit all)
-                .requestMatchers("/api/users/**").permitAll()
+                // User management endpoints (require authentication)
+                .requestMatchers("/api/users/**").authenticated()
                 
                 // Authorization endpoints (require authentication)
                 .requestMatchers("/api/auth/authorization/**").authenticated()

@@ -144,7 +144,12 @@ public class AuthorizationService {
                     .map(Object::toString)
                     .orElse("CUSTOMER");
             
-            return User.Role.valueOf(roleString.replace("ROLE_", ""));
+            // Remove "ROLE_" prefix if present
+            if (roleString.startsWith("ROLE_")) {
+                roleString = roleString.substring(5);
+            }
+            
+            return User.Role.valueOf(roleString);
         } catch (Exception e) {
             log.error("Error extracting role from authentication", e);
             return User.Role.CUSTOMER; // Default fallback
