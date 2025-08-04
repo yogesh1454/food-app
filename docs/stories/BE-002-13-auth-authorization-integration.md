@@ -4,7 +4,7 @@
 **Story Points:** 3  
 **Priority:** High  
 **Sprint:** 2  
-**Status:** 📋 **PENDING**
+**Status:** ✅ **COMPLETED**
 
 ### User Story
 **As a** system administrator  

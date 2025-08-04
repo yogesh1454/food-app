@@ -10,6 +10,9 @@ import com.teadelivery.user.auth.dto.GuestConversionRequest;
 import com.teadelivery.user.auth.service.AuthenticationService;
 import com.teadelivery.user.profile.model.User;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -123,6 +126,21 @@ public class AuthenticationController {
      */
     @PostMapping("/register/email")
     @Operation(summary = "Email registration", description = "Registers a new user with email and password")
+    @ApiResponse(
+        responseCode = "200",
+        description = "User registered successfully",
+        content = @Content(schema = @Schema(implementation = UserRegistrationResponse.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid request data or user already exists",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    @ApiResponse(
+        responseCode = "500",
+        description = "Internal server error",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
     public ResponseEntity<UserRegistrationResponse> registerWithEmail(@RequestBody UserRegistrationRequest request) {
         log.info("Email registration request received for email: {}", maskEmail(request.getEmail()));
         
@@ -167,6 +185,21 @@ public class AuthenticationController {
      */
     @PostMapping("/guest/convert")
     @Operation(summary = "Guest conversion", description = "Converts a guest user to a registered user")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Guest user converted successfully",
+        content = @Content(schema = @Schema(implementation = UserRegistrationResponse.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid request data or user already exists",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    @ApiResponse(
+        responseCode = "500",
+        description = "Internal server error",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
     public ResponseEntity<UserRegistrationResponse> convertGuestToUser(@RequestBody GuestConversionRequest request) {
         log.info("Guest conversion request received for guest user: {}", request.getGuestUserId());
         
