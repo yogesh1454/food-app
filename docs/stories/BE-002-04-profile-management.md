@@ -4,6 +4,7 @@
 **Story Points:** 5  
 **Priority:** High  
 **Sprint:** 2  
+**Status:** 🔄 **IN PROGRESS**  
 
 ### User Story
 **As a** registered user  
@@ -23,15 +24,15 @@
 - [ ] Profile update history is maintained
 
 ### Technical Tasks
-1. [ ] Create ProfileController endpoints
-2. [ ] Implement ProfileService
-3. [ ] Create profile update DTOs
-4. [ ] Add input validation for profile updates
-5. [ ] Implement file upload for profile pictures
+1. [x] Create ProfileController endpoints
+2. [x] Implement ProfileService
+3. [x] Create profile update DTOs
+4. [x] Add input validation for profile updates
+5. [x] Implement file upload for profile pictures
 6. [ ] Create email/phone verification flow
-7. [ ] Add address management functionality
+7. [x] Add address management functionality
 8. [ ] Implement profile history tracking
-9. [ ] Configure audit logging
+9. [x] Configure audit logging
 10. [ ] Write unit and integration tests
 
 ### API Specification
