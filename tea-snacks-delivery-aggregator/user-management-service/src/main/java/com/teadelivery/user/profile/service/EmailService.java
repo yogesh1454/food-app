@@ -68,6 +68,82 @@ public class EmailService {
     }
 
     /**
+     * Send password reset email.
+     * 
+     * @param email recipient email
+     * @param resetToken reset token
+     * @return true if sent successfully, false otherwise
+     */
+    public boolean sendPasswordResetEmail(String email, String resetToken) {
+        log.info("Sending password reset email to: {}", maskEmail(email));
+        
+        try {
+            String subject = "Password Reset Request";
+            String body = buildPasswordResetEmailBody(email, resetToken);
+            
+            // Simulate email sending
+            log.info("Password reset email content for {}: Subject: {}, Body: {}", 
+                    maskEmail(email), subject, body.substring(0, Math.min(100, body.length())) + "...");
+            
+            // Simulate network delay
+            Thread.sleep(100);
+            
+            log.info("Password reset email sent successfully to: {}", maskEmail(email));
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to: {}", maskEmail(email), e);
+            return false;
+        }
+    }
+
+    /**
+     * Send password change notification email.
+     * 
+     * @param email recipient email
+     * @return true if sent successfully, false otherwise
+     */
+    public boolean sendPasswordChangeNotification(String email) {
+        log.info("Sending password change notification to: {}", maskEmail(email));
+        
+        try {
+            String subject = "Password Changed Successfully";
+            String body = buildPasswordChangeEmailBody(email);
+            
+            // Simulate email sending
+            log.info("Password change notification sent successfully to: {}", maskEmail(email));
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send password change notification to: {}", maskEmail(email), e);
+            return false;
+        }
+    }
+
+    /**
+     * Send password reset notification email.
+     * 
+     * @param email recipient email
+     * @return true if sent successfully, false otherwise
+     */
+    public boolean sendPasswordResetNotification(String email) {
+        log.info("Sending password reset notification to: {}", maskEmail(email));
+        
+        try {
+            String subject = "Password Reset Completed";
+            String body = buildPasswordResetNotificationEmailBody(email);
+            
+            // Simulate email sending
+            log.info("Password reset notification sent successfully to: {}", maskEmail(email));
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Failed to send password reset notification to: {}", maskEmail(email), e);
+            return false;
+        }
+    }
+
+    /**
      * Build verification email body.
      * 
      * @param email recipient email
@@ -112,6 +188,69 @@ public class EmailService {
             Best regards,
             Tea & Snacks Team
             """, updateDetails);
+    }
+
+    /**
+     * Build password reset email body.
+     * 
+     * @param email recipient email
+     * @param resetToken reset token
+     * @return email body
+     */
+    private String buildPasswordResetEmailBody(String email, String resetToken) {
+        return String.format("""
+            Hello,
+            
+            You have requested to reset your password for your Tea & Snacks account.
+            
+            Please click the following link to reset your password:
+            https://app.teasnacks.com/reset-password?token=%s&email=%s
+            
+            This link will expire in 24 hours.
+            
+            If you did not request this password reset, please ignore this email.
+            
+            Best regards,
+            Tea & Snacks Team
+            """, resetToken, email);
+    }
+
+    /**
+     * Build password change notification email body.
+     * 
+     * @param email recipient email
+     * @return email body
+     */
+    private String buildPasswordChangeEmailBody(String email) {
+        return String.format("""
+            Hello,
+            
+            Your password has been changed successfully.
+            
+            If you did not make this change, please contact our support team immediately.
+            
+            Best regards,
+            Tea & Snacks Team
+            """);
+    }
+
+    /**
+     * Build password reset notification email body.
+     * 
+     * @param email recipient email
+     * @return email body
+     */
+    private String buildPasswordResetNotificationEmailBody(String email) {
+        return String.format("""
+            Hello,
+            
+            Your password has been reset successfully.
+            
+            If you did not make this change, please contact our support team immediately.
+            
+            Best regards,
+            Tea & Snacks Team
+            """);
     }
 
     /**
