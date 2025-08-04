@@ -9,6 +9,7 @@ import com.teadelivery.user.password.repository.PasswordHistoryRepository;
 import com.teadelivery.user.password.repository.PasswordResetTokenRepository;
 import com.teadelivery.user.profile.model.User;
 import com.teadelivery.user.profile.repository.UserRepository;
+import com.teadelivery.user.profile.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -19,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -61,7 +62,7 @@ public class PasswordService {
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
         
         // Verify current password
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Current password is incorrect");
         }
         
@@ -70,7 +71,7 @@ public class PasswordService {
         
         // Update password
         String newPasswordHash = passwordEncoder.encode(request.getNewPassword());
-        user.setPassword(newPasswordHash);
+        user.setPasswordHash(newPasswordHash);
         userRepository.save(user);
         
         // Record password history
@@ -160,7 +161,7 @@ public class PasswordService {
         
         // Update password
         String newPasswordHash = passwordEncoder.encode(request.getNewPassword());
-        user.setPassword(newPasswordHash);
+        user.setPasswordHash(newPasswordHash);
         userRepository.save(user);
         
         // Mark token as used
@@ -272,14 +273,14 @@ public class PasswordService {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String changedBy = authentication != null ? authentication.getName() : "system";
             
-            PasswordHistory history = PasswordHistory.builder()
-                    .userId(user.getId())
-                    .passwordHash(user.getPassword())
-                    .changedBy(changedBy)
-                    .changeReason(changeReason)
-                    .ipAddress(getClientIpAddress())
-                    .userAgent(getUserAgent())
-                    .build();
+                    PasswordHistory history = PasswordHistory.builder()
+                .userId(user.getId())
+                .passwordHash(user.getPasswordHash())
+                .changedBy(changedBy)
+                .changeReason(changeReason)
+                .ipAddress(getClientIpAddress())
+                .userAgent(getUserAgent())
+                .build();
             
             passwordHistoryRepository.save(history);
             
