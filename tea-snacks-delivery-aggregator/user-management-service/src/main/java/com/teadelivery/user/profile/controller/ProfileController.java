@@ -4,6 +4,7 @@ import com.teadelivery.user.auth.annotation.HasPermission;
 import com.teadelivery.user.profile.dto.ProfileResponse;
 import com.teadelivery.user.profile.dto.ProfileUpdateRequest;
 import com.teadelivery.user.profile.service.ProfileService;
+import com.teadelivery.user.profile.service.ProfileVerificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class ProfileController {
 
     private final ProfileService profileService;
+    private final ProfileVerificationService profileVerificationService;
 
     /**
      * Get user profile by user ID.
@@ -312,6 +314,130 @@ public class ProfileController {
         response.put("message", "Profile completion retrieved successfully");
         
         log.info("Profile completion retrieved successfully for current user");
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Request email verification for profile update.
+     * 
+     * @param userId user ID
+     * @param newEmail new email address
+     * @return verification response
+     */
+    @PostMapping("/{userId}/profile/verify-email")
+    @HasPermission(resource = "profile", action = "manage", checkOwnership = true, ownerIdParam = "userId")
+    @Operation(summary = "Request email verification", description = "Requests email verification for profile update")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Verification email sent successfully",
+        content = @Content(schema = @Schema(implementation = Map.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid email or email already in use",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    public ResponseEntity<Map<String, Object>> requestEmailVerification(
+            @PathVariable UUID userId,
+            @RequestParam String newEmail) {
+        log.info("Requesting email verification for user: {}", userId);
+        
+        Map<String, Object> response = profileVerificationService.requestEmailVerification(userId, newEmail);
+        
+        log.info("Email verification requested successfully for user: {}", userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Request phone verification for profile update.
+     * 
+     * @param userId user ID
+     * @param newPhoneNumber new phone number
+     * @return verification response
+     */
+    @PostMapping("/{userId}/profile/verify-phone")
+    @HasPermission(resource = "profile", action = "manage", checkOwnership = true, ownerIdParam = "userId")
+    @Operation(summary = "Request phone verification", description = "Requests phone verification for profile update")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Verification SMS sent successfully",
+        content = @Content(schema = @Schema(implementation = Map.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid phone number or phone already in use",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    public ResponseEntity<Map<String, Object>> requestPhoneVerification(
+            @PathVariable UUID userId,
+            @RequestParam String newPhoneNumber) {
+        log.info("Requesting phone verification for user: {}", userId);
+        
+        Map<String, Object> response = profileVerificationService.requestPhoneVerification(userId, newPhoneNumber);
+        
+        log.info("Phone verification requested successfully for user: {}", userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Verify email with token.
+     * 
+     * @param userId user ID
+     * @param verificationToken verification token
+     * @return verification result
+     */
+    @PostMapping("/{userId}/profile/verify-email/confirm")
+    @HasPermission(resource = "profile", action = "manage", checkOwnership = true, ownerIdParam = "userId")
+    @Operation(summary = "Confirm email verification", description = "Confirms email verification with token")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Email verified successfully",
+        content = @Content(schema = @Schema(implementation = Map.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid verification token",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    public ResponseEntity<Map<String, Object>> confirmEmailVerification(
+            @PathVariable UUID userId,
+            @RequestParam String verificationToken) {
+        log.info("Confirming email verification for user: {}", userId);
+        
+        Map<String, Object> response = profileVerificationService.verifyEmail(userId, verificationToken);
+        
+        log.info("Email verification confirmed successfully for user: {}", userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Verify phone with OTP.
+     * 
+     * @param userId user ID
+     * @param otp OTP code
+     * @return verification result
+     */
+    @PostMapping("/{userId}/profile/verify-phone/confirm")
+    @HasPermission(resource = "profile", action = "manage", checkOwnership = true, ownerIdParam = "userId")
+    @Operation(summary = "Confirm phone verification", description = "Confirms phone verification with OTP")
+    @ApiResponse(
+        responseCode = "200",
+        description = "Phone verified successfully",
+        content = @Content(schema = @Schema(implementation = Map.class))
+    )
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid OTP",
+        content = @Content(schema = @Schema(implementation = String.class))
+    )
+    public ResponseEntity<Map<String, Object>> confirmPhoneVerification(
+            @PathVariable UUID userId,
+            @RequestParam String otp) {
+        log.info("Confirming phone verification for user: {}", userId);
+        
+        Map<String, Object> response = profileVerificationService.verifyPhone(userId, otp);
+        
+        log.info("Phone verification confirmed successfully for user: {}", userId);
         return ResponseEntity.ok(response);
     }
 } 

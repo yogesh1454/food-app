@@ -4,6 +4,8 @@ import com.teadelivery.user.profile.dto.ProfileResponse;
 import com.teadelivery.user.profile.dto.ProfileUpdateRequest;
 import com.teadelivery.user.profile.model.User;
 import com.teadelivery.user.profile.model.UserProfile;
+import com.teadelivery.user.profile.model.ProfileHistory;
+import com.teadelivery.user.profile.repository.ProfileHistoryRepository;
 import com.teadelivery.user.profile.repository.UserProfileRepository;
 import com.teadelivery.user.profile.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,7 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final ProfileHistoryRepository profileHistoryRepository;
     private final FileStorageService fileStorageService;
 
     /**
@@ -100,6 +103,9 @@ public class ProfileService {
         
         // Update profile completion percentage
         updateProfileCompletionPercentage(user, userProfile);
+        
+        // Record profile history
+        recordProfileHistory(user, userProfile, request);
         
         log.info("Profile updated successfully for user: {}", userId);
         
@@ -491,6 +497,118 @@ public class ProfileService {
         }
         String[] parts = fullName.trim().split(" ", 2);
         return parts.length > 1 ? parts[1] : null;
+    }
+
+    /**
+     * Record profile history for changes.
+     * 
+     * @param user user entity
+     * @param userProfile user profile entity
+     * @param request update request
+     */
+    private void recordProfileHistory(User user, UserProfile userProfile, ProfileUpdateRequest request) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String changedBy = authentication != null ? authentication.getName() : "system";
+            
+            // Record basic profile changes
+            if (request.getFirstName() != null && !request.getFirstName().equals(userProfile.getFirstName())) {
+                createHistoryEntry(user.getId(), "firstName", userProfile.getFirstName(), request.getFirstName(), 
+                        ProfileHistory.ChangeType.UPDATED, "Profile update", changedBy);
+            }
+            
+            if (request.getLastName() != null && !request.getLastName().equals(userProfile.getLastName())) {
+                createHistoryEntry(user.getId(), "lastName", userProfile.getLastName(), request.getLastName(), 
+                        ProfileHistory.ChangeType.UPDATED, "Profile update", changedBy);
+            }
+            
+            if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+                createHistoryEntry(user.getId(), "email", user.getEmail(), request.getEmail(), 
+                        ProfileHistory.ChangeType.UPDATED, "Email update", changedBy);
+            }
+            
+            if (request.getPhoneNumber() != null && !request.getPhoneNumber().equals(user.getPhoneNumber())) {
+                createHistoryEntry(user.getId(), "phoneNumber", user.getPhoneNumber(), request.getPhoneNumber(), 
+                        ProfileHistory.ChangeType.UPDATED, "Phone update", changedBy);
+            }
+            
+            if (request.getBio() != null && !request.getBio().equals(userProfile.getBio())) {
+                createHistoryEntry(user.getId(), "bio", userProfile.getBio(), request.getBio(), 
+                        ProfileHistory.ChangeType.UPDATED, "Bio update", changedBy);
+            }
+            
+            // Record role-specific changes
+            recordRoleSpecificHistory(user, userProfile, request, changedBy);
+            
+        } catch (Exception e) {
+            log.error("Failed to record profile history for user: {}", user.getId(), e);
+        }
+    }
+
+    /**
+     * Record role-specific profile history.
+     * 
+     * @param user user entity
+     * @param userProfile user profile entity
+     * @param request update request
+     * @param changedBy who made the change
+     */
+    private void recordRoleSpecificHistory(User user, UserProfile userProfile, ProfileUpdateRequest request, String changedBy) {
+        switch (user.getRole()) {
+            case VENDOR:
+                if (request.getBusinessDetails() != null) {
+                    if (request.getBusinessDetails().getBusinessName() != null && 
+                        !request.getBusinessDetails().getBusinessName().equals(userProfile.getBusinessName())) {
+                        createHistoryEntry(user.getId(), "businessName", userProfile.getBusinessName(), 
+                                request.getBusinessDetails().getBusinessName(), 
+                                ProfileHistory.ChangeType.UPDATED, "Business details update", changedBy);
+                    }
+                }
+                break;
+                
+            case DELIVERY_PARTNER:
+                if (request.getVehicleDetails() != null) {
+                    createHistoryEntry(user.getId(), "vehicleDetails", "previous", 
+                            request.getVehicleDetails().getVehicleType() + ":" + request.getVehicleDetails().getVehicleNumber(), 
+                            ProfileHistory.ChangeType.UPDATED, "Vehicle details update", changedBy);
+                }
+                break;
+                
+            case CUSTOMER:
+                if (request.getCompanyDetails() != null) {
+                    createHistoryEntry(user.getId(), "companyDetails", "previous", 
+                            request.getCompanyDetails().getCompanyName() + ":" + request.getCompanyDetails().getInternalDeliveryPoint(), 
+                            ProfileHistory.ChangeType.UPDATED, "Company details update", changedBy);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Create history entry.
+     * 
+     * @param userId user ID
+     * @param fieldName field name
+     * @param oldValue old value
+     * @param newValue new value
+     * @param changeType change type
+     * @param changeReason change reason
+     * @param changedBy who made the change
+     */
+    private void createHistoryEntry(UUID userId, String fieldName, String oldValue, String newValue, 
+                                  ProfileHistory.ChangeType changeType, String changeReason, String changedBy) {
+        ProfileHistory history = ProfileHistory.builder()
+                .userId(userId)
+                .fieldName(fieldName)
+                .oldValue(oldValue)
+                .newValue(newValue)
+                .changeType(changeType)
+                .changeReason(changeReason)
+                .changedBy(changedBy)
+                .build();
+        
+        profileHistoryRepository.save(history);
+        log.debug("Profile history recorded for user: {}, field: {}", userId, fieldName);
     }
 
     /**

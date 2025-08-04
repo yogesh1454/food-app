@@ -29,9 +29,9 @@
 3. [x] Create profile update DTOs
 4. [x] Add input validation for profile updates
 5. [x] Implement file upload for profile pictures
-6. [ ] Create email/phone verification flow
+6. [x] Create email/phone verification flow
 7. [x] Add address management functionality
-8. [ ] Implement profile history tracking
+8. [x] Implement profile history tracking
 9. [x] Configure audit logging
 10. [ ] Write unit and integration tests
 
