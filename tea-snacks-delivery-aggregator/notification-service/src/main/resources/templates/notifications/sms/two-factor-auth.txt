@@ -1,0 +1,1 @@
+Your Tea & Snacks login code is: [[${code}]]. Valid for [[${expiry}]] minutes. If you didn't request this, contact support immediately.

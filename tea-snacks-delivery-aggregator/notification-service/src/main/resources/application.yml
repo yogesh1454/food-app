@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8084
 
 spring:
   application:
@@ -31,8 +31,48 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: test@example.com
-    password: test_password
+    username: ${MAIL_USERNAME:test@example.com}
+    password: ${MAIL_PASSWORD:test_password}
+
+# Notification Service Configuration
+notification:
+  email:
+    provider: sendgrid
+    api-key: ${SENDGRID_API_KEY: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}
+    from-email: ${NOTIFICATION_FROM_EMAIL:foodapp1454@gmail.com}
+    from-name: ${NOTIFICATION_FROM_NAME:Tea & Snacks}
+    max-retries: 3
+    retry-delay: 5000
+    rate-limit:
+      max: 100
+      per: minute
+      
+  sms:
+    provider: gupshup
+    api-key: ${GUPSHUP_API_KEY:your_gupshup_api_key}
+    sender-id: ${GUPSHUP_SENDER_ID:TEASNK}
+    base-url: ${GUPSHUP_BASE_URL:https://api.gupshup.io/sm/api/v1}
+    max-retries: 3
+    retry-delay: 5000
+    rate-limit:
+      max: 50
+      per: minute
+
+  async:
+    thread-pool-size: 5
+    queue-capacity: 100
+    thread-name-prefix: notification-
+    
+  templates:
+    location: classpath:/templates/notifications/
+    email-path: email/
+    sms-path: sms/
+    
+  # Local development URLs
+  local:
+    base-url: ${LOCAL_BASE_URL:http://localhost:8082}
+    verification-path: ${VERIFICATION_PATH:/verify}
+    reset-password-path: ${RESET_PASSWORD_PATH:/reset-password}
 
 management:
   endpoints:
@@ -46,7 +86,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: db,kafka,mail,redis
+          include: db,mail
         liveness:
           include: ping
 

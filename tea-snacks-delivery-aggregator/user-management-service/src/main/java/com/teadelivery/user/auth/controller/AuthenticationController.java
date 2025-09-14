@@ -8,6 +8,7 @@ import com.teadelivery.user.auth.dto.UserRegistrationRequest;
 import com.teadelivery.user.auth.dto.UserRegistrationResponse;
 import com.teadelivery.user.auth.dto.GuestConversionRequest;
 import com.teadelivery.user.auth.service.AuthenticationService;
+import com.teadelivery.user.integration.email.NotificationClient;
 import com.teadelivery.user.profile.model.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
+    private final NotificationClient notificationClient;
 
     /**
      * Authenticates user and returns JWT tokens.
@@ -168,7 +170,22 @@ public class AuthenticationController {
                     .profileCompletion(user.getProfileCompletionPercentage())
                     .message("User registered successfully")
                     .build();
-            
+        
+            // Send registration verification email asynchronously
+            try {
+                notificationClient.sendRegistrationVerificationEmail(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getName() != null ? user.getName() : "User",
+                    "123456", // TODO: Generate actual verification code
+                    accessToken // Using access token as verification token for now
+                );
+                log.info("Registration verification email sent for user: {}", user.getId());
+            } catch (Exception e) {
+                log.warn("Failed to send registration verification email for user: {} - {}", user.getId(), e.getMessage());
+                // Don't fail registration if email sending fails
+            }
+        
             log.info("Email registration successful for user: {}", user.getId());
             return ResponseEntity.ok(response);
         } catch (Exception e) {

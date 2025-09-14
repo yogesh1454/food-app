@@ -1,0 +1,1 @@
+Your Tea & Snacks verification code is: [[${code}]]. Valid for [[${expiry}]] minutes. Don't share this code with anyone.
