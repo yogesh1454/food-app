@@ -2,6 +2,7 @@ rootProject.name = 'tea-snacks-delivery-aggregator'
 
 // Shared modules
 include 'shared:common'
+include 'shared:redis'
 
 // Microservices
 include 'user-management-service'

@@ -53,6 +53,46 @@ Search & Discovery is critical for user experience and business growth:
 - `GET /recommendations/vendors/{userId}` - Basic vendor recommendations
 - `GET /search/popular` - Popular searches and trending items
 
+## Infrastructure Requirements
+
+### Infrastructure Scaling for Epic 4 (Major Addition)
+- **ADD**: Elasticsearch (search indexing, geospatial queries, full-text search)
+- **ADD**: Search Discovery Service (new microservice)
+- **SCALE**: Redis (search result caching, popular query caching)
+- **SCALE**: Kafka (real-time data sync from Order Catalog to search indices)
+- **REUSE**: PostgreSQL (user preferences, search analytics)
+
+### Infrastructure Commands
+```bash
+# Start Epic 4 infrastructure (includes all previous services + Elasticsearch)
+docker-compose up -d postgres redis kafka elasticsearch user-management-service notification-service order-catalog-service search-discovery-service
+
+# Full infrastructure for complete integration
+docker-compose up -d
+```
+
+### Elasticsearch Configuration
+- **Indices**: vendors, menu_items, locations
+- **Mappings**: Geospatial data for location-based search
+- **Analyzers**: Custom analyzers for food item search
+- **Memory**: Requires significant memory allocation (recommended 2GB+)
+
+### Data Synchronization
+- **Kafka Consumers**: Real-time sync from Order Catalog Service
+- **Initial Data Load**: Bulk indexing from PostgreSQL
+- **Update Strategy**: Event-driven updates via Kafka messages
+
+### Dependencies on Other Epic Infrastructure
+- **Epic 2**: User preferences and search personalization
+- **Epic 3**: Menu and vendor data source (primary data)
+- **Epic 5**: Location data for delivery radius calculations
+- **Epic 7-9**: Search analytics and performance monitoring
+
+### Resource Considerations
+- **High Memory Usage**: Elasticsearch requires substantial RAM
+- **Storage**: Search indices require additional disk space
+- **CPU**: Real-time indexing can be CPU intensive
+
 ## Success Metrics
 - Search response time < 200ms for 95% of queries
 - Search result relevance score > 80%

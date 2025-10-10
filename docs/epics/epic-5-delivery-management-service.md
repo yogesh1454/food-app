@@ -59,6 +59,43 @@ Delivery Management is essential for order fulfillment:
 - `GET /deliveries/partner/{partnerId}` - Get partner's deliveries
 - `GET /routes/basic` - Get basic delivery route
 
+## Infrastructure Requirements
+
+### Infrastructure Scaling for Epic 5
+- **ADD**: Delivery Management Service (new microservice)
+- **SCALE**: PostgreSQL (delivery tables, partner tables, location tracking)
+- **SCALE**: Kafka (delivery status updates, location updates, assignment events)
+- **SCALE**: Redis (real-time location caching, partner availability status)
+- **REUSE**: User Management Service (delivery partner authentication)
+- **REUSE**: Notification Service (delivery status notifications)
+
+### Infrastructure Commands
+```bash
+# Start Epic 5 infrastructure (includes all previous services)
+docker-compose up -d postgres redis kafka user-management-service notification-service order-catalog-service delivery-management-service
+
+# Include search if needed for location-based delivery
+docker-compose up -d postgres redis kafka elasticsearch user-management-service notification-service order-catalog-service search-discovery-service delivery-management-service
+```
+
+### Database Schema Extensions
+- **delivery_partners** table: Partner profiles, vehicle info, ratings
+- **deliveries** table: Delivery assignments, status tracking, timestamps
+- **partner_locations** table: Real-time location tracking
+- **delivery_routes** table: Basic route optimization data
+
+### Real-Time Requirements
+- **Location Updates**: High-frequency Redis updates for partner locations
+- **Status Notifications**: Real-time Kafka events for delivery status changes
+- **Assignment Logic**: Fast partner matching based on location and availability
+
+### Dependencies on Other Epic Infrastructure
+- **Epic 2**: Delivery partner authentication and profile management
+- **Epic 3**: Order data for delivery assignments
+- **Epic 4**: Location-based search for partner-order matching
+- **Epic 6**: Payment integration for delivery fees
+- **Epic 7**: Real-time notifications for delivery updates
+
 ## Success Metrics
 - Average delivery assignment time < 2 minutes
 - Location update processing < 100ms

@@ -58,6 +58,33 @@ User management is fundamental to the platform's operation:
 - `POST /users/password-reset` - Initiate password reset
 - `PUT /users/password` - Change password
 
+## Infrastructure Requirements
+
+### Current Infrastructure (Minimal Setup)
+- **PostgreSQL**: User data, authentication records, profiles
+- **Redis**: Session management, JWT token blacklisting, user profile caching
+- **Kafka**: User events, authentication events, notification triggers
+- **User Management Service**: Core authentication and user management
+- **Notification Service**: Password reset emails, welcome messages
+
+### Infrastructure Scaling Commands
+```bash
+# Start minimal Epic 2 infrastructure
+./infrastructure/docker/start-minimal-epic2.sh
+
+# Optimize resources (stop non-essential services)
+./infrastructure/docker/stop-heavy-services.sh
+
+# Scale up when needed for integration with other epics
+docker-compose up -d
+```
+
+### Dependencies on Other Epic Infrastructure
+- **Epic 3+**: Will reuse PostgreSQL for order data relationships
+- **Epic 4**: Will reuse Redis for search result caching
+- **Epic 7-9**: Will add monitoring stack (Prometheus/Grafana)
+- **Epic 10**: Will migrate to cloud infrastructure
+
 ## Success Metrics
 - Authentication response time < 100ms
 - Zero critical security vulnerabilities

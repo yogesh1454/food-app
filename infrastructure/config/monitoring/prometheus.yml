@@ -46,10 +46,7 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 30s
 
-  # Elasticsearch
-  - job_name: 'elasticsearch'
-    static_configs:
-      - targets: ['elasticsearch:9200']
+
     metrics_path: '/_prometheus/metrics'
     scrape_interval: 30s
 

@@ -62,6 +62,36 @@ This service is the core business logic that enables:
 - `GET /orders/customer/{customerId}` - Get customer orders
 - `GET /reports/daily-sales` - Generate sales reports
 
+## Infrastructure Requirements
+
+### Infrastructure Scaling for Epic 3
+- **ADD**: Order Catalog Service (new microservice)
+- **SCALE**: PostgreSQL (add order tables, vendor tables, menu tables)
+- **SCALE**: Kafka (order events, inventory updates, vendor status changes)
+- **REUSE**: Redis (menu caching, order session data)
+- **REUSE**: User Management Service (vendor authentication, customer orders)
+
+### Infrastructure Commands
+```bash
+# Start Epic 3 infrastructure (includes Epic 2 services)
+docker-compose up -d postgres redis kafka user-management-service notification-service order-catalog-service
+
+# Full infrastructure for integration testing
+docker-compose up -d
+```
+
+### Database Schema Extensions
+- **vendors** table: Vendor profiles, operating hours, status
+- **menu_items** table: Menu catalog with pricing and availability
+- **orders** table: Order lifecycle and status tracking
+- **order_items** table: Order line items with quantities
+
+### Dependencies on Other Epic Infrastructure
+- **Epic 2**: Requires User Management Service for authentication
+- **Epic 4**: Will provide data to Search & Discovery Service via Kafka
+- **Epic 5**: Will integrate with Delivery Management for order fulfillment
+- **Epic 6**: Will integrate with Payment Management for order processing
+
 ## Success Metrics
 - Order processing time < 500ms
 - Support for 1000+ vendors and 10,000+ menu items

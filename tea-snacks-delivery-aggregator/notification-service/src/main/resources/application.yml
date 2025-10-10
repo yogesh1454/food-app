@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: notification-service
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tea_snacks_db
+    username: tea_snacks_user
+    password: tea_snacks_password
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+  
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: test@example.com
+    password: test_password
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: db,kafka,mail,redis
+        liveness:
+          include: ping
+
+logging:
+  level:
+    com.teadelivery: INFO

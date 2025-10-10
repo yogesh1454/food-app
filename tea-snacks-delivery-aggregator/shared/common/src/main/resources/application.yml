@@ -48,11 +48,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-  # Elasticsearch Configuration
-  elasticsearch:
-    uris: http://localhost:9200
-    connection-timeout: 5s
-    socket-timeout: 3s
+
 
 # Actuator Configuration
 management:
@@ -69,11 +65,9 @@ management:
         liveness:
           include: livenessState
         readiness:
-          include: readinessState,db,redis,elasticsearch
+          include: readinessState,db,redis
   health:
     redis:
-      enabled: true
-    elasticsearch:
       enabled: true
     db:
       enabled: true 
