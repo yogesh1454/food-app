@@ -1,9 +1,7 @@
 package com.teadelivery.ordercatalog.vendor.controller;
 
-import com.teadelivery.ordercatalog.vendor.dto.BranchCreateRequest;
-import com.teadelivery.ordercatalog.vendor.dto.BranchResponse;
-import com.teadelivery.ordercatalog.vendor.dto.DocumentResponse;
-import com.teadelivery.ordercatalog.vendor.dto.DocumentUploadRequest;
+import com.teadelivery.ordercatalog.vendor.dto.*;
+import com.teadelivery.ordercatalog.vendor.service.BranchAvailabilityService;
 import com.teadelivery.ordercatalog.vendor.service.BranchOnboardingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +21,7 @@ import java.util.UUID;
 public class BranchController {
     
     private final BranchOnboardingService branchService;
+    private final BranchAvailabilityService availabilityService;
     
     @PostMapping("/vendors/{vendorId}")
     @ResponseStatus(HttpStatus.CREATED)
@@ -131,6 +130,58 @@ public class BranchController {
         UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
         
         Map<String, Object> response = branchService.getOnboardingStatus(branchId, requestingUserId);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @PutMapping("/{branchId}/operating-hours")
+    public ResponseEntity<BranchResponse> updateOperatingHours(
+            @PathVariable UUID branchId,
+            @Valid @RequestBody OperatingHoursRequest request) {
+        
+        log.info("Update operating hours request for branch: {}", branchId);
+        
+        // For now, using a hardcoded userId. In production, this would come from authentication
+        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        BranchResponse response = availabilityService.updateOperatingHours(branchId, request, requestingUserId);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/{branchId}/operating-hours")
+    public ResponseEntity<Map<String, Object>> getOperatingHours(
+            @PathVariable UUID branchId) {
+        
+        log.info("Get operating hours request for branch: {}", branchId);
+        
+        BranchResponse branch = branchService.getBranch(branchId);
+        
+        return ResponseEntity.ok(branch.getOperatingHours());
+    }
+    
+    @PutMapping("/{branchId}/status")
+    public ResponseEntity<BranchResponse> toggleStatus(
+            @PathVariable UUID branchId,
+            @Valid @RequestBody BranchStatusRequest request) {
+        
+        log.info("Toggle branch status request for branch: {}", branchId);
+        
+        // For now, using a hardcoded userId. In production, this would come from authentication
+        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        BranchResponse response = availabilityService.toggleBranchStatus(branchId, request, requestingUserId);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/{branchId}/availability")
+    public ResponseEntity<BranchAvailabilityResponse> checkAvailability(
+            @PathVariable UUID branchId) {
+        
+        log.info("Check availability request for branch: {}", branchId);
+        
+        BranchAvailabilityResponse response = availabilityService.checkAvailability(branchId);
         
         return ResponseEntity.ok(response);
     }
