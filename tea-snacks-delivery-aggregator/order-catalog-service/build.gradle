@@ -8,6 +8,10 @@ dependencies {
     // Database
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.flywaydb:flyway-core:9.22.3'
+    
+    // Hibernate Types for JSONB support
+    implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.3'
     
     // Cache
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
