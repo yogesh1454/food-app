@@ -29,6 +29,7 @@ public class MenuService {
     
     private final MenuItemRepository menuItemRepository;
     private final VendorBranchRepository branchRepository;
+    private final MenuCacheService cacheService;
     
     @Transactional
     public MenuItemResponse createMenuItem(UUID branchId, MenuItemCreateRequest request, UUID requestingUserId) {
@@ -136,6 +137,10 @@ public class MenuService {
         branch.setMenuVersion(branch.getMenuVersion() + 1);
         branchRepository.save(branch);
         
+        // Invalidate cache
+        cacheService.evictBranchMenu(branch.getBranchId());
+        cacheService.evictPopularItems(branch.getBranchId());
+        
         log.info("Menu item updated: {}", menuItemId);
         return MenuMapper.toResponse(updatedItem);
     }
@@ -160,6 +165,10 @@ public class MenuService {
         VendorBranch branch = menuItem.getBranch();
         branch.setMenuVersion(branch.getMenuVersion() + 1);
         branchRepository.save(branch);
+        
+        // Invalidate cache
+        cacheService.evictBranchMenu(branch.getBranchId());
+        cacheService.evictPopularItems(branch.getBranchId());
         
         log.info("Menu item deleted: {}", menuItemId);
     }
