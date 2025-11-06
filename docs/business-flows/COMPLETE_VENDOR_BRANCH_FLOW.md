@@ -1,16 +1,23 @@
-# Revised Vendor Onboarding Flow - Single Unified Process
+# Complete Vendor & Branch Onboarding & Day-to-Day Activity Flow
 
-## 🎯 Key Insight
-
-**Vendor Registration = First Branch Onboarding**
-
-When a vendor registers for the first time, they are essentially onboarding their **first branch**. The vendor entity is just a container for company-level information (PAN, GST, brand assets). The actual operational unit is the **branch**.
-
-Later, if they want to expand to multiple locations, they simply add more branches under the same vendor.
+**Single Comprehensive Guide for Vendor Registration, Branch Onboarding, and Daily Operations**
 
 ---
 
-## 📊 Revised Data Model Understanding
+## 📋 Table of Contents
+
+1. [Architectural Overview](#architectural-overview)
+2. [Vendor Registration (Unified with First Branch)](#vendor-registration-unified-with-first-branch)
+3. [Adding Additional Branches](#adding-additional-branches)
+4. [Day-to-Day Operations](#day-to-day-operations)
+5. [Testing Scenarios](#testing-scenarios)
+6. [API Endpoint Reference](#api-endpoint-reference)
+
+---
+
+## 🏗️ Architectural Overview
+
+### Key Principle: Vendor = Company, Branch = Location
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -32,16 +39,24 @@ Later, if they want to expand to multiple locations, they simply add more branch
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Why Unified Onboarding?
+
+**When a vendor registers, they ARE registering their first branch.** Separating these creates confusion and leaves the vendor in an incomplete state. The unified approach:
+- ✅ Clearer business logic
+- ✅ 1 fewer API call
+- ✅ Vendor immediately operational
+- ✅ Consistent onboarding status
+
 ---
 
-## 🚀 Unified Vendor Onboarding Flow
+## 🚀 Vendor Registration (Unified with First Branch)
 
-### Phase 1: Initial Vendor Registration (First Branch Onboarding)
+### Phase 1: Initial Vendor Registration
 
 **Actor:** Vendor (Restaurant Owner/Manager)  
 **Goal:** Register as a vendor with their first branch
 
-#### Step 1.1: Register Vendor with First Branch (Combined Request)
+#### Step 1.1: Register Vendor with First Branch (UNIFIED)
 
 ```
 POST /api/v1/vendors/onboard
@@ -171,14 +186,20 @@ Expected Response (201 Created):
 Request 2 - GST Certificate:
 - documentType: "GST"
 - file: <gst_certificate.pdf>
+- issueDate: "2022-06-01"
+- expiryDate: null
 
 Request 3 - Shop Act License:
 - documentType: "SHOP_ACT"
 - file: <shop_act.pdf>
+- issueDate: "2023-03-20"
+- expiryDate: "2028-03-20"
 
 Request 4 - ID Proof:
 - documentType: "ID_PROOF"
 - file: <id_proof.pdf>
+- issueDate: "2020-05-10"
+- expiryDate: "2030-05-10"
 ```
 
 ---
@@ -335,10 +356,12 @@ Expected Response (200 OK):
 
 ---
 
-### Phase 2: Adding Additional Branches (Later Expansion)
+## 🏪 Adding Additional Branches
 
 **Actor:** Vendor  
 **Goal:** Add a new branch location to existing vendor
+
+### Phase 2: Create Additional Branch
 
 #### Step 2.1: Create Additional Branch
 
@@ -399,7 +422,7 @@ Same as Step 1.5 - Set operating hours
 
 ---
 
-## 🍽️ Day-to-Day Operations (Same for All Branches)
+## 🍽️ Day-to-Day Operations
 
 ### Phase 3: Menu Management (Per Branch)
 
@@ -432,13 +455,36 @@ Expected Response (201 Created):
   "name": "Masala Tea",
   "price": 50.00,
   "isAvailable": true,
+  "preparationTimeMinutes": 5,
   "createdAt": "2025-11-06T22:45:00Z"
 }
 ```
 
 ---
 
-#### Step 3.2: Get Branch Menu
+#### Step 3.2: Upload Menu Item Image
+
+```
+POST /api/v1/menu-items/{menuItemId}/images
+Content-Type: multipart/form-data
+
+Request:
+- imageType: "primary"
+- file: <masala_tea.jpg>
+
+Expected Response (200 OK):
+{
+  "menuItemId": "5f85a293-e29f-4212-a093-a047a39bcaf3",
+  "images": {
+    "primary": "https://s3.amazonaws.com/.../masala_tea.jpg",
+    "gallery": []
+  }
+}
+```
+
+---
+
+#### Step 3.3: Get Branch Menu
 
 ```
 GET /api/v1/menu-items/branches/{branchId}?category=Beverages&page=0&size=50
@@ -454,8 +500,11 @@ Expected Response (200 OK):
       "price": 50.00,
       "category": "Beverages",
       "isAvailable": true,
-      "preparationTimeMinutes": 5
-    }
+      "preparationTimeMinutes": 5,
+      "images": {...},
+      "tags": ["tea", "hot", "popular"]
+    },
+    ...
   ],
   "totalItems": 15,
   "page": 0,
@@ -465,7 +514,7 @@ Expected Response (200 OK):
 
 ---
 
-#### Step 3.3: Update Menu Item
+#### Step 3.4: Update Menu Item
 
 ```
 PUT /api/v1/menu-items/{menuItemId}
@@ -481,15 +530,17 @@ Request Body:
 Expected Response (200 OK):
 {
   "menuItemId": "5f85a293-e29f-4212-a093-a047a39bcaf3",
+  "name": "Masala Tea",
   "price": 60.00,
   "isAvailable": false,
+  "preparationTimeMinutes": 7,
   "updatedAt": "2025-11-06T22:50:00Z"
 }
 ```
 
 ---
 
-#### Step 3.4: Delete Menu Item
+#### Step 3.5: Delete Menu Item
 
 ```
 DELETE /api/v1/menu-items/{menuItemId}
@@ -514,13 +565,19 @@ Expected Response (200 OK):
   "status": "OPEN",
   "currentTime": "2025-11-06T22:55:00+05:30",
   "nextOpenTime": null,
-  "nextCloseTime": "2025-11-06T23:00:00+05:30"
+  "nextCloseTime": "2025-11-06T23:00:00+05:30",
+  "operatingHours": {...}
 }
 ```
 
+**Status Values:**
+- `OPEN` - Branch is open and accepting orders
+- `OFFLINE` - Branch is manually set to offline
+- `CLOSED` - Branch is closed based on operating hours
+
 ---
 
-#### Step 4.2: Toggle Branch Online/Offline
+#### Step 4.2: Toggle Branch Online/Offline Status
 
 ```
 PUT /api/v1/branches/{branchId}/status
@@ -542,7 +599,96 @@ Expected Response (200 OK):
 
 ---
 
-## 📋 Revised API Endpoint Summary
+#### Step 4.3: Get Operating Hours
+
+```
+GET /api/v1/branches/{branchId}/operating-hours
+
+Expected Response (200 OK):
+{
+  "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
+  "operatingHours": {
+    "timeSlots": [
+      {
+        "day": "MONDAY",
+        "openTime": "06:00",
+        "closeTime": "22:00"
+      },
+      ...
+    ],
+    "timezone": "Asia/Kolkata"
+  }
+}
+```
+
+---
+
+## 🧪 Testing Scenarios
+
+### Scenario 1: Complete Vendor Onboarding (Happy Path)
+```
+1. POST /api/v1/vendors/onboard ✅ (Create vendor + first branch)
+2. POST /api/v1/vendors/{vendorId}/images ✅ (Upload vendor logo)
+3. POST /api/v1/branches/{branchId}/documents ✅ (Upload 4 documents)
+4. POST /api/v1/branches/{branchId}/images ✅ (Upload branch images)
+5. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Set hours)
+6. PUT /api/v1/branches/{branchId}/preferences ✅ (Update preferences)
+7. GET /api/v1/vendors/{vendorId} ✅ (Verify complete setup)
+```
+
+### Scenario 2: Add Additional Branch
+```
+1. POST /api/v1/branches/vendors/{vendorId} ✅ (Create new branch)
+2. POST /api/v1/branches/{branchId}/documents ✅ (Upload documents)
+3. POST /api/v1/branches/{branchId}/images ✅ (Upload images)
+4. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Set hours)
+5. GET /api/v1/vendors/{vendorId} ✅ (Verify 2 branches)
+```
+
+### Scenario 3: Menu Management (Per Branch)
+```
+1. POST /api/v1/menu-items/branches/{branchId1} ✅ (Create items for branch 1)
+2. POST /api/v1/menu-items/branches/{branchId2} ✅ (Create items for branch 2)
+3. GET /api/v1/menu-items/branches/{branchId1} ✅ (Get branch 1 menu)
+4. GET /api/v1/menu-items/branches/{branchId2} ✅ (Get branch 2 menu)
+5. PUT /api/v1/menu-items/{menuItemId} ✅ (Update item in branch 1)
+6. DELETE /api/v1/menu-items/{menuItemId} ✅ (Delete item from branch 1)
+```
+
+### Scenario 4: Daily Operations
+```
+1. GET /api/v1/branches/{branchId}/availability ✅ (Check status)
+2. PUT /api/v1/branches/{branchId}/status ✅ (Toggle online)
+3. GET /api/v1/branches/{branchId}/availability ✅ (Verify status)
+4. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Update hours)
+5. GET /api/v1/branches/{branchId}/operating-hours ✅ (Get hours)
+```
+
+### Scenario 5: Error Cases
+```
+1. POST /api/v1/vendors/onboard with invalid email ❌
+2. POST /api/v1/vendors/onboard with duplicate email ❌
+3. POST /api/v1/branches with invalid coordinates ❌
+4. POST /api/v1/menu-items with negative price ❌
+5. POST /api/v1/menu-items with duplicate name in same branch ❌
+6. PUT /api/v1/branches/{branchId}/operating-hours with overlapping times ❌
+7. DELETE /api/v1/menu-items/{invalidId} ❌
+8. GET /api/v1/branches/{invalidId} ❌
+```
+
+### Scenario 6: Authorization Checks
+```
+1. User A registers vendor ✅
+2. User B tries to update vendor ❌ (Unauthorized)
+3. User A creates branch ✅
+4. User B tries to update branch ❌ (Unauthorized)
+5. User A creates menu item ✅
+6. User B tries to delete menu item ❌ (Unauthorized)
+```
+
+---
+
+## 📊 API Endpoint Reference
 
 ### Vendor Management
 | Method | Endpoint | Purpose |
@@ -551,7 +697,7 @@ Expected Response (200 OK):
 | GET | `/api/v1/vendors/{vendorId}` | Get vendor details with all branches |
 | POST | `/api/v1/vendors/{vendorId}/images` | Upload vendor logo/brand assets |
 
-### Branch Management (First & Additional)
+### Branch Management
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | POST | `/api/v1/branches/vendors/{vendorId}` | Create additional branch |
@@ -578,74 +724,37 @@ Expected Response (200 OK):
 
 ---
 
-## 🧪 Revised Testing Scenarios
+## 📝 Key Points
 
-### Scenario 1: Complete Vendor Onboarding (Happy Path)
-```
-1. POST /api/v1/vendors/onboard (Create vendor + first branch) ✅
-2. POST /api/v1/vendors/{vendorId}/images (Upload vendor logo) ✅
-3. POST /api/v1/branches/{branchId}/documents (Upload 4 documents) ✅
-4. POST /api/v1/branches/{branchId}/images (Upload branch images) ✅
-5. PUT /api/v1/branches/{branchId}/operating-hours (Set hours) ✅
-6. PUT /api/v1/branches/{branchId}/preferences (Update preferences) ✅
-7. GET /api/v1/vendors/{vendorId} (Verify complete setup) ✅
-```
-
-### Scenario 2: Add Additional Branch
-```
-1. POST /api/v1/branches/vendors/{vendorId} (Create new branch) ✅
-2. POST /api/v1/branches/{branchId}/documents (Upload documents) ✅
-3. POST /api/v1/branches/{branchId}/images (Upload images) ✅
-4. PUT /api/v1/branches/{branchId}/operating-hours (Set hours) ✅
-5. GET /api/v1/vendors/{vendorId} (Verify 2 branches) ✅
-```
-
-### Scenario 3: Menu Management (Per Branch)
-```
-1. POST /api/v1/menu-items/branches/{branchId1} (Create items for branch 1) ✅
-2. POST /api/v1/menu-items/branches/{branchId2} (Create items for branch 2) ✅
-3. GET /api/v1/menu-items/branches/{branchId1} (Get branch 1 menu) ✅
-4. GET /api/v1/menu-items/branches/{branchId2} (Get branch 2 menu) ✅
-5. PUT /api/v1/menu-items/{menuItemId} (Update item in branch 1) ✅
-6. DELETE /api/v1/menu-items/{menuItemId} (Delete item from branch 1) ✅
-```
+- **Vendor Registration:** Unified with first branch creation via `/api/v1/vendors/onboard`
+- **Multi-Branch:** Add additional branches using `/api/v1/branches/vendors/{vendorId}`
+- **Menu Management:** Each branch has its own menu items
+- **Operating Hours:** Set per branch, not vendor-wide
+- **Documents:** Uploaded per branch for location-specific verification
+- **Authorization:** All modification endpoints require user ownership validation
+- **Caching:** Menu items are cached with version tracking for performance
+- **Soft Deletes:** Menu items use soft delete (is_deleted flag)
 
 ---
 
-## 🔄 Key Differences from Original Design
+## 🚀 Quick Test Commands
 
-| Aspect | Original | Revised |
-|--------|----------|---------|
-| **Vendor Registration** | Separate endpoint | Combined with first branch |
-| **First Branch** | Separate onboarding | Part of vendor registration |
-| **API Calls for Initial Setup** | 8-9 calls | 7 calls (1 combined) |
-| **Conceptual Clarity** | Vendor ≠ Branch | Vendor = Company, Branch = Location |
-| **Multi-Branch Addition** | Same as first branch | Simpler, branch-only endpoint |
-| **User Experience** | More steps | Streamlined, single unified flow |
+```bash
+# Register vendor with first branch
+curl -X POST http://localhost:8082/api/v1/vendors/onboard \
+  -H "Content-Type: application/json" \
+  -d '{"vendor":{...},"firstBranch":{...}}'
 
----
+# Add additional branch
+curl -X POST http://localhost:8082/api/v1/branches/vendors/{vendorId} \
+  -H "Content-Type: application/json" \
+  -d '{"branchName":"...",...}'
 
-## 📝 Implementation Notes
+# Create menu item
+curl -X POST http://localhost:8082/api/v1/menu-items/branches/{branchId} \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Masala Tea","price":50.00,...}'
 
-1. **Unified Onboarding Endpoint:** Create a new endpoint `/api/v1/vendors/onboard` that:
-   - Creates the vendor entity
-   - Creates the first branch automatically
-   - Returns both vendorId and branchId
-   - Validates all vendor and branch data together
-
-2. **Vendor Details Response:** Update `GET /api/v1/vendors/{vendorId}` to:
-   - Include all branches under the vendor
-   - Show branch-specific onboarding status
-   - Display branch-level information
-
-3. **Branch-Only Operations:** Keep branch operations separate:
-   - Document uploads per branch
-   - Images per branch
-   - Operating hours per branch
-   - Menu items per branch
-
-4. **Consistency:** Ensure that:
-   - Each branch can have different operating hours
-   - Each branch can have different menu items
-   - Each branch has its own onboarding status
-   - Vendor-level info (PAN, GST) is shared across all branches
+# View Swagger UI
+open http://localhost:8082/swagger-ui.html
+```
