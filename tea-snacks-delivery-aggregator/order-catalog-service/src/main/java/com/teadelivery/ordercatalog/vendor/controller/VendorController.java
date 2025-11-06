@@ -60,4 +60,24 @@ public class VendorController {
         
         return ResponseEntity.ok(response);
     }
+    
+    @PostMapping("/{vendorId}/upload")
+    public ResponseEntity<VendorResponse> uploadVendorImage(
+            @PathVariable UUID vendorId,
+            @RequestParam String imageType,
+            @RequestParam(required = false) String fileUrl) {
+        
+        log.info("Upload vendor image request for vendor: {}, imageType: {}", vendorId, imageType);
+        
+        // For now, using a hardcoded userId. In production, this would come from authentication
+        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        // Mock S3 URL - in production, this would be uploaded to S3
+        String uploadedUrl = fileUrl != null ? fileUrl : 
+            "https://s3.amazonaws.com/tea-snacks/vendors/" + vendorId + "/" + imageType + ".png";
+        
+        VendorResponse response = vendorService.uploadVendorImage(vendorId, imageType, uploadedUrl, requestingUserId);
+        
+        return ResponseEntity.ok(response);
+    }
 }

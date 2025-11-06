@@ -104,4 +104,29 @@ public class VendorService {
         log.info("Vendor updated: {}", vendorId);
         return VendorMapper.toResponse(updatedVendor);
     }
+    
+    @Transactional
+    public VendorResponse uploadVendorImage(UUID vendorId, String imageType, String imageUrl, UUID requestingUserId) {
+        log.info("Uploading vendor image: vendorId={}, imageType={}", vendorId, imageType);
+        
+        Vendor vendor = vendorRepository.findById(vendorId)
+            .orElseThrow(() -> new VendorNotFoundException("Vendor not found"));
+        
+        // Authorization
+        if (!vendor.getUserId().equals(requestingUserId)) {
+            throw new RuntimeException("Not authorized to update this vendor");
+        }
+        
+        // Update images
+        if (vendor.getImages() == null) {
+            vendor.setImages(new HashMap<>());
+        }
+        
+        vendor.getImages().put(imageType, imageUrl);
+        
+        Vendor updatedVendor = vendorRepository.save(vendor);
+        
+        log.info("Vendor image uploaded: vendorId={}, imageType={}", vendorId, imageType);
+        return VendorMapper.toResponse(updatedVendor);
+    }
 }

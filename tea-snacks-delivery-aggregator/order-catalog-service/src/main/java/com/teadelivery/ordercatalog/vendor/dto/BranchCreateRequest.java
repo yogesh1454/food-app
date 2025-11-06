@@ -45,4 +45,10 @@ public class BranchCreateRequest {
     @NotBlank(message = "Branch manager name is required")
     @Size(min = 3, max = 255, message = "Manager name must be between 3 and 255 characters")
     private String branchManagerName;
+    
+    // Optional: Preferences (can be set during creation or updated later)
+    private Map<String, Object> preferences;
+    
+    // Optional: Operating hours (can be set during creation or updated later)
+    private Map<String, Object> operatingHours;
 }
