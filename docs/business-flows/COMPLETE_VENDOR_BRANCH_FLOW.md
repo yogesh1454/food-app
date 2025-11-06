@@ -49,97 +49,90 @@
 
 ---
 
-## 🚀 Vendor Registration (Unified with First Branch)
+## 🚀 Vendor & Branch Onboarding (Streamlined)
 
-### Phase 1: Initial Vendor Registration
+### Phase 1: Vendor Registration
 
 **Actor:** Vendor (Restaurant Owner/Manager)  
-**Goal:** Register as a vendor with their first branch
+**Goal:** Register as a vendor
 
-#### Step 1.1: Register Vendor with First Branch (UNIFIED)
+#### Step 1.1: Search for Existing Vendor (Optional)
 
 ```
-POST /api/v1/vendors/onboard
+GET /api/v1/vendors/{vendorId}
+
+Expected Response (200 OK):
+{
+  "vendorId": "4d8373d6-b727-4649-8685-3de1e6ca3f99",
+  "companyName": "Chai Express",
+  "brandName": "Chai Express - Premium Tea",
+  "companyEmail": "contact@chaiexpress.com",
+  "companyPhone": "+91-9876543210",
+  "address": {...},
+  "branches": [
+    {
+      "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
+      "branchName": "Chai Express - Koramangala",
+      "onboardingStatus": "APPROVED"
+    }
+  ],
+  "images": {...},
+  "createdAt": "2025-11-06T22:32:00Z"
+}
+```
+
+---
+
+#### Step 1.2: Create New Vendor
+
+```
+POST /api/v1/vendors
 Content-Type: application/json
 
 Request Body:
 {
-  "vendor": {
-    "companyName": "Chai Express",
-    "brandName": "Chai Express - Premium Tea",
-    "companyEmail": "contact@chaiexpress.com",
-    "companyPhone": "+91-9876543210",
-    "pan": "AAACR5055K",
-    "gst": "18AABCT1234H1Z0",
-    "address": {
-      "street": "123 Business Park",
-      "city": "Bangalore",
-      "state": "Karnataka",
-      "zipCode": "560001",
-      "country": "India"
-    },
-    "metadata": {
-      "businessType": "QSR",
-      "cuisineType": ["Tea", "Snacks"],
-      "averageOrderValue": 250,
-      "yearsInBusiness": 5
-    },
-    "tags": ["premium", "tea-specialist", "quick-service"]
+  "companyName": "Chai Express",
+  "brandName": "Chai Express - Premium Tea",
+  "companyEmail": "contact@chaiexpress.com",
+  "companyPhone": "+91-9876543210",
+  "address": {
+    "street": "123 Business Park",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "zipCode": "560001",
+    "country": "India"
   },
-  "firstBranch": {
-    "branchName": "Chai Express - Koramangala",
-    "branchCode": "CE-KOR-001",
-    "address": {
-      "street": "456 Koramangala 1st Block",
-      "city": "Bangalore",
-      "state": "Karnataka",
-      "zipCode": "560034",
-      "country": "India"
-    },
-    "latitude": 12.9352,
-    "longitude": 77.6245,
-    "preferences": {
-      "auto_accept_orders": false,
-      "max_orders_per_hour": 50,
-      "delivery_radius_km": 5,
-      "min_order_value": 100,
-      "accepts_cash": true,
-      "accepts_online_payment": true,
-      "packing_time_minutes": 10,
-      "commission_rate": 18.5,
-      "priority_delivery": false
-    }
-  }
+  "metadata": {
+    "businessType": "QSR",
+    "cuisineType": ["Tea", "Snacks"],
+    "averageOrderValue": 250,
+    "yearsInBusiness": 5
+  },
+  "tags": ["premium", "tea-specialist", "quick-service"]
 }
 
 Expected Response (201 Created):
 {
   "vendorId": "4d8373d6-b727-4649-8685-3de1e6ca3f99",
-  "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
   "companyName": "Chai Express",
   "brandName": "Chai Express - Premium Tea",
-  "firstBranchName": "Chai Express - Koramangala",
+  "companyEmail": "contact@chaiexpress.com",
   "onboardingStatus": "PENDING",
-  "message": "Vendor and first branch created successfully. Please upload documents to complete onboarding.",
   "createdAt": "2025-11-06T22:32:00Z"
 }
 ```
 
 **Validation Points:**
 - ✅ Email format validation
-- ✅ PAN format validation (10 alphanumeric)
-- ✅ GST format validation (15 alphanumeric)
 - ✅ Phone number validation
 - ✅ Duplicate email check
-- ✅ Latitude/Longitude format validation
-- ✅ Duplicate branch code check
 
 ---
 
-#### Step 1.2: Upload Vendor Company Logo & Brand Assets
+#### Step 1.3: Upload Vendor Logo & Brand Assets
 
 ```
-POST /api/v1/vendors/{vendorId}/images
+POST /api/v1/vendors/{vendorId}/upload
 Content-Type: multipart/form-data
 
 Request:
@@ -159,175 +152,211 @@ Expected Response (200 OK):
 
 ---
 
-#### Step 1.3: Upload First Branch Documents (FSSAI, GST, SHOP_ACT, ID_PROOF)
+### Phase 2: Branch Onboarding
+
+**Actor:** Vendor  
+**Goal:** Add a branch for the vendor
+
+#### Step 2.1: Create Branch with Preferences & Operating Hours
 
 ```
-POST /api/v1/branches/{branchId}/documents
+POST /api/v1/vendors/{vendorId}/branches
+Content-Type: application/json
+
+Request Body:
+{
+  "branchName": "Chai Express - Koramangala",
+  "branchCode": "CE-KOR-001",
+  "address": {
+    "street": "456 Koramangala 1st Block",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "zipCode": "560034",
+    "country": "India"
+  },
+  "latitude": 12.9352,
+  "longitude": 77.6245,
+  "preferences": {
+    "auto_accept_orders": false,
+    "max_orders_per_hour": 50,
+    "delivery_radius_km": 5,
+    "min_order_value": 100,
+    "accepts_cash": true,
+    "accepts_online_payment": true,
+    "packing_time_minutes": 10,
+    "commission_rate": 18.5,
+    "priority_delivery": false
+  },
+  "operatingHours": {
+    "timeSlots": [
+      {
+        "day": "MONDAY",
+        "openTime": "06:00",
+        "closeTime": "22:00"
+      },
+      {
+        "day": "TUESDAY",
+        "openTime": "06:00",
+        "closeTime": "22:00"
+      },
+      {
+        "day": "WEDNESDAY",
+        "openTime": "06:00",
+        "closeTime": "22:00"
+      },
+      {
+        "day": "THURSDAY",
+        "openTime": "06:00",
+        "closeTime": "22:00"
+      },
+      {
+        "day": "FRIDAY",
+        "openTime": "06:00",
+        "closeTime": "23:00"
+      },
+      {
+        "day": "SATURDAY",
+        "openTime": "07:00",
+        "closeTime": "23:00"
+      },
+      {
+        "day": "SUNDAY",
+        "openTime": "08:00",
+        "closeTime": "22:00"
+      }
+    ]
+  }
+}
+
+Expected Response (201 Created):
+{
+  "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
+  "vendorId": "4d8373d6-b727-4649-8685-3de1e6ca3f99",
+  "branchName": "Chai Express - Koramangala",
+  "branchCode": "CE-KOR-001",
+  "onboardingStatus": "PENDING",
+  "isActive": true,
+  "isOpen": false,
+  "createdAt": "2025-11-06T22:35:00Z"
+}
+```
+
+**Validation Points:**
+- ✅ Vendor exists check
+- ✅ Authorization (user owns vendor)
+- ✅ Latitude/Longitude format validation
+- ✅ Duplicate branch code check
+- ✅ Preferences validation
+- ✅ Operating hours validation
+
+---
+
+#### Step 2.2: Upload Branch Images & Documents
+
+```
+POST /api/v1/branches/{branchId}/upload
 Content-Type: multipart/form-data
 
-Request 1 - FSSAI License:
+Request 1 - Storefront Image:
+- imageType: "storefront"
+- file: <storefront.jpg>
+
+Request 2 - FSSAI Document:
 - documentType: "FSSAI"
 - file: <fssai_license.pdf>
 - issueDate: "2023-01-15"
 - expiryDate: "2026-01-15"
 
-Expected Response (201 Created):
-{
-  "documentId": "doc-001",
-  "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
-  "documentType": "FSSAI",
-  "documentUrl": "https://s3.amazonaws.com/tea-snacks/branches/be1bff1a-bab0-48cd-b758-200b43efd101/FSSAI.pdf",
-  "verificationStatus": "PENDING",
-  "issueDate": "2023-01-15",
-  "expiryDate": "2026-01-15",
-  "uploadedAt": "2025-11-06T22:36:00Z"
-}
-
-Request 2 - GST Certificate:
+Request 3 - GST Document:
 - documentType: "GST"
 - file: <gst_certificate.pdf>
-- issueDate: "2022-06-01"
-- expiryDate: null
 
-Request 3 - Shop Act License:
+Request 4 - Shop Act Document:
 - documentType: "SHOP_ACT"
 - file: <shop_act.pdf>
-- issueDate: "2023-03-20"
-- expiryDate: "2028-03-20"
 
-Request 4 - ID Proof:
+Request 5 - ID Proof Document:
 - documentType: "ID_PROOF"
 - file: <id_proof.pdf>
-- issueDate: "2020-05-10"
-- expiryDate: "2030-05-10"
-```
-
----
-
-#### Step 1.4: Upload First Branch Images (Storefront, Interior, Kitchen)
-
-```
-POST /api/v1/branches/{branchId}/images
-Content-Type: multipart/form-data
-
-Request 1 - Storefront:
-- imageType: "storefront"
-- file: <storefront.jpg>
-
-Request 2 - Interior:
-- imageType: "interior"
-- file: <interior.jpg>
-
-Request 3 - Kitchen:
-- imageType: "kitchen"
-- file: <kitchen.jpg>
 
 Expected Response (200 OK):
 {
   "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
   "images": {
-    "logo": null,
-    "cover_photo": null,
     "storefront": "https://s3.amazonaws.com/.../storefront.jpg",
-    "interior": ["https://s3.amazonaws.com/.../interior.jpg"],
-    "kitchen": ["https://s3.amazonaws.com/.../kitchen.jpg"],
+    "interior": [],
+    "kitchen": [],
     "gallery": []
-  }
-}
-```
-
----
-
-#### Step 1.5: Set Operating Hours for First Branch
-
-```
-PUT /api/v1/branches/{branchId}/operating-hours
-Content-Type: application/json
-
-Request Body:
-{
-  "timeSlots": [
+  },
+  "documents": [
     {
-      "day": "MONDAY",
-      "openTime": "06:00",
-      "closeTime": "22:00"
+      "documentId": "doc-001",
+      "documentType": "FSSAI",
+      "documentUrl": "https://s3.amazonaws.com/.../FSSAI.pdf",
+      "verificationStatus": "PENDING"
     },
     {
-      "day": "TUESDAY",
-      "openTime": "06:00",
-      "closeTime": "22:00"
+      "documentId": "doc-002",
+      "documentType": "GST",
+      "documentUrl": "https://s3.amazonaws.com/.../GST.pdf",
+      "verificationStatus": "PENDING"
     },
     {
-      "day": "WEDNESDAY",
-      "openTime": "06:00",
-      "closeTime": "22:00"
+      "documentId": "doc-003",
+      "documentType": "SHOP_ACT",
+      "documentUrl": "https://s3.amazonaws.com/.../SHOP_ACT.pdf",
+      "verificationStatus": "PENDING"
     },
     {
-      "day": "THURSDAY",
-      "openTime": "06:00",
-      "closeTime": "22:00"
-    },
-    {
-      "day": "FRIDAY",
-      "openTime": "06:00",
-      "closeTime": "23:00"
-    },
-    {
-      "day": "SATURDAY",
-      "openTime": "07:00",
-      "closeTime": "23:00"
-    },
-    {
-      "day": "SUNDAY",
-      "openTime": "08:00",
-      "closeTime": "22:00"
+      "documentId": "doc-004",
+      "documentType": "ID_PROOF",
+      "documentUrl": "https://s3.amazonaws.com/.../ID_PROOF.pdf",
+      "verificationStatus": "PENDING"
     }
   ]
 }
-
-Expected Response (200 OK):
-{
-  "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
-  "operatingHours": {
-    "timeSlots": [...],
-    "timezone": "Asia/Kolkata"
-  },
-  "updatedAt": "2025-11-06T22:42:00Z"
-}
 ```
 
 ---
 
-#### Step 1.6: Update Branch Preferences
+#### Step 2.3: Update Branch (Future Changes)
 
 ```
-PUT /api/v1/branches/{branchId}/preferences
+PUT /api/v1/vendors/{vendorId}/branches/{branchId}
 Content-Type: application/json
 
-Request Body:
+Request Body (Any combination of these):
 {
-  "auto_accept_orders": true,
-  "max_orders_per_hour": 60,
-  "delivery_radius_km": 7,
-  "min_order_value": 150,
-  "accepts_cash": true,
-  "accepts_online_payment": true,
-  "packing_time_minutes": 15,
-  "commission_rate": 18.5,
-  "priority_delivery": true
+  "branchName": "Chai Express - Koramangala Updated",
+  "preferences": {
+    "auto_accept_orders": true,
+    "max_orders_per_hour": 60,
+    "delivery_radius_km": 7,
+    "min_order_value": 150,
+    "accepts_cash": true,
+    "accepts_online_payment": true,
+    "packing_time_minutes": 15,
+    "commission_rate": 18.5,
+    "priority_delivery": true
+  },
+  "operatingHours": {
+    "timeSlots": [...]
+  }
 }
 
 Expected Response (200 OK):
 {
   "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
+  "branchName": "Chai Express - Koramangala Updated",
   "preferences": {...},
-  "updatedAt": "2025-11-06T22:40:00Z"
+  "operatingHours": {...},
+  "updatedAt": "2025-11-06T22:50:00Z"
 }
 ```
 
 ---
 
-#### Step 1.7: Get Vendor & First Branch Details
+#### Step 2.4: Get Vendor with All Branches
 
 ```
 GET /api/v1/vendors/{vendorId}
@@ -343,10 +372,17 @@ Expected Response (200 OK):
     {
       "branchId": "be1bff1a-bab0-48cd-b758-200b43efd101",
       "branchName": "Chai Express - Koramangala",
+      "branchCode": "CE-KOR-001",
       "address": {...},
+      "latitude": 12.9352,
+      "longitude": 77.6245,
       "onboardingStatus": "DOCUMENTS_SUBMITTED",
       "isActive": true,
-      "isOpen": false
+      "isOpen": false,
+      "preferences": {...},
+      "operatingHours": {...},
+      "images": {...},
+      "documents": [...]
     }
   ],
   "images": {...},
@@ -356,69 +392,12 @@ Expected Response (200 OK):
 
 ---
 
-## 🏪 Adding Additional Branches
+### Phase 3: Adding Additional Branches
 
 **Actor:** Vendor  
-**Goal:** Add a new branch location to existing vendor
+**Goal:** Add more branch locations
 
-### Phase 2: Create Additional Branch
-
-#### Step 2.1: Create Additional Branch
-
-```
-POST /api/v1/branches/vendors/{vendorId}
-Content-Type: application/json
-
-Request Body:
-{
-  "branchName": "Chai Express - Indiranagar",
-  "branchCode": "CE-IND-002",
-  "address": {
-    "street": "789 Indiranagar 100 Feet Road",
-    "city": "Bangalore",
-    "state": "Karnataka",
-    "zipCode": "560038",
-    "country": "India"
-  },
-  "latitude": 12.9716,
-  "longitude": 77.6412,
-  "preferences": {
-    "auto_accept_orders": true,
-    "max_orders_per_hour": 60,
-    "delivery_radius_km": 7,
-    "min_order_value": 150,
-    "accepts_cash": true,
-    "accepts_online_payment": true,
-    "packing_time_minutes": 15,
-    "commission_rate": 18.5,
-    "priority_delivery": true
-  }
-}
-
-Expected Response (201 Created):
-{
-  "branchId": "cf2cgg2b-cbc1-49de-c869-301c54fge202",
-  "vendorId": "4d8373d6-b727-4649-8685-3de1e6ca3f99",
-  "branchName": "Chai Express - Indiranagar",
-  "branchCode": "CE-IND-002",
-  "onboardingStatus": "PENDING",
-  "isActive": true,
-  "isOpen": false,
-  "createdAt": "2025-11-06T23:00:00Z"
-}
-```
-
-#### Step 2.2: Upload Documents for New Branch
-
-Same as Step 1.3 - Upload FSSAI, GST, SHOP_ACT, ID_PROOF
-
-#### Step 2.3: Upload Images for New Branch
-
-Same as Step 1.4 - Upload storefront, interior, kitchen images
-
-#### Step 2.4: Set Operating Hours for New Branch
-
-Same as Step 1.5 - Set operating hours
+**Process:** Repeat Phase 2 (Steps 2.1 - 2.4) for each additional branch
 
 ---
 
@@ -623,62 +602,61 @@ Expected Response (200 OK):
 
 ---
 
-## 🧪 Testing Scenarios
+## 🧪 Testing Scenarios (Streamlined)
 
-### Scenario 1: Complete Vendor Onboarding (Happy Path)
+### Scenario 1: Complete Vendor & Branch Onboarding (Happy Path)
 ```
-1. POST /api/v1/vendors/onboard ✅ (Create vendor + first branch)
-2. POST /api/v1/vendors/{vendorId}/images ✅ (Upload vendor logo)
-3. POST /api/v1/branches/{branchId}/documents ✅ (Upload 4 documents)
-4. POST /api/v1/branches/{branchId}/images ✅ (Upload branch images)
-5. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Set hours)
-6. PUT /api/v1/branches/{branchId}/preferences ✅ (Update preferences)
-7. GET /api/v1/vendors/{vendorId} ✅ (Verify complete setup)
+1. POST /api/v1/vendors ✅ (Create vendor)
+2. POST /api/v1/vendors/{vendorId}/upload ✅ (Upload vendor logo)
+3. POST /api/v1/vendors/{vendorId}/branches ✅ (Create branch with preferences & hours)
+4. POST /api/v1/branches/{branchId}/upload ✅ (Upload images & documents)
+5. GET /api/v1/vendors/{vendorId} ✅ (Verify complete setup)
 ```
 
 ### Scenario 2: Add Additional Branch
 ```
-1. POST /api/v1/branches/vendors/{vendorId} ✅ (Create new branch)
-2. POST /api/v1/branches/{branchId}/documents ✅ (Upload documents)
-3. POST /api/v1/branches/{branchId}/images ✅ (Upload images)
-4. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Set hours)
-5. GET /api/v1/vendors/{vendorId} ✅ (Verify 2 branches)
+1. POST /api/v1/vendors/{vendorId}/branches ✅ (Create new branch)
+2. POST /api/v1/branches/{branchId}/upload ✅ (Upload images & documents)
+3. GET /api/v1/vendors/{vendorId} ✅ (Verify 2 branches)
 ```
 
-### Scenario 3: Menu Management (Per Branch)
+### Scenario 3: Update Existing Branch
+```
+1. PUT /api/v1/vendors/{vendorId}/branches/{branchId} ✅ (Update preferences/hours)
+2. GET /api/v1/vendors/{vendorId} ✅ (Verify updates)
+```
+
+### Scenario 4: Menu Management (Per Branch)
 ```
 1. POST /api/v1/menu-items/branches/{branchId1} ✅ (Create items for branch 1)
 2. POST /api/v1/menu-items/branches/{branchId2} ✅ (Create items for branch 2)
 3. GET /api/v1/menu-items/branches/{branchId1} ✅ (Get branch 1 menu)
 4. GET /api/v1/menu-items/branches/{branchId2} ✅ (Get branch 2 menu)
-5. PUT /api/v1/menu-items/{menuItemId} ✅ (Update item in branch 1)
-6. DELETE /api/v1/menu-items/{menuItemId} ✅ (Delete item from branch 1)
+5. PUT /api/v1/menu-items/{menuItemId} ✅ (Update item)
+6. DELETE /api/v1/menu-items/{menuItemId} ✅ (Delete item)
 ```
 
-### Scenario 4: Daily Operations
+### Scenario 5: Daily Operations
 ```
 1. GET /api/v1/branches/{branchId}/availability ✅ (Check status)
-2. PUT /api/v1/branches/{branchId}/status ✅ (Toggle online)
-3. GET /api/v1/branches/{branchId}/availability ✅ (Verify status)
-4. PUT /api/v1/branches/{branchId}/operating-hours ✅ (Update hours)
-5. GET /api/v1/branches/{branchId}/operating-hours ✅ (Get hours)
+2. PUT /api/v1/branches/{branchId}/status ✅ (Toggle online/offline)
+3. GET /api/v1/branches/{branchId}/availability ✅ (Verify status change)
 ```
 
-### Scenario 5: Error Cases
+### Scenario 6: Error Cases
 ```
-1. POST /api/v1/vendors/onboard with invalid email ❌
-2. POST /api/v1/vendors/onboard with duplicate email ❌
-3. POST /api/v1/branches with invalid coordinates ❌
-4. POST /api/v1/menu-items with negative price ❌
-5. POST /api/v1/menu-items with duplicate name in same branch ❌
-6. PUT /api/v1/branches/{branchId}/operating-hours with overlapping times ❌
-7. DELETE /api/v1/menu-items/{invalidId} ❌
-8. GET /api/v1/branches/{invalidId} ❌
+1. POST /api/v1/vendors with invalid email ❌
+2. POST /api/v1/vendors with duplicate email ❌
+3. POST /api/v1/vendors/{vendorId}/branches with invalid coordinates ❌
+4. POST /api/v1/vendors/{vendorId}/branches with overlapping operating hours ❌
+5. POST /api/v1/menu-items with negative price ❌
+6. DELETE /api/v1/menu-items/{invalidId} ❌
+7. GET /api/v1/vendors/{invalidId} ❌
 ```
 
-### Scenario 6: Authorization Checks
+### Scenario 7: Authorization Checks
 ```
-1. User A registers vendor ✅
+1. User A creates vendor ✅
 2. User B tries to update vendor ❌ (Unauthorized)
 3. User A creates branch ✅
 4. User B tries to update branch ❌ (Unauthorized)
@@ -688,27 +666,21 @@ Expected Response (200 OK):
 
 ---
 
-## 📊 API Endpoint Reference
+## 📊 API Endpoint Reference (Streamlined)
 
 ### Vendor Management
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/v1/vendors/onboard` | Register vendor with first branch (UNIFIED) |
-| GET | `/api/v1/vendors/{vendorId}` | Get vendor details with all branches |
-| POST | `/api/v1/vendors/{vendorId}/images` | Upload vendor logo/brand assets |
+| GET | `/api/v1/vendors/{vendorId}` | Search for existing vendor |
+| POST | `/api/v1/vendors` | Create new vendor |
+| POST | `/api/v1/vendors/{vendorId}/upload` | Upload vendor logo/brand assets |
 
 ### Branch Management
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/v1/branches/vendors/{vendorId}` | Create additional branch |
-| GET | `/api/v1/branches/{branchId}` | Get branch details |
-| PUT | `/api/v1/branches/{branchId}` | Update branch |
-| POST | `/api/v1/branches/{branchId}/documents` | Upload branch documents |
-| GET | `/api/v1/branches/{branchId}/documents` | Get branch documents |
-| POST | `/api/v1/branches/{branchId}/images` | Upload branch images |
-| PUT | `/api/v1/branches/{branchId}/preferences` | Update branch preferences |
-| PUT | `/api/v1/branches/{branchId}/operating-hours` | Set operating hours |
-| GET | `/api/v1/branches/{branchId}/operating-hours` | Get operating hours |
+| POST | `/api/v1/vendors/{vendorId}/branches` | Create branch (with preferences & operating hours) |
+| PUT | `/api/v1/vendors/{vendorId}/branches/{branchId}` | Update branch details |
+| POST | `/api/v1/branches/{branchId}/upload` | Upload branch images & documents |
 | GET | `/api/v1/branches/{branchId}/availability` | Check branch availability |
 | PUT | `/api/v1/branches/{branchId}/status` | Toggle online/offline |
 
