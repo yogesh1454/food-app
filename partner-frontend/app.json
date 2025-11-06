@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Nashtto Restaurant App",
+    "slug": "nashtto-restaurant-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+       "**/*"
+     ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nashtto.restaurant",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.nashtto.restaurant",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-image-picker",
+      "expo-document-picker"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d482200c-a454-46c3-a0fa-8b5ec45e159f"
+      }
+    },
+    "owner": "nishitapurv"
+  }
+}
