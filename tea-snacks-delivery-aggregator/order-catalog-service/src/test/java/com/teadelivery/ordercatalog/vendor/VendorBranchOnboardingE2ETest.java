@@ -120,14 +120,15 @@ public class VendorBranchOnboardingE2ETest {
     @Order(2)
     @DisplayName("UC-V001: Register New Vendor - Duplicate Email (409 Conflict)")
     public void testRegisterNewVendor_DuplicateEmail() throws Exception {
-        // Arrange - Same email as previous test
+        // Arrange - Same email as previous test but different user
         VendorRegistrationRequest request = new VendorRegistrationRequest();
         request.setCompanyName("Another Company");
         request.setCompanyEmail("contact@chaiexpress.com"); // Duplicate
         request.setCompanyPhone("9876543211");
 
-        // Act & Assert
+        // Act & Assert - Use different userId to test email uniqueness
         mockMvc.perform(post("/api/v1/vendors")
+                .header("X-User-Id", "660e8400-e29b-41d4-a716-446655440001") // Different user
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -252,6 +253,8 @@ public class VendorBranchOnboardingE2ETest {
     @Order(9)
     @DisplayName("UC-B001: Create First Branch - Success")
     public void testCreateBranch_Success() throws Exception {
+        System.out.println("🔍 DEBUG: vendorId at start of testCreateBranch_Success = " + vendorId);
+        
         // Arrange
         BranchCreateRequest request = new BranchCreateRequest();
         request.setBranchName("Chai Express - Koramangala");

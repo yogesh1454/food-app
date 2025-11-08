@@ -95,12 +95,18 @@ public class VendorController {
                     )
                 )
             )
-            @Valid @RequestBody VendorRegistrationRequest request) {
+            @Valid @RequestBody VendorRegistrationRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
         
         log.info("Register vendor request: {}", request.getCompanyName());
         
-        // For now, using a hardcoded userId. In production, this would come from authentication
-        UUID userId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        // Use header userId for testing, fallback to hardcoded for development
+        // In production, this would come from JWT authentication
+        UUID userId = (userIdHeader != null && !userIdHeader.isEmpty()) 
+            ? UUID.fromString(userIdHeader)
+            : UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        log.debug("Using userId: {}", userId);
         
         return vendorService.registerVendor(request, userId);
     }
