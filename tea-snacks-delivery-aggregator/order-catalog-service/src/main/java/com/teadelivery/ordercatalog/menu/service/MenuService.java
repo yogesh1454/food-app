@@ -66,7 +66,7 @@ public class MenuService {
     }
     
     @Transactional(readOnly = true)
-    public MenuItemResponse getMenuItem(UUID menuItemId) {
+    public MenuItemResponse getMenuItem(Long menuItemId) {
         log.info("Fetching menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
@@ -95,7 +95,7 @@ public class MenuService {
     }
     
     @Transactional
-    public MenuItemResponse updateMenuItem(UUID menuItemId, MenuItemUpdateRequest request, UUID requestingUserId) {
+    public MenuItemResponse updateMenuItem(Long menuItemId, MenuItemUpdateRequest request, UUID requestingUserId) {
         log.info("Updating menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
@@ -146,7 +146,7 @@ public class MenuService {
     }
     
     @Transactional
-    public void deleteMenuItem(UUID menuItemId, UUID requestingUserId) {
+    public void deleteMenuItem(Long menuItemId, UUID requestingUserId) {
         log.info("Deleting menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)

@@ -29,9 +29,9 @@ import java.util.*;
 public class Order {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "order_id")
-    private UUID orderId;
+    private Long orderId;
     
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;

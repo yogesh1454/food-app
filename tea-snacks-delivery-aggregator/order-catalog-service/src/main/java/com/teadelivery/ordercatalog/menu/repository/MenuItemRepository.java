@@ -10,15 +10,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface MenuItemRepository extends JpaRepository<MenuItem, UUID> {
+public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
     List<MenuItem> findByBranchAndIsDeletedFalse(VendorBranch branch);
     Page<MenuItem> findByBranchAndIsDeletedFalse(VendorBranch branch, Pageable pageable);
     Page<MenuItem> findByBranchAndCategoryAndIsDeletedFalse(VendorBranch branch, String category, Pageable pageable);
     Page<MenuItem> findByBranchAndIsAvailableTrueAndIsDeletedFalse(VendorBranch branch, Pageable pageable);
-    Optional<MenuItem> findByMenuItemIdAndIsDeletedFalse(UUID menuItemId);
+    Optional<MenuItem> findByMenuItemIdAndIsDeletedFalse(Long menuItemId);
     
     @Query("SELECT COUNT(m) FROM MenuItem m WHERE m.branch = :branch AND m.isAvailable = true AND m.isDeleted = false")
     long countAvailableItems(VendorBranch branch);

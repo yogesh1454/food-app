@@ -128,8 +128,8 @@ public class MenuController {
     })
     @GetMapping("/{menuItemId}")
     public MenuItemResponse getMenuItem(
-            @Parameter(description = "Menu Item ID (UUID)", example = "550e8400-e29b-41d4-a716-446655440001", required = true)
-            @PathVariable UUID menuItemId) {
+            @Parameter(description = "Menu Item ID", example = "1", required = true)
+            @PathVariable Long menuItemId) {
         
         log.info("Get menu item request: {}", menuItemId);
         
@@ -215,8 +215,8 @@ public class MenuController {
     })
     @PutMapping("/{menuItemId}")
     public MenuItemResponse updateMenuItem(
-            @Parameter(description = "Menu Item ID (UUID)", example = "550e8400-e29b-41d4-a716-446655440001", required = true)
-            @PathVariable UUID menuItemId,
+            @Parameter(description = "Menu Item ID", example = "1", required = true)
+            @PathVariable Long menuItemId,
             @Valid @RequestBody MenuItemUpdateRequest request) {
         
         log.info("Update menu item request: {}", menuItemId);
@@ -256,8 +256,8 @@ public class MenuController {
     @DeleteMapping("/{menuItemId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteMenuItem(
-            @Parameter(description = "Menu Item ID (UUID)", example = "550e8400-e29b-41d4-a716-446655440001", required = true)
-            @PathVariable UUID menuItemId) {
+            @Parameter(description = "Menu Item ID", example = "1", required = true)
+            @PathVariable Long menuItemId) {
         
         log.info("Delete menu item request: {}", menuItemId);
         
