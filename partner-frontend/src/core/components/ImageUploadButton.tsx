@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import fileUploadService, { UploadResult } from '../services/fileUploadService';
+import { FileUploadService } from '../services/fileUploadService';
 import ImagePickerModal from './ImagePickerModal';
 
 interface ImageUploadButtonProps {

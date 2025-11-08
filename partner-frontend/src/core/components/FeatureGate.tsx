@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import featureFlags, { FeatureFlags } from '../services/featureFlags';
+import { FeatureFlagService } from '../services/featureFlags';
 
 interface FeatureGateProps {
-  feature: keyof FeatureFlags;
+  feature: string;
   fallback?: React.ReactNode;
   children: React.ReactNode;
   showDisabledMessage?: boolean;
@@ -19,7 +19,7 @@ export default function FeatureGate({
   children,
   showDisabledMessage = false,
 }: FeatureGateProps) {
-  const isEnabled = featureFlags.isEnabled(feature);
+  const isEnabled = FeatureFlagService.isEnabled(feature);
 
   if (!isEnabled) {
     if (fallback) {
@@ -52,11 +52,11 @@ const styles = StyleSheet.create({
  * Higher-order component version for conditional rendering
  */
 export function withFeatureFlag<P extends object>(
-  feature: keyof FeatureFlags,
+  feature: string,
   Component: React.ComponentType<P>
 ) {
   return function FeatureFlaggedComponent(props: P) {
-    const isEnabled = featureFlags.isEnabled(feature);
+    const isEnabled = FeatureFlagService.isEnabled(feature);
     
     if (!isEnabled) {
       return null;

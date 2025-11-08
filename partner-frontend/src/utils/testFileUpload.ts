@@ -3,8 +3,8 @@
  * This file demonstrates how to test the implemented file upload features
  */
 
-import fileUploadService from '../services/fileUploadService';
-import { apiService } from '../services/api';
+import { FileUploadService } from '../core/services/fileUploadService';
+import { apiService } from '../core/services/api';
 
 export const testFileUploadFeatures = async () => {
   console.log('🧪 Testing File Upload Features...\n');

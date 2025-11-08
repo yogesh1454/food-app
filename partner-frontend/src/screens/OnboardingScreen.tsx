@@ -19,7 +19,8 @@ import { useDispatch } from 'react-redux';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { setRestaurant } from '../store/slices/restaurantSlice';
 import { setFirstTime } from '../store/slices/authSlice';
-import { commonStyles, colors } from '../constants/styles';
+import { commonStyles } from '../core/styles/commonStyles';
+import { colors } from '../core/constants/colors';
 import ImageUploadButton from '../core/components/ImageUploadButton';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
 
@@ -498,7 +499,7 @@ export default function OnboardingScreen() {
       staff: [],
     }));
     dispatch(setFirstTime(false));
-    navigation.navigate('Main');
+    navigation.navigate('PostOnboarding');
   };
 
   const handleSkip = () => {

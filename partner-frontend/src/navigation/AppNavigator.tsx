@@ -7,6 +7,7 @@ import { RootState } from '../store';
 
 // Import screens from feature modules
 import { WelcomeScreen, OnboardingScreen } from '../features/onboarding';
+import PostOnboardingScreen from '../screens/PostOnboardingScreen';
 import { UploadTestScreen } from '../features/upload';
 import { DashboardScreen } from '../features/dashboard';
 import { MenuScreen } from '../features/menu';
@@ -16,6 +17,7 @@ import { ProfileScreen } from '../features/profile';
 export type RootStackParamList = {
   Welcome: undefined;
   Onboarding: undefined;
+  PostOnboarding: undefined;
   Main: undefined;
   UploadTest: undefined;
 };
@@ -91,6 +93,7 @@ export default function AppNavigator() {
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="PostOnboarding" component={PostOnboardingScreen} />
         <Stack.Screen name="UploadTest" component={UploadTestScreen} />
         <Stack.Screen name="Main" component={MainTabNavigator} />
       </Stack.Navigator>

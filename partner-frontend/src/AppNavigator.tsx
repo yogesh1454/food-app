@@ -3,20 +3,22 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
-import { RootState } from '../store';
+import { RootState } from './store';
 
 // Import screens (we'll create these next)
-import WelcomeScreen from '../screens/WelcomeScreen';
-import OnboardingScreen from '../screens/OnboardingScreen';
-import UploadTestScreen from '../screens/UploadTestScreen';
-import DashboardScreen from '../screens/DashboardScreen';
-import MenuScreen from '../screens/MenuScreen';
-import OrdersScreen from '../screens/OrdersScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import WelcomeScreen from './screens/WelcomeScreen';
+import OnboardingScreen from './screens/OnboardingScreen';
+import PostOnboardingScreen from './screens/PostOnboardingScreen';
+import UploadTestScreen from './screens/UploadTestScreen';
+import DashboardScreen from './screens/DashboardScreen';
+import MenuScreen from './screens/MenuScreen';
+import OrdersScreen from './screens/OrdersScreen';
+import ProfileScreen from './screens/ProfileScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
   Onboarding: undefined;
+  PostOnboarding: undefined;
   Main: undefined;
   UploadTest: undefined;
 };
@@ -92,6 +94,7 @@ export default function AppNavigator() {
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="PostOnboarding" component={PostOnboardingScreen} />
         <Stack.Screen name="UploadTest" component={UploadTestScreen} />
         <Stack.Screen name="Main" component={MainTabNavigator} />
       </Stack.Navigator>

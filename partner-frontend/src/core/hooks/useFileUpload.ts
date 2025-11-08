@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import fileUploadService from '../services/fileUploadService';
+import { FileUploadService } from '../services/fileUploadService';
 
 interface UseFileUploadReturn {
   uploading: boolean;
@@ -15,7 +15,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const uploadImage = async (): Promise<string | null> => {
     setUploading(true);
     try {
-      return await fileUploadService.uploadImage();
+      const result = await FileUploadService.pickImage();
+      return result ? result.uri : null;
     } finally {
       setUploading(false);
     }
@@ -24,7 +25,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const uploadDocument = async (): Promise<string | null> => {
     setUploading(true);
     try {
-      return await fileUploadService.uploadDocument();
+      const result = await FileUploadService.pickDocument();
+      return result ? result.uri : null;
     } finally {
       setUploading(false);
     }
@@ -33,11 +35,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const takePhoto = async (): Promise<string | null> => {
     setUploading(true);
     try {
-      const result = await fileUploadService.takePhoto();
-      if (result.success && result.uri) {
-        return await fileUploadService.saveToLocalStorage(result.uri, result.fileName || 'photo.jpg');
-      }
-      return null;
+      const result = await FileUploadService.pickImage();
+      return result ? result.uri : null;
     } finally {
       setUploading(false);
     }
@@ -46,11 +45,8 @@ export const useFileUpload = (): UseFileUploadReturn => {
   const pickFromGallery = async (): Promise<string | null> => {
     setUploading(true);
     try {
-      const result = await fileUploadService.pickImageFromLibrary();
-      if (result.success && result.uri) {
-        return await fileUploadService.saveToLocalStorage(result.uri, result.fileName || 'image.jpg');
-      }
-      return null;
+      const result = await FileUploadService.pickImage();
+      return result ? result.uri : null;
     } finally {
       setUploading(false);
     }

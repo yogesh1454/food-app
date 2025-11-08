@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import fileUploadService, { UploadResult } from '../services/fileUploadService';
+import { FileUploadService } from '../services/fileUploadService';
 
 interface DocumentUploadButtonProps {
   onDocumentUploaded: (uri: string, fileName: string) => void;
@@ -35,21 +35,13 @@ export default function DocumentUploadButton({
     setUploading(true);
 
     try {
-      const result = await fileUploadService.pickDocument();
+      const result = await FileUploadService.pickDocument();
       
-      if (result.success && result.uri && result.fileName) {
-        try {
-          const localUri = await fileUploadService.saveToLocalStorage(
-            result.uri,
-            result.fileName
-          );
-          onDocumentUploaded(localUri, result.fileName);
-          Alert.alert('Success', `${result.fileName} uploaded successfully!`);
-        } catch (error: any) {
-          Alert.alert('Error', error.message);
-        }
-      } else if (result.error) {
-        Alert.alert('Error', result.error);
+      if (result && result.uri && result.name) {
+        onDocumentUploaded(result.uri, result.name);
+        Alert.alert('Success', `${result.name} uploaded successfully!`);
+      } else {
+        Alert.alert('Error', 'Failed to upload document');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message);

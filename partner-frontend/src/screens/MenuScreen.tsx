@@ -19,7 +19,7 @@ import ImageUploadButton from '../core/components/ImageUploadButton';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
 import FeatureGate from '../core/components/FeatureGate';
 import featureFlags from '../core/api/featureFlags';
-import useFeatureFlags from '../hooks/useFeatureFlags';
+import { useFeatureFlags } from '../core/hooks/useFeatureFlags';
 
 const styles = StyleSheet.create({
   container: {

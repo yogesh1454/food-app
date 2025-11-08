@@ -1,7 +1,7 @@
 // Mock API service - replace with actual API calls later
-import { Order } from '../store/slices/ordersSlice';
-import { MenuItem as MenuItemType } from '../store/slices/menuSlice';
-import fileUploadService from './fileUploadService';
+import { Order } from '../../store/slices/ordersSlice';
+import { MenuItem as MenuItemType } from '../../store/slices/menuSlice';
+import { FileUploadService } from '../services/fileUploadService';
 
 class ApiService {
   private baseURL = 'https://api.nashtto.com'; // Replace with actual API URL

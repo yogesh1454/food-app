@@ -1,25 +1,25 @@
 import { useState, useEffect } from 'react';
-import featureFlags, { FeatureFlags } from '../services/featureFlags';
+import { FeatureFlagService } from '../services/featureFlags';
 
 interface UseFeatureFlagsReturn {
-  flags: FeatureFlags;
-  isEnabled: (feature: keyof FeatureFlags) => boolean;
-  areEnabled: (features: Array<keyof FeatureFlags>) => boolean[];
+  flags: Record<string, boolean>;
+  isEnabled: (feature: string) => boolean;
+  areEnabled: (features: string[]) => boolean[];
   enabledFeatures: string[];
   loading: boolean;
   error: string | null;
 }
 
 export const useFeatureFlags = (): UseFeatureFlagsReturn => {
-  const [flags, setFlags] = useState<FeatureFlags>({} as FeatureFlags);
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const initializeFlags = async () => {
       try {
-        await featureFlags.initialize();
-        setFlags(featureFlags.getFlags());
+        // FeatureFlagService doesn't need initialization
+        setFlags(FeatureFlagService.getAllFlags());
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -30,15 +30,17 @@ export const useFeatureFlags = (): UseFeatureFlagsReturn => {
     initializeFlags();
   }, []);
 
-  const isEnabled = (feature: keyof FeatureFlags): boolean => {
-    return featureFlags.isEnabled(feature);
+  const isEnabled = (feature: string): boolean => {
+    return FeatureFlagService.isEnabled(feature);
   };
 
-  const areEnabled = (features: Array<keyof FeatureFlags>): boolean[] => {
-    return featureFlags.areEnabled(features);
+  const areEnabled = (features: string[]): boolean[] => {
+    return features.map(feature => FeatureFlagService.isEnabled(feature));
   };
 
-  const enabledFeatures = featureFlags.getEnabledFeatures();
+  const enabledFeatures = Object.entries(flags)
+    .filter(([_, enabled]) => enabled)
+    .map(([feature]) => feature);
 
   return {
     flags,

@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import fileUploadService from '../services/fileUploadService';
+import { FileUploadService } from '../services/fileUploadService';
 
 interface ImagePickerModalProps {
   visible: boolean;
@@ -28,21 +28,17 @@ export default function ImagePickerModal({
       let result;
       
       if (option === 'camera') {
-        result = await fileUploadService.takePhoto();
+        result = await FileUploadService.pickImage();
       } else {
-        result = await fileUploadService.pickImageFromLibrary();
+        result = await FileUploadService.pickImage();
       }
 
-      if (result.success && result.uri) {
-        const localUri = await fileUploadService.saveToLocalStorage(
-          result.uri,
-          result.fileName || 'image.jpg'
-        );
-        onImageSelected(localUri);
+      if (result && result.uri) {
+        onImageSelected(result.uri);
         onClose();
         Alert.alert('Success', 'Image uploaded successfully!');
-      } else if (result.error) {
-        Alert.alert('Error', result.error);
+      } else {
+        Alert.alert('Error', 'Failed to upload image');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message);
