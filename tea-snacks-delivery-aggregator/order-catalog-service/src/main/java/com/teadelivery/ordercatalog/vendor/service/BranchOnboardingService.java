@@ -46,7 +46,10 @@ public class BranchOnboardingService {
         VendorBranch branch = new VendorBranch();
         branch.setVendor(vendor);
         branch.setBranchName(request.getBranchName());
-        branch.setBranchCode(generateBranchCode(vendor.getVendorId(), request.getCity()));
+        // Use provided branchCode or generate one
+        branch.setBranchCode(request.getBranchCode() != null ? 
+            request.getBranchCode() : generateBranchCode(vendor.getVendorId(), request.getCity()));
+        branch.setDisplayName(request.getDisplayName());
         branch.setAddress(request.getAddress());
         branch.setLatitude(request.getLatitude());
         branch.setLongitude(request.getLongitude());
@@ -54,6 +57,7 @@ public class BranchOnboardingService {
         branch.setBranchPhone(request.getBranchPhone());
         branch.setBranchEmail(request.getBranchEmail());
         branch.setBranchManagerName(request.getBranchManagerName());
+        branch.setBranchManagerPhone(request.getBranchManagerPhone());
         branch.setOnboardingStatus("PENDING");
         branch.setIsActive(false);
         branch.setIsOpen(false);
@@ -99,6 +103,12 @@ public class BranchOnboardingService {
         if (request.getBranchName() != null) {
             branch.setBranchName(request.getBranchName());
         }
+        if (request.getBranchCode() != null) {
+            branch.setBranchCode(request.getBranchCode());
+        }
+        if (request.getDisplayName() != null) {
+            branch.setDisplayName(request.getDisplayName());
+        }
         if (request.getAddress() != null) {
             branch.setAddress(request.getAddress());
         }
@@ -119,6 +129,9 @@ public class BranchOnboardingService {
         }
         if (request.getBranchManagerName() != null) {
             branch.setBranchManagerName(request.getBranchManagerName());
+        }
+        if (request.getBranchManagerPhone() != null) {
+            branch.setBranchManagerPhone(request.getBranchManagerPhone());
         }
         if (request.getPreferences() != null) {
             branch.setPreferences(request.getPreferences());

@@ -28,11 +28,9 @@ public class VendorRegistrationRequest {
     @Pattern(regexp = "^[0-9]{10}$", message = "Phone must be 10 digits")
     private String companyPhone;
     
-    @NotBlank(message = "PAN number is required")
-    @Pattern(regexp = "^[A-Z0-9]{10}$", message = "Invalid PAN format (must be 10 alphanumeric characters)")
+    @Pattern(regexp = "^[A-Z]{5}[0-9]{4}[A-Z]{1}$", message = "Invalid PAN format (e.g., ABCDE1234F)")
     private String panNumber;
     
-    @NotBlank(message = "GST number is required")
-    @Pattern(regexp = "^[0-9]{15}$", message = "Invalid GST format (must be 15 digits)")
+    @Pattern(regexp = "^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$", message = "Invalid GST format (e.g., 29ABCDE1234F1Z5)")
     private String gstNumber;
 }

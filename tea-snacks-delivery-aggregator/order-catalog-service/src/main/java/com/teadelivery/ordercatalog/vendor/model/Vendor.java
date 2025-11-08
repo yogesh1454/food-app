@@ -55,10 +55,6 @@ public class Vendor {
     
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")
-    private Map<String, Object> address;
-    
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb")
     private Map<String, Object> images;
     
     @Type(JsonBinaryType.class)
