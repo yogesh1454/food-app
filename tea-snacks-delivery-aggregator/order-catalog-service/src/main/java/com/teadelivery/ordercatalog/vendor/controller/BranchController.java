@@ -77,15 +77,4 @@ public class BranchController {
         
         return ResponseEntity.ok(response);
     }
-    
-    @GetMapping("/branches/{branchId}/availability")
-    public ResponseEntity<BranchAvailabilityResponse> checkAvailability(
-            @PathVariable Long branchId) {
-        
-        log.info("Check availability request for branch: {}", branchId);
-        
-        BranchAvailabilityResponse response = availabilityService.checkAvailability(branchId);
-        
-        return ResponseEntity.ok(response);
-    }
 }
