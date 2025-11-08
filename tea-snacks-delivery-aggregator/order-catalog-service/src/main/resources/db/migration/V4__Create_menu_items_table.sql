@@ -2,8 +2,8 @@
 -- Menu items table for branch-specific menu
 
 CREATE TABLE menu_items (
-    menu_item_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    branch_id UUID NOT NULL REFERENCES vendor_branches(branch_id) ON DELETE CASCADE,
+    menu_item_id BIGSERIAL PRIMARY KEY,
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id) ON DELETE CASCADE,
     
     -- Item details
     name VARCHAR(255) NOT NULL,

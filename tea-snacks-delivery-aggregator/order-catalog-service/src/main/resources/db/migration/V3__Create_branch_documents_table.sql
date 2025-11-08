@@ -2,8 +2,8 @@
 -- Branch documents table for verification
 
 CREATE TABLE branch_documents (
-    document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    branch_id UUID NOT NULL REFERENCES vendor_branches(branch_id) ON DELETE CASCADE,
+    document_id BIGSERIAL PRIMARY KEY,
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id) ON DELETE CASCADE,
     
     -- Document details
     document_type VARCHAR(50) NOT NULL,

@@ -2,9 +2,9 @@
 -- Orders table for customer orders
 
 CREATE TABLE orders (
-    order_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id BIGSERIAL PRIMARY KEY,
     customer_id UUID NOT NULL,
-    branch_id UUID NOT NULL REFERENCES vendor_branches(branch_id),
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id),
     delivery_partner_id UUID,
     
     -- Order status

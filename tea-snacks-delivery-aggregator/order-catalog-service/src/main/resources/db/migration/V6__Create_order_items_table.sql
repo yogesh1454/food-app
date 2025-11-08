@@ -2,9 +2,9 @@
 -- Order items table for order line items
 
 CREATE TABLE order_items (
-    order_item_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
-    menu_item_id UUID NOT NULL REFERENCES menu_items(menu_item_id),
+    order_item_id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    menu_item_id BIGINT NOT NULL REFERENCES menu_items(menu_item_id),
     
     -- Item snapshot
     item_name VARCHAR(255) NOT NULL,
