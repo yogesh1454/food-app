@@ -247,7 +247,9 @@ public class BranchOnboardingService {
     }
     
     private String generateBranchCode(Long vendorId, String city) {
-        String vendorPrefix = vendorId.toString().substring(0, 4).toUpperCase();
+        // Pad vendorId to ensure minimum 4 characters for consistent branch codes
+        String vendorIdStr = String.format("%04d", vendorId);
+        String vendorPrefix = vendorIdStr.substring(0, Math.min(4, vendorIdStr.length())).toUpperCase();
         String cityPrefix = city.substring(0, Math.min(3, city.length())).toUpperCase();
         long timestamp = System.currentTimeMillis() % 10000;
         return vendorPrefix + "-" + cityPrefix + "-" + timestamp;

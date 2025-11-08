@@ -253,8 +253,6 @@ public class VendorBranchOnboardingE2ETest {
     @Order(9)
     @DisplayName("UC-B001: Create First Branch - Success")
     public void testCreateBranch_Success() throws Exception {
-        System.out.println("🔍 DEBUG: vendorId at start of testCreateBranch_Success = " + vendorId);
-        
         // Arrange
         BranchCreateRequest request = new BranchCreateRequest();
         request.setBranchName("Chai Express - Koramangala");

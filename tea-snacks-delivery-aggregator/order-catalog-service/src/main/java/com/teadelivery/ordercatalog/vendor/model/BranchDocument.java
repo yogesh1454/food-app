@@ -25,9 +25,9 @@ import java.util.UUID;
 public class BranchDocument {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "document_id")
-    private UUID documentId;
+    private Long documentId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = false)
