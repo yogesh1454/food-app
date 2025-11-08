@@ -81,9 +81,7 @@ dist/
 
 # Cursor specific
 .cursor/
-.windsurf/
 .github/
-.bmad-core/
 .vscode/
 
 # Other

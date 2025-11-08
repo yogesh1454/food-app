@@ -1,0 +1,173 @@
+spring:
+  application:
+    name: user-management-service
+  
+  profiles:
+    active: local
+  
+  security:
+    user:
+      name: admin
+      password: admin
+    basic:
+      enabled: false
+    oauth2:
+      client:
+        registration: {}
+    web:
+      ignoring: "/**"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tea_snacks_db
+    username: tea_snacks_user
+    password: tea_snacks_password
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 30000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    validate-on-migrate: false
+    out-of-order: false
+    ignore-migration-patterns: "*:missing"
+    locations: classpath:db/migration
+    table: flyway_schema_history
+    baseline-version: 0
+    baseline-description: "Initial baseline"
+  
+  # data:
+  #   redis:
+  #     host: localhost
+  #     port: 6379
+  #     database: 0
+  #     timeout: 2000ms
+  #     lettuce:
+  #       pool:
+  #         max-active: 8
+  #         max-idle: 8
+  #         min-idle: 0
+  
+  # kafka:
+  #   bootstrap-servers: localhost:9092
+  #   producer:
+  #     key-serializer: org.apache.kafka.common.serialization.StringSerializer
+  #     value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  #     acks: all
+  #     retries: 3
+  #     batch-size: 16384
+  #     linger-ms: 5
+  #     buffer-memory: 33554432
+  #   consumer:
+  #     group-id: user-management-service
+  #     auto-offset-reset: earliest
+  #     key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  #     value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  #     enable-auto-commit: false
+  #     properties:
+  #       spring.json.trusted.packages: "com.teadelivery.usermanagement"
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    doc-expansion: none
+  info:
+    title: Tea & Snacks Delivery - User Management Service API
+    description: REST API for user registration, authentication, and profile management
+    version: v1.0.0
+    contact:
+      name: Tea & Snacks Development Team
+      email: dev@teasnacks.com
+    license:
+      name: MIT License
+      url: https://opensource.org/licenses/MIT
+  servers:
+    - url: http://localhost:8081
+      description: Local Development Server
+    - url: https://api.teasnacks.com
+      description: Production Server
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      validate-group-membership: false
+      probes:
+        enabled: false
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+logging:
+  level:
+    com.teadelivery.user: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+app:
+  jwt:
+    secret: myVerySecureSecretKeyThatIsAtLeast256BitsLongForHS512Algorithm
+    access-token-expiry-minutes: 15
+    refresh-token-expiry-days: 7
+    issuer: tea-snacks-delivery
+  
+  sms:
+    enabled: false
+    provider: mock
+  
+  kafka:
+    enabled: true
+    topics:
+      user-events: user.events
+      system-audit: system.audit
+  
+  security:
+    cors:
+      allowed-origins: "*"
+      allowed-methods: "GET,POST,PUT,DELETE,OPTIONS"
+      allowed-headers: "*"
+      max-age: 3600

@@ -21,11 +21,6 @@ spring:
         format_sql: true
   
   data:
-    elasticsearch:
-      cluster-name: docker-cluster
-      cluster-nodes: tea-snacks-elasticsearch:9300
-      repositories:
-        enabled: true
     redis:
       host: tea-snacks-redis
       port: 6379
@@ -53,16 +48,14 @@ management:
         enabled: true
       group:
         readiness:
-          include: elasticsearch,redis,kafka
+          include: redis,kafka
         liveness:
           include: ping
       validate-group-membership: false
   health:
     kafka:
       enabled: true
-    elasticsearch:
-      enabled: true
-    redis:
+    db:
       enabled: true
   metrics:
     export:
@@ -72,5 +65,5 @@ management:
 logging:
   level:
     com.teadelivery: INFO
-    org.springframework.data.elasticsearch: DEBUG
+
     org.hibernate.SQL: DEBUG

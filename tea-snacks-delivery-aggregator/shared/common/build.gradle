@@ -1,3 +1,17 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.3'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.teadelivery'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
 bootJar {
     enabled = false
 }
@@ -5,15 +19,18 @@ bootJar {
 jar {
     enabled = true
 }
+
 dependencies {
     // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
     
     // Database
     runtimeOnly 'org.postgresql:postgresql'
-    
-    // Cache
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     
     // Messaging
     implementation 'org.springframework.kafka:spring-kafka'

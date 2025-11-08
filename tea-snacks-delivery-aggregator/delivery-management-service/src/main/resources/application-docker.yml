@@ -5,11 +5,7 @@ spring:
   application:
     name: delivery-management-service
   
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+
   
   datasource:
     url: jdbc:postgresql://tea-snacks-postgres:5432/tea_snacks_db

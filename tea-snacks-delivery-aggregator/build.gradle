@@ -13,69 +13,8 @@ allprojects {
     }
 }
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'org.springframework.boot'
-    apply plugin: 'io.spring.dependency-management'
-
-    java {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-
-    dependencies {
-        // Lombok
-        compileOnly 'org.projectlombok:lombok:1.18.30'
-        annotationProcessor 'org.projectlombok:lombok:1.18.30'
-        
-        // Spring Boot Starters
-        implementation 'org.springframework.boot:spring-boot-starter-web'
-        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-        implementation 'org.springframework.boot:spring-boot-starter-actuator'
-        
-        // Database
-        runtimeOnly 'org.postgresql:postgresql'
-        
-        // Cache
-        implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-        
-        // Messaging
-        implementation 'org.springframework.kafka:spring-kafka'
-        
-        // Test dependencies
-        testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    }
-
-    test {
-        useJUnitPlatform()
-    }
-    
-    // Configure jar tasks based on project type
-    if (project.name.endsWith('-service')) {
-        // Enable bootJar for microservices
-        bootJar {
-            enabled = true
-        }
-        jar {
-            enabled = false
-        }
-    } else {
-        // Disable bootJar for shared libraries
-        bootJar {
-            enabled = false
-        }
-        jar {
-            enabled = true
-        }
-    }
-}
-
-// Add Elasticsearch dependency only to search-discovery-service
-project(':search-discovery-service') {
-    dependencies {
-        implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
-    }
-}
+// Root project configuration only
+// Individual services now have their own build.gradle files with specific dependencies
 
 // Disable the root project jar task
 jar.enabled = false

@@ -36,28 +36,95 @@ A comprehensive food delivery platform built with Spring Boot microservices arch
    ./scripts/health-check.sh
    ```
 
+## 🗄️ Database & Infrastructure Details
+
+### PostgreSQL Database
+
+**Connection Details:**
+- **Host**: `localhost` (or `127.0.0.1`)
+- **Port**: `5432`
+- **Database**: `tea_snacks_db`
+- **Username**: `tea_snacks_user`
+- **Password**: `tea_snacks_password`
+
+**Connection String:**
+```
+jdbc:postgresql://localhost:5432/tea_snacks_db
+```
+
+**Connect via Command Line:**
+```bash
+# Using psql directly
+psql -h localhost -p 5432 -U tea_snacks_user -d tea_snacks_db
+
+# Using Docker
+docker exec -it tea-snacks-postgres psql -U tea_snacks_user -d tea_snacks_db
+```
+
+**Available Tables:**
+- `users` - User registration and authentication data
+- `user_profiles` - Extended user profile information
+- `refresh_tokens` - JWT refresh token storage
+- `otp_verifications` - Phone OTP verification data
+- `flyway_schema_history` - Database migration history
+
+### Redis Cache
+
+**Connection Details:**
+- **Host**: `localhost`
+- **Port**: `6379`
+- **Database**: `0` (default)
+- **Password**: None (default)
+
+**Connect via Command Line:**
+```bash
+# Using redis-cli directly
+redis-cli -h localhost -p 6379
+
+# Using Docker
+docker exec -it tea-snacks-redis redis-cli
+```
+
+### Apache Kafka
+
+**Connection Details:**
+- **Host**: `localhost`
+- **Port**: `9092` (external), `29092` (internal)
+- **Zookeeper**: `localhost:2181`
+
+**Topics:**
+- `user.events` - User registration and profile events
+- `system.audit` - System audit logs
+
+### Elasticsearch
+
+**Connection Details:**
+- **Host**: `localhost`
+- **Port**: `9200` (HTTP), `9300` (Transport)
+- **Cluster**: `tea-snacks-elasticsearch`
+
 ### Service Ports
 
 #### Infrastructure Services
-| Service | Port | Health Check URL |
-|---------|------|-----------------|
-| PostgreSQL | 5432 | - |
-| Redis | 6379 | - |
-| Kafka | 9092, 9101 | - |
-| Elasticsearch | 9200, 9300 | http://localhost:9200/_cluster/health |
-| Prometheus | 9090 | http://localhost:9090/-/healthy |
-| Grafana | 3000 | http://localhost:3000/api/health |
-| Kafka UI | 8080 | http://localhost:8080 |
+| Service | Port | Health Check URL | Connection Details |
+|---------|------|-----------------|-------------------|
+| PostgreSQL | 5432 | - | `localhost:5432/tea_snacks_db` |
+| Redis | 6379 | - | `localhost:6379` |
+| Kafka | 9092, 9101 | - | `localhost:9092` |
+| Elasticsearch | 9200, 9300 | http://localhost:9200/_cluster/health | `localhost:9200` |
+| Prometheus | 9090 | http://localhost:9090/-/healthy | `localhost:9090` |
+| Grafana | 3000 | http://localhost:3000/api/health | `localhost:3000` |
+| Kafka UI | 8080 | http://localhost:8080 | `localhost:8080` |
 
 #### Application Services
-| Service | Port | Health Check URL |
-|---------|------|-----------------|
-| User Management Service | 8081 | http://localhost:8081/actuator/health |
-| Order Catalog Service | 8082 | http://localhost:8082/actuator/health |
-| Payment Management Service | 8083 | http://localhost:8083/actuator/health |
-| Delivery Management Service | 8084 | http://localhost:8084/actuator/health |
-| Notification Service | 8085 | http://localhost:8085/actuator/health |
-| Search Discovery Service | 8086 | http://localhost:8086/actuator/health |
+| Service | Port | Health Check URL | API Documentation |
+|---------|------|-----------------|-------------------|
+| User Management Service | 8081 | http://localhost:8081/actuator/health | http://localhost:8081/swagger-ui/index.html |
+| Order Catalog Service | 8082 | http://localhost:8082/actuator/health | http://localhost:8082/swagger-ui/index.html |
+| Payment Management Service | 8083 | http://localhost:8083/actuator/health | http://localhost:8083/swagger-ui/index.html |
+| Delivery Management Service | 8084 | http://localhost:8084/actuator/health | http://localhost:8084/swagger-ui/index.html |
+| Notification Service | 8085 | http://localhost:8085/actuator/health | http://localhost:8085/swagger-ui/index.html |
+| Search Discovery Service | 8086 | http://localhost:8086/actuator/health | http://localhost:8086/swagger-ui/index.html |
 
 ### Common Operations
 
@@ -101,6 +168,30 @@ curl http://localhost:8083/actuator/health  # Payment Management Service
 curl http://localhost:8084/actuator/health  # Delivery Management Service
 curl http://localhost:8085/actuator/health  # Notification Service
 curl http://localhost:8086/actuator/health  # Search Discovery Service
+```
+
+#### Database Commands
+```bash
+# Connect to PostgreSQL
+docker exec -it tea-snacks-postgres psql -U tea_snacks_user -d tea_snacks_db
+
+# List all tables
+\dt
+
+# View table structure
+\d users
+
+# View data
+SELECT * FROM users LIMIT 5;
+
+# Connect to Redis
+docker exec -it tea-snacks-redis redis-cli
+
+# List Redis keys
+KEYS *
+
+# View Redis data
+GET key_name
 ```
 
 ## 🏗️ Architecture
@@ -149,6 +240,11 @@ tea-snacks-delivery-aggregator/
    - Run `./scripts/health-check.sh` to identify failing services
    - Check service logs for detailed error messages
    - Verify service dependencies are running and accessible
+
+5. **Database Connection Issues**:
+   - Verify PostgreSQL container is running: `docker ps | grep postgres`
+   - Check database logs: `docker-compose logs postgres`
+   - Test connection: `docker exec -it tea-snacks-postgres psql -U tea_snacks_user -d tea_snacks_db`
 
 ### Logs
 

@@ -90,6 +90,61 @@ Cloud migration becomes essential for production deployment:
 - **Auto-scaling**: Scale down during low traffic periods
 - **Monitoring**: Track costs and optimize continuously
 
+## Infrastructure Requirements
+
+### Infrastructure Migration Strategy (Local to Cloud)
+- **MIGRATE**: PostgreSQL → AWS RDS (PostgreSQL)
+- **MIGRATE**: Redis → AWS ElastiCache (Redis)
+- **MIGRATE**: Kafka → AWS MSK (Managed Streaming for Kafka)
+- **MIGRATE**: Elasticsearch → AWS OpenSearch
+- **MIGRATE**: All Microservices → AWS EKS (Kubernetes)
+- **ADD**: AWS API Gateway (unified API endpoint)
+- **ADD**: AWS Application Load Balancer
+- **ADD**: AWS CloudWatch (monitoring replacement for Prometheus/Grafana)
+
+### Pre-Migration Infrastructure Commands
+```bash
+# Ensure all services are production-ready locally
+docker-compose up -d
+
+# Run full integration tests
+./scripts/run-integration-tests.sh
+
+# Backup all data before migration
+./scripts/backup-all-data.sh
+```
+
+### Cloud Infrastructure Provisioning
+- **Terraform Scripts**: Infrastructure as Code for all AWS resources
+- **Kubernetes Manifests**: Service deployments and configurations
+- **Helm Charts**: Package management for microservices
+- **CI/CD Pipelines**: Automated deployment to cloud
+
+### Migration Phases
+1. **Phase 1**: Infrastructure provisioning (RDS, ElastiCache, MSK, OpenSearch)
+2. **Phase 2**: Data migration (PostgreSQL, Redis, Kafka, Elasticsearch)
+3. **Phase 3**: Service deployment (all microservices to EKS)
+4. **Phase 4**: API Gateway configuration and DNS cutover
+5. **Phase 5**: Monitoring setup and performance validation
+
+### Dependencies on Previous Epic Infrastructure
+- **Epic 1-9**: All local infrastructure must be stable and tested
+- **Epic 9**: Monitoring and performance baselines established
+- **Production Data**: All services must have production-ready data schemas
+- **Security**: All security configurations must be cloud-ready
+
+### Cloud Resource Scaling
+- **Auto-scaling Groups**: Dynamic scaling based on load
+- **Database Read Replicas**: For improved read performance
+- **Multi-AZ Deployment**: For high availability
+- **CDN Integration**: For static content delivery
+
+### Cost Optimization
+- **Reserved Instances**: For predictable workloads
+- **Spot Instances**: For non-critical batch processing
+- **Auto-scaling Policies**: Scale down during low traffic
+- **Resource Tagging**: For cost tracking and optimization
+
 ## Success Metrics
 - Migration completed with < 1 hour downtime
 - Cloud performance matches or exceeds local benchmarks
