@@ -1,8 +1,10 @@
 package com.teadelivery.ordercatalog.vendor.controller;
 
+import com.teadelivery.ordercatalog.vendor.dto.BranchResponse;
 import com.teadelivery.ordercatalog.vendor.dto.VendorRegistrationRequest;
 import com.teadelivery.ordercatalog.vendor.dto.VendorResponse;
 import com.teadelivery.ordercatalog.vendor.dto.VendorUpdateRequest;
+import com.teadelivery.ordercatalog.vendor.service.BranchOnboardingService;
 import com.teadelivery.ordercatalog.vendor.service.VendorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class VendorController {
     
     private final VendorService vendorService;
+    private final BranchOnboardingService branchService;
     
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -61,23 +64,63 @@ public class VendorController {
         return ResponseEntity.ok(response);
     }
     
+    /**
+     * Unified upload endpoint for vendor and branch files
+     * 
+     * Examples:
+     * - Vendor logo: POST /api/v1/vendors/{vendorId}/upload?target=vendor&fileType=logo
+     * - Branch image: POST /api/v1/vendors/{vendorId}/upload?target=branch&branchId={branchId}&fileType=storefront
+     * - Branch document: POST /api/v1/vendors/{vendorId}/upload?target=branch&branchId={branchId}&fileType=fssai&documentNumber=12345
+     */
     @PostMapping("/{vendorId}/upload")
-    public ResponseEntity<VendorResponse> uploadVendorImage(
+    public ResponseEntity<?> uploadFile(
             @PathVariable UUID vendorId,
-            @RequestParam String imageType,
+            @RequestParam String target,  // "vendor" or "branch"
+            @RequestParam String fileType,  // "logo", "cover", "fssai", "gst", etc.
+            @RequestParam(required = false) UUID branchId,
+            @RequestParam(required = false) String documentNumber,
+            @RequestParam(required = false) String issueDate,
+            @RequestParam(required = false) String expiryDate,
             @RequestParam(required = false) String fileUrl) {
         
-        log.info("Upload vendor image request for vendor: {}, imageType: {}", vendorId, imageType);
+        log.info("Upload file request: vendorId={}, target={}, fileType={}, branchId={}", 
+                 vendorId, target, fileType, branchId);
         
         // For now, using a hardcoded userId. In production, this would come from authentication
         UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
         
-        // Mock S3 URL - in production, this would be uploaded to S3
-        String uploadedUrl = fileUrl != null ? fileUrl : 
-            "https://s3.amazonaws.com/tea-snacks/vendors/" + vendorId + "/" + imageType + ".png";
-        
-        VendorResponse response = vendorService.uploadVendorImage(vendorId, imageType, uploadedUrl, requestingUserId);
-        
-        return ResponseEntity.ok(response);
+        if ("vendor".equalsIgnoreCase(target)) {
+            // Upload vendor file (logo, cover photo, etc.)
+            String uploadedUrl = fileUrl != null ? fileUrl : 
+                "https://s3.amazonaws.com/tea-snacks/vendors/" + vendorId + "/" + fileType + ".png";
+            
+            VendorResponse response = vendorService.uploadVendorImage(vendorId, fileType, uploadedUrl, requestingUserId);
+            return ResponseEntity.ok(response);
+            
+        } else if ("branch".equalsIgnoreCase(target)) {
+            // Upload branch file (image or document)
+            if (branchId == null) {
+                throw new IllegalArgumentException("branchId is required when target=branch");
+            }
+            
+            String uploadedUrl = fileUrl != null ? fileUrl : 
+                "https://s3.amazonaws.com/tea-snacks/branches/" + branchId + "/" + fileType + ".png";
+            
+            // Determine if it's a document or image based on fileType
+            boolean isDocument = fileType.matches("(?i)(fssai|gst|shop_act|id_proof|trade_license)");
+            
+            BranchResponse response;
+            if (isDocument) {
+                response = branchService.uploadBranchDocument(branchId, fileType, documentNumber, 
+                    issueDate, expiryDate, uploadedUrl, requestingUserId);
+            } else {
+                response = branchService.uploadBranchImage(branchId, fileType, uploadedUrl, requestingUserId);
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } else {
+            throw new IllegalArgumentException("Invalid target. Must be 'vendor' or 'branch'");
+        }
     }
 }

@@ -131,12 +131,15 @@ Expected Response (201 Created):
 
 #### Step 1.3: Upload Vendor Logo & Brand Assets
 
+**Unified Upload Endpoint** - Handles both vendor and branch files
+
 ```
-POST /api/v1/vendors/{vendorId}/upload
+POST /api/v1/vendors/{vendorId}/upload?target=vendor&fileType=logo
 Content-Type: multipart/form-data
 
 Request:
-- imageType: "logo"
+- target: "vendor"
+- fileType: "logo"
 - file: <logo.png>
 
 Expected Response (200 OK):
@@ -253,30 +256,44 @@ Expected Response (201 Created):
 
 #### Step 2.2: Upload Branch Images & Documents
 
+**Unified Upload Endpoint** - Same endpoint for vendor and branch files
+
 ```
-POST /api/v1/branches/{branchId}/upload
+POST /api/v1/vendors/{vendorId}/upload?target=branch&branchId={branchId}&fileType=storefront
 Content-Type: multipart/form-data
 
 Request 1 - Storefront Image:
-- imageType: "storefront"
+- target: "branch"
+- branchId: "be1bff1a-bab0-48cd-b758-200b43efd101"
+- fileType: "storefront"
 - file: <storefront.jpg>
 
 Request 2 - FSSAI Document:
-- documentType: "FSSAI"
-- file: <fssai_license.pdf>
+- target: "branch"
+- branchId: "be1bff1a-bab0-48cd-b758-200b43efd101"
+- fileType: "fssai"
+- documentNumber: "12345678901234"
 - issueDate: "2023-01-15"
 - expiryDate: "2026-01-15"
+- file: <fssai_license.pdf>
 
 Request 3 - GST Document:
-- documentType: "GST"
+- target: "branch"
+- branchId: "be1bff1a-bab0-48cd-b758-200b43efd101"
+- fileType: "gst"
+- documentNumber: "29ABCDE1234F1Z5"
 - file: <gst_certificate.pdf>
 
 Request 4 - Shop Act Document:
-- documentType: "SHOP_ACT"
+- target: "branch"
+- branchId: "be1bff1a-bab0-48cd-b758-200b43efd101"
+- fileType: "shop_act"
 - file: <shop_act.pdf>
 
 Request 5 - ID Proof Document:
-- documentType: "ID_PROOF"
+- target: "branch"
+- branchId: "be1bff1a-bab0-48cd-b758-200b43efd101"
+- fileType: "id_proof"
 - file: <id_proof.pdf>
 
 Expected Response (200 OK):
@@ -666,21 +683,27 @@ Expected Response (200 OK):
 
 ---
 
-## 📊 API Endpoint Reference (Streamlined)
+## 📊 API Endpoint Reference (Unified Approach)
 
 ### Vendor Management
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | GET | `/api/v1/vendors/{vendorId}` | Search for existing vendor |
-| POST | `/api/v1/vendors` | Create new vendor |
-| POST | `/api/v1/vendors/{vendorId}/upload` | Upload vendor logo/brand assets |
+| POST | `/api/v1/vendors` | Create new vendor (lightweight) |
+| PUT | `/api/v1/vendors/{vendorId}` | Update vendor details |
+
+### Unified Upload Endpoint
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/v1/vendors/{vendorId}/upload?target=vendor&fileType=logo` | Upload vendor logo/brand assets |
+| POST | `/api/v1/vendors/{vendorId}/upload?target=branch&branchId={id}&fileType=storefront` | Upload branch images |
+| POST | `/api/v1/vendors/{vendorId}/upload?target=branch&branchId={id}&fileType=fssai&documentNumber=...` | Upload branch documents |
 
 ### Branch Management
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/v1/vendors/{vendorId}/branches` | Create branch (with preferences & operating hours) |
+| POST | `/api/v1/vendors/{vendorId}/branches` | Create branch (1st, 2nd, 3rd... same endpoint!) |
 | PUT | `/api/v1/vendors/{vendorId}/branches/{branchId}` | Update branch details |
-| POST | `/api/v1/branches/{branchId}/upload` | Upload branch images & documents |
 | GET | `/api/v1/branches/{branchId}/availability` | Check branch availability |
 | PUT | `/api/v1/branches/{branchId}/status` | Toggle online/offline |
 
