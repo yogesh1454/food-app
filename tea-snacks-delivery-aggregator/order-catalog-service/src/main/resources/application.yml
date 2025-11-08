@@ -15,14 +15,14 @@ spring:
       - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/tea_snacks_db
+    url: jdbc:postgresql://localhost:5432/order_catalog_db
     username: tea_snacks_user
     password: tea_snacks_password
     driver-class-name: org.postgresql.Driver
   
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:

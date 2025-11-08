@@ -28,9 +28,9 @@ import java.util.*;
 public class MenuItem {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "menu_item_id")
-    private UUID menuItemId;
+    private Long menuItemId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = false)

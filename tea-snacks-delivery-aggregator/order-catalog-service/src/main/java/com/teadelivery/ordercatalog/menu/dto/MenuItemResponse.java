@@ -16,7 +16,7 @@ import java.util.UUID;
 @Builder
 public class MenuItemResponse {
     
-    private UUID menuItemId;
+    private Long menuItemId;
     private Long branchId;
     private String name;
     private String description;
