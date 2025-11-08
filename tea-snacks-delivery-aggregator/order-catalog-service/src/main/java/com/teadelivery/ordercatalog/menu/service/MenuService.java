@@ -1,6 +1,7 @@
 package com.teadelivery.ordercatalog.menu.service;
 
 import com.teadelivery.ordercatalog.common.exception.BranchNotFoundException;
+import com.teadelivery.ordercatalog.common.exception.MenuItemNotFoundException;
 import com.teadelivery.ordercatalog.common.exception.UnauthorizedException;
 import com.teadelivery.ordercatalog.menu.dto.MenuItemCreateRequest;
 import com.teadelivery.ordercatalog.menu.dto.MenuItemResponse;
@@ -70,7 +71,7 @@ public class MenuService {
         log.info("Fetching menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
-            .orElseThrow(() -> new RuntimeException("Menu item not found"));
+            .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found"));
         
         return MenuMapper.toResponse(menuItem);
     }
@@ -99,7 +100,7 @@ public class MenuService {
         log.info("Updating menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
-            .orElseThrow(() -> new RuntimeException("Menu item not found"));
+            .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found"));
         
         if (!menuItem.getBranch().getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to modify this menu item");
@@ -150,7 +151,7 @@ public class MenuService {
         log.info("Deleting menu item: {}", menuItemId);
         
         MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
-            .orElseThrow(() -> new RuntimeException("Menu item not found"));
+            .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found"));
         
         if (!menuItem.getBranch().getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to delete this menu item");

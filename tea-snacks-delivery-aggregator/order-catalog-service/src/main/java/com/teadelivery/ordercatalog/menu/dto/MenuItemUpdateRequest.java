@@ -19,7 +19,7 @@ public class MenuItemUpdateRequest {
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
     
-    @DecimalMin(value = "0.01", message = "Price must be greater than 0")
+    @DecimalMin(value = "0.00", message = "Price must be greater than or equal to 0")
     @DecimalMax(value = "999999.99", message = "Price must not exceed 999999.99")
     private BigDecimal price;
     

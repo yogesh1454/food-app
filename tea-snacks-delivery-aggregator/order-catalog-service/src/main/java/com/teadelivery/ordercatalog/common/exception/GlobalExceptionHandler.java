@@ -55,6 +55,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle menu item not found exceptions
+     */
+    @ExceptionHandler(MenuItemNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleMenuItemNotFoundException(MenuItemNotFoundException ex, WebRequest request) {
+        log.error("Menu item not found: {}", ex.getMessage());
+        return ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+    }
+
+    /**
      * Handle vendor already exists exceptions
      */
     @ExceptionHandler(VendorAlreadyExistsException.class)
