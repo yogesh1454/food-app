@@ -1,7 +1,7 @@
 # REST API Standards & Best Practices
 
-**Version:** 1.0.0  
-**Last Updated:** November 8, 2024  
+**Version:** 2.0.0  
+**Last Updated:** November 8, 2025  
 **Applies To:** All microservices in Tea Snacks Delivery Aggregator
 
 ---
@@ -17,7 +17,9 @@
 8. [Validation](#validation)
 9. [Documentation (Swagger/OpenAPI)](#documentation-swaggeropenapi)
 10. [Controller Standards](#controller-standards)
-11. [Examples](#examples)
+11. [Database & Entity Standards](#database--entity-standards)
+12. [Testing Standards](#testing-standards)
+13. [Examples](#examples)
 
 ---
 
@@ -58,12 +60,79 @@ GET    /api/v1/vendor/branch/{id}
 - Version at the API level, not resource level
 - Maintain backward compatibility within major versions
 
-### 3. Human-Readable IDs
-- Use `BIGSERIAL` (Long) for primary keys where volume is finite
-- Use `UUID` for distributed entities or high-volume data
-- Examples:
-  - Vendors, Branches: `Long` (human-readable: 1, 2, 3...)
-  - Orders, Transactions: `UUID` (distributed, high-volume)
+### 3. ID Strategy & Type Consistency
+
+**CRITICAL: Entity ID types MUST match database schema**
+
+#### Primary Key Guidelines
+- **Use `BIGSERIAL` (Long)** for most entities:
+  - Vendors, Branches, Menu Items, Documents
+  - Better performance, human-readable, easier debugging
+  - JPA: `@GeneratedValue(strategy = GenerationType.IDENTITY)`
+  
+- **Use `UUID`** only for:
+  - User identifiers (cross-service references)
+  - Distributed entities requiring global uniqueness
+  - High-volume transactional data (orders, payments)
+  - External system integrations
+
+#### Type Consistency Rules
+1. **Entity ↔ Database**: ID type MUST match migration script
+   ```java
+   // Migration: BIGSERIAL → Entity: Long
+   @Id
+   @GeneratedValue(strategy = GenerationType.IDENTITY)
+   private Long menuItemId;
+   ```
+
+2. **Entity ↔ DTO**: Response DTOs MUST match entity ID type
+   ```java
+   // Entity has Long → DTO must have Long
+   public class MenuItemResponse {
+       private Long menuItemId;  // ✅ Matches entity
+   }
+   ```
+
+3. **Repository**: Generic type MUST match entity ID
+   ```java
+   // Entity ID is Long → Repository uses Long
+   public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
+       Optional<MenuItem> findByMenuItemIdAndIsDeletedFalse(Long menuItemId);
+   }
+   ```
+
+4. **Service Methods**: Parameter types MUST match entity ID
+   ```java
+   // Entity ID is Long → Service uses Long
+   public MenuItemResponse getMenuItem(Long menuItemId) { }
+   ```
+
+5. **Controller**: Path variables MUST match entity ID type
+   ```java
+   // Entity ID is Long → Controller uses Long
+   @GetMapping("/{menuItemId}")
+   public MenuItemResponse get(@PathVariable Long menuItemId) { }
+   ```
+
+#### Common Pitfalls to Avoid
+❌ **DON'T mix UUID and Long**
+```java
+// Migration uses BIGSERIAL but entity uses UUID
+@Id
+@GeneratedValue(strategy = GenerationType.UUID)  // ❌ WRONG!
+private UUID menuItemId;
+```
+
+❌ **DON'T use mismatched repository types**
+```java
+// Entity has Long but repository uses UUID
+public interface MenuItemRepository extends JpaRepository<MenuItem, UUID> { }  // ❌ WRONG!
+```
+
+✅ **DO maintain consistency across all layers**
+```
+Migration (BIGSERIAL) → Entity (Long) → DTO (Long) → Repository (Long) → Service (Long) → Controller (Long)
+```
 
 ---
 
@@ -619,24 +688,309 @@ public class VendorController {
 
 ---
 
+## Database & Entity Standards
+
+### Flyway Migration Best Practices
+
+#### 1. Flyway as Single Source of Truth
+- **NEVER** modify migration files after they've been applied
+- Use Flyway for ALL schema changes (not Hibernate DDL)
+- Set `spring.jpa.hibernate.ddl-auto=validate` (NOT `update`)
+
+```yaml
+# application.yml
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate  # ✅ Only validate, don't modify schema
+  flyway:
+    baseline-on-migrate: true
+```
+
+#### 2. Migration File Naming
+```
+V{version}__{description}.sql
+
+Examples:
+V1__Create_vendors_table.sql
+V2__Create_vendor_branches_table.sql
+V3__Add_menu_version_to_branches.sql
+```
+
+#### 3. ID Column Standards
+```sql
+-- ✅ Use BIGSERIAL for auto-increment Long IDs
+CREATE TABLE menu_items (
+    menu_item_id BIGSERIAL PRIMARY KEY,
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id),
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(10,2) NOT NULL
+);
+
+-- ✅ Use UUID only when necessary
+CREATE TABLE orders (
+    order_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL,
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id)
+);
+```
+
+#### 4. Foreign Key Consistency
+- Foreign keys MUST match referenced column type
+- Use `BIGINT` for references to `BIGSERIAL` columns
+- Use `UUID` for references to `UUID` columns
+
+```sql
+-- ✅ Correct: branch_id references BIGSERIAL
+CREATE TABLE menu_items (
+    menu_item_id BIGSERIAL PRIMARY KEY,
+    branch_id BIGINT NOT NULL REFERENCES vendor_branches(branch_id)
+);
+
+-- ❌ Wrong: Type mismatch
+CREATE TABLE menu_items (
+    menu_item_id BIGSERIAL PRIMARY KEY,
+    branch_id UUID NOT NULL  -- ❌ branch_id is BIGINT in vendor_branches!
+);
+```
+
+### JPA Entity Best Practices
+
+#### 1. Entity ID Mapping
+```java
+// ✅ For BIGSERIAL columns
+@Entity
+@Table(name = "menu_items")
+public class MenuItem {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "menu_item_id")
+    private Long menuItemId;
+}
+
+// ✅ For UUID columns (when needed)
+@Entity
+@Table(name = "orders")
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "order_id")
+    private UUID orderId;
+}
+```
+
+#### 2. Foreign Key Mapping
+```java
+@Entity
+public class MenuItem {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = false)
+    private VendorBranch branch;  // ✅ Reference entity, not ID
+}
+```
+
+#### 3. JSONB Column Mapping
+```java
+@Entity
+public class MenuItem {
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> images;
+    
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> metadata;
+}
+
+// Add dependency: io.hypersistence:hypersistence-utils-hibernate-63
+```
+
+### Database Recreation Script
+
+Maintain a script to recreate databases for clean testing:
+
+```bash
+#!/bin/bash
+# infrastructure/scripts/recreate-databases.sh
+
+CONTAINER_NAME="tea-snacks-postgres"
+DB_USER="tea_snacks_user"
+MAIN_DB="tea_snacks_db"
+
+databases=(
+    "order_catalog_db"
+    "order_catalog_test_db"
+    "user_management_db"
+    # ... other databases
+)
+
+for db in "${databases[@]}"; do
+    docker exec $CONTAINER_NAME psql -U $DB_USER -d $MAIN_DB -c "DROP DATABASE IF EXISTS $db;"
+    docker exec $CONTAINER_NAME psql -U $DB_USER -d $MAIN_DB -c "CREATE DATABASE $db OWNER $DB_USER;"
+done
+```
+
+---
+
+## Testing Standards
+
+### E2E Test Configuration
+
+#### 1. Dedicated Test Database
+```yaml
+# src/test/resources/application-test.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/order_catalog_test_db
+    username: tea_snacks_user
+    password: tea_snacks_password
+  jpa:
+    hibernate:
+      ddl-auto: validate  # ✅ Same as production
+```
+
+#### 2. Test Class Configuration
+```java
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)  // ✅ Share state across tests
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)  // ✅ Control execution order
+public class VendorBranchOnboardingE2ETest {
+    
+    @Autowired
+    private MockMvc mockMvc;
+    
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+    
+    private Long vendorId;  // ✅ Instance variable for state
+    private Long branchId;
+    
+    @BeforeAll
+    public void setup() {
+        // ✅ Clean database before all tests
+        jdbcTemplate.execute("TRUNCATE TABLE branch_documents CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE menu_items CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE vendor_branches CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE vendors CASCADE");
+    }
+}
+```
+
+#### 3. Test Execution Order
+```java
+@Test
+@Order(1)
+@DisplayName("UC-V001: Register Vendor - Success")
+public void testRegisterVendor_Success() throws Exception {
+    // Test creates vendor and stores vendorId
+    vendorId = extractedVendorId;
+}
+
+@Test
+@Order(2)
+@DisplayName("UC-B001: Create Branch - Success")
+public void testCreateBranch_Success() throws Exception {
+    // Test uses vendorId from previous test
+    mockMvc.perform(post("/api/v1/vendors/" + vendorId + "/branches")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isCreated());
+}
+```
+
+#### 4. User Context Simulation
+```java
+// Controller accepts optional header for testing
+@PostMapping
+public VendorResponse registerVendor(
+    @Valid @RequestBody VendorRegistrationRequest request,
+    @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+    
+    UUID userId = userIdHeader != null 
+        ? UUID.fromString(userIdHeader)
+        : UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+    
+    return vendorService.registerVendor(request, userId);
+}
+
+// Test sends different user IDs
+mockMvc.perform(post("/api/v1/vendors")
+    .header("X-User-Id", "660e8400-e29b-41d4-a716-446655440001")
+    .contentType(MediaType.APPLICATION_JSON)
+    .content(requestJson))
+    .andExpect(status().isCreated());
+```
+
+### Test Assertions Best Practices
+
+```java
+// ✅ Assert response structure
+.andExpect(status().isCreated())
+.andExpect(jsonPath("$.vendorId").exists())
+.andExpect(jsonPath("$.companyName").value("Chai Express"))
+.andExpect(jsonPath("$.onboardingStatus").value("PENDING"));
+
+// ✅ Extract IDs for subsequent tests
+MvcResult result = mockMvc.perform(post(...))
+    .andExpect(status().isCreated())
+    .andReturn();
+
+String responseString = result.getResponse().getContentAsString();
+JsonNode rootNode = objectMapper.readTree(responseString);
+vendorId = rootNode.path("vendorId").asLong();
+
+// ✅ Test error scenarios
+mockMvc.perform(post("/api/v1/vendors")
+    .contentType(MediaType.APPLICATION_JSON)
+    .content(invalidRequestJson))
+    .andExpect(status().isBadRequest())
+    .andExpect(jsonPath("$.validationErrors.companyEmail").exists());
+```
+
+---
+
 ## Checklist for New APIs
 
+### API Design
 - [ ] RESTful URL structure
 - [ ] Appropriate HTTP methods
-- [ ] Human-readable IDs where applicable
+- [ ] Human-readable IDs where applicable (Long for most entities)
 - [ ] Input validation with `@Valid`
 - [ ] No `ResponseEntity` wrappers
 - [ ] `@ResponseStatus` for non-200 success codes
+
+### Documentation
 - [ ] Comprehensive `@Operation` documentation
 - [ ] All `@ApiResponses` documented (200, 201, 400, 404, 409, 500)
 - [ ] Request/response examples in Swagger
-- [ ] Parameter descriptions
+- [ ] Parameter descriptions with `@Parameter`
 - [ ] DTO field documentation with `@Schema`
+
+### Error Handling
 - [ ] Global exception handler configured
 - [ ] Consistent error response format
+- [ ] Validation error responses with field-level details
 - [ ] Logging at appropriate levels
-- [ ] Unit tests for controllers
-- [ ] Integration tests for endpoints
+
+### Database & Entities
+- [ ] **ID type consistency**: Migration (BIGSERIAL) → Entity (Long) → DTO (Long) → Repository (Long) → Service (Long) → Controller (Long)
+- [ ] Flyway migration files created and tested
+- [ ] `hibernate.ddl-auto=validate` configured
+- [ ] Entity annotations match database schema
+- [ ] Foreign key types match referenced columns
+- [ ] JSONB columns properly mapped with `@Type(JsonBinaryType.class)`
+
+### Testing
+- [ ] Dedicated test database configured
+- [ ] E2E tests with `@TestInstance(PER_CLASS)` for state persistence
+- [ ] Database cleanup in `@BeforeAll`
+- [ ] Test execution order with `@Order` annotations
+- [ ] User context simulation (X-User-Id header)
+- [ ] All success scenarios tested
+- [ ] All error scenarios tested (validation, not found, conflict)
+- [ ] 100% test pass rate before commit
 
 ---
 
