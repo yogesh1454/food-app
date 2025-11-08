@@ -14,6 +14,11 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core:9.22.3'
     
+    // Test Database
+    testImplementation 'org.testcontainers:testcontainers:1.19.3'
+    testImplementation 'org.testcontainers:postgresql:1.19.3'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
+    
     // Hibernate Types for JSONB support
     implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.3'
     
