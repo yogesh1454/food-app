@@ -16,7 +16,7 @@ import java.util.UUID;
 public class DocumentResponse {
     
     private UUID documentId;
-    private UUID branchId;
+    private Long branchId;
     private String documentType;
     private String documentUrl;
     private String documentNumber;

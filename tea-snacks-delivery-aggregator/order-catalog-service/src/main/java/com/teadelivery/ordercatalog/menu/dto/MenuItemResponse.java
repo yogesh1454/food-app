@@ -17,7 +17,7 @@ import java.util.UUID;
 public class MenuItemResponse {
     
     private UUID menuItemId;
-    private UUID branchId;
+    private Long branchId;
     private String name;
     private String description;
     private BigDecimal price;

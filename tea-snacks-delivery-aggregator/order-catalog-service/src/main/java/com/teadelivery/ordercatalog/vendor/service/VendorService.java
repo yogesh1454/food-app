@@ -61,7 +61,7 @@ public class VendorService {
     }
     
     @Transactional(readOnly = true)
-    public VendorResponse getVendor(UUID vendorId) {
+    public VendorResponse getVendor(Long vendorId) {
         log.info("Fetching vendor: {}", vendorId);
         
         Vendor vendor = vendorRepository.findById(vendorId)
@@ -71,7 +71,7 @@ public class VendorService {
     }
     
     @Transactional
-    public VendorResponse updateVendor(UUID vendorId, VendorUpdateRequest request, UUID requestingUserId) {
+    public VendorResponse updateVendor(Long vendorId, VendorUpdateRequest request, UUID requestingUserId) {
         log.info("Updating vendor: {}", vendorId);
         
         Vendor vendor = vendorRepository.findById(vendorId)
@@ -106,7 +106,7 @@ public class VendorService {
     }
     
     @Transactional
-    public VendorResponse uploadVendorImage(UUID vendorId, String imageType, String imageUrl, UUID requestingUserId) {
+    public VendorResponse uploadVendorImage(Long vendorId, String imageType, String imageUrl, UUID requestingUserId) {
         log.info("Uploading vendor image: vendorId={}, imageType={}", vendorId, imageType);
         
         Vendor vendor = vendorRepository.findById(vendorId)

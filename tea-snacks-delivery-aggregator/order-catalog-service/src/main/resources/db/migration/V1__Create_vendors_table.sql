@@ -2,7 +2,7 @@
 -- Vendors table for company/brand level information
 
 CREATE TABLE vendors (
-    vendor_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL,
     
     -- Company details

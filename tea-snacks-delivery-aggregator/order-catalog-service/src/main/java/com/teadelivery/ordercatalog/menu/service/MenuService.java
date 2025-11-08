@@ -32,7 +32,7 @@ public class MenuService {
     private final MenuCacheService cacheService;
     
     @Transactional
-    public MenuItemResponse createMenuItem(UUID branchId, MenuItemCreateRequest request, UUID requestingUserId) {
+    public MenuItemResponse createMenuItem(Long branchId, MenuItemCreateRequest request, UUID requestingUserId) {
         log.info("Creating menu item for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -76,7 +76,7 @@ public class MenuService {
     }
     
     @Transactional(readOnly = true)
-    public List<MenuItemResponse> getBranchMenu(UUID branchId, String category, Pageable pageable) {
+    public List<MenuItemResponse> getBranchMenu(Long branchId, String category, Pageable pageable) {
         log.info("Fetching menu for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)

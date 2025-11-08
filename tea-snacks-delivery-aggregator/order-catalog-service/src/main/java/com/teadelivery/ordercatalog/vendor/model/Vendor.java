@@ -11,7 +11,10 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Entity
 @Table(name = "vendors", indexes = {
@@ -25,9 +28,9 @@ import java.util.*;
 public class Vendor {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "vendor_id")
-    private UUID vendorId;
+    private Long vendorId;
     
     @Column(name = "user_id", nullable = false)
     private UUID userId;

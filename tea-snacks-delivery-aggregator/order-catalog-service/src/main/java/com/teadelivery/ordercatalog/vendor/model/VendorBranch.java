@@ -29,9 +29,9 @@ import java.util.*;
 public class VendorBranch {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "branch_id")
-    private UUID branchId;
+    private Long branchId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendor_id", nullable = false)

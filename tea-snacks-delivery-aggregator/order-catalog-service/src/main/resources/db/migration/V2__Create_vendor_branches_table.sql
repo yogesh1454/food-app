@@ -2,8 +2,8 @@
 -- Vendor branches table for location level information
 
 CREATE TABLE vendor_branches (
-    branch_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    vendor_id UUID NOT NULL REFERENCES vendors(vendor_id) ON DELETE CASCADE,
+    branch_id BIGSERIAL PRIMARY KEY,
+    vendor_id BIGINT NOT NULL REFERENCES vendors(vendor_id) ON DELETE CASCADE,
     
     -- Branch identification
     branch_name VARCHAR(255) NOT NULL,

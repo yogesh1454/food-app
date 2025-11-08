@@ -25,7 +25,7 @@ public class BranchAvailabilityService {
     private final VendorBranchRepository branchRepository;
     
     @Transactional
-    public BranchResponse updateOperatingHours(UUID branchId, OperatingHoursRequest request, UUID requestingUserId) {
+    public BranchResponse updateOperatingHours(Long branchId, OperatingHoursRequest request, UUID requestingUserId) {
         log.info("Updating operating hours for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -63,7 +63,7 @@ public class BranchAvailabilityService {
     }
     
     @Transactional
-    public BranchResponse toggleBranchStatus(UUID branchId, BranchStatusRequest request, UUID requestingUserId) {
+    public BranchResponse toggleBranchStatus(Long branchId, BranchStatusRequest request, UUID requestingUserId) {
         log.info("Toggling branch status for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -81,7 +81,7 @@ public class BranchAvailabilityService {
     }
     
     @Transactional(readOnly = true)
-    public BranchAvailabilityResponse checkAvailability(UUID branchId) {
+    public BranchAvailabilityResponse checkAvailability(Long branchId) {
         log.info("Checking availability for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)

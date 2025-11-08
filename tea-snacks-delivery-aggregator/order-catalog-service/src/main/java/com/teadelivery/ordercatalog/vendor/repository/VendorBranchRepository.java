@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface VendorBranchRepository extends JpaRepository<VendorBranch, UUID> {
+public interface VendorBranchRepository extends JpaRepository<VendorBranch, Long> {
     List<VendorBranch> findByVendor(Vendor vendor);
     List<VendorBranch> findByCity(String city);
     List<VendorBranch> findByOnboardingStatus(String status);

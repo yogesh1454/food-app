@@ -23,7 +23,7 @@ public class MenuCacheService {
     private static final Duration MENU_TTL = Duration.ofHours(1);
     private static final Duration POPULAR_ITEMS_TTL = Duration.ofMinutes(15);
     
-    public void cacheBranchMenu(UUID branchId, Integer version, List<MenuItemResponse> menu) {
+    public void cacheBranchMenu(Long branchId, Integer version, List<MenuItemResponse> menu) {
         try {
             String key = String.format(BRANCH_MENU_KEY, branchId, version);
             redisTemplate.opsForValue().set(key, menu, MENU_TTL);
@@ -33,7 +33,7 @@ public class MenuCacheService {
         }
     }
     
-    public List<MenuItemResponse> getBranchMenu(UUID branchId, Integer version) {
+    public List<MenuItemResponse> getBranchMenu(Long branchId, Integer version) {
         try {
             String key = String.format(BRANCH_MENU_KEY, branchId, version);
             Object cached = redisTemplate.opsForValue().get(key);
@@ -47,7 +47,7 @@ public class MenuCacheService {
         return null;
     }
     
-    public void evictBranchMenu(UUID branchId) {
+    public void evictBranchMenu(Long branchId) {
         try {
             String pattern = String.format("branch:%s:menu:v*", branchId);
             Set<String> keys = redisTemplate.keys(pattern);
@@ -60,7 +60,7 @@ public class MenuCacheService {
         }
     }
     
-    public void cachePopularItems(UUID branchId, List<MenuItemResponse> items) {
+    public void cachePopularItems(Long branchId, List<MenuItemResponse> items) {
         try {
             String key = String.format(POPULAR_ITEMS_KEY, branchId);
             redisTemplate.opsForValue().set(key, items, POPULAR_ITEMS_TTL);
@@ -70,7 +70,7 @@ public class MenuCacheService {
         }
     }
     
-    public List<MenuItemResponse> getPopularItems(UUID branchId) {
+    public List<MenuItemResponse> getPopularItems(Long branchId) {
         try {
             String key = String.format(POPULAR_ITEMS_KEY, branchId);
             Object cached = redisTemplate.opsForValue().get(key);
@@ -84,7 +84,7 @@ public class MenuCacheService {
         return null;
     }
     
-    public void evictPopularItems(UUID branchId) {
+    public void evictPopularItems(Long branchId) {
         try {
             String key = String.format(POPULAR_ITEMS_KEY, branchId);
             redisTemplate.delete(key);

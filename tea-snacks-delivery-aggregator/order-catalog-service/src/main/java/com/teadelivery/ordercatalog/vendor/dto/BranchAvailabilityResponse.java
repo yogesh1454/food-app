@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -16,7 +15,7 @@ import java.util.UUID;
 @Builder
 public class BranchAvailabilityResponse {
     
-    private UUID branchId;
+    private Long branchId;
     private Boolean isOpen;
     private Boolean isActive;
     private Boolean isWithinOperatingHours;

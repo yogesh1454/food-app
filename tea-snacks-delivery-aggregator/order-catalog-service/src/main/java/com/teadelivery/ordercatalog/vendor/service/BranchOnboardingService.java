@@ -33,7 +33,7 @@ public class BranchOnboardingService {
     private static final String[] REQUIRED_DOCUMENTS = {"FSSAI", "SHOP_ACT", "GST", "ID_PROOF"};
     
     @Transactional
-    public BranchResponse createBranch(UUID vendorId, BranchCreateRequest request, UUID requestingUserId) {
+    public BranchResponse createBranch(Long vendorId, BranchCreateRequest request, UUID requestingUserId) {
         log.info("Creating branch for vendor: {}", vendorId);
         
         Vendor vendor = vendorRepository.findById(vendorId)
@@ -75,7 +75,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional(readOnly = true)
-    public BranchResponse getBranch(UUID branchId) {
+    public BranchResponse getBranch(Long branchId) {
         log.info("Fetching branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -85,7 +85,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional
-    public BranchResponse updateBranch(UUID vendorId, UUID branchId, BranchCreateRequest request, UUID requestingUserId) {
+    public BranchResponse updateBranch(Long vendorId, Long branchId, BranchCreateRequest request, UUID requestingUserId) {
         log.info("Updating branch: vendorId={}, branchId={}", vendorId, branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -147,7 +147,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional
-    public DocumentResponse uploadDocument(UUID branchId, String documentType, String documentNumber, 
+    public DocumentResponse uploadDocument(Long branchId, String documentType, String documentNumber, 
                                           LocalDate issueDate, LocalDate expiryDate, 
                                           String documentUrl, UUID requestingUserId) {
         log.info("Uploading document for branch: {}", branchId);
@@ -181,7 +181,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional(readOnly = true)
-    public List<DocumentResponse> getDocuments(UUID branchId, UUID requestingUserId) {
+    public List<DocumentResponse> getDocuments(Long branchId, UUID requestingUserId) {
         log.info("Fetching documents for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -198,7 +198,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional
-    public BranchResponse updatePreferences(UUID branchId, Map<String, Object> preferences, UUID requestingUserId) {
+    public BranchResponse updatePreferences(Long branchId, Map<String, Object> preferences, UUID requestingUserId) {
         log.info("Updating preferences for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -216,7 +216,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional(readOnly = true)
-    public Map<String, Object> getOnboardingStatus(UUID branchId, UUID requestingUserId) {
+    public Map<String, Object> getOnboardingStatus(Long branchId, UUID requestingUserId) {
         log.info("Fetching onboarding status for branch: {}", branchId);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -246,7 +246,7 @@ public class BranchOnboardingService {
         return status;
     }
     
-    private String generateBranchCode(UUID vendorId, String city) {
+    private String generateBranchCode(Long vendorId, String city) {
         String vendorPrefix = vendorId.toString().substring(0, 4).toUpperCase();
         String cityPrefix = city.substring(0, Math.min(3, city.length())).toUpperCase();
         long timestamp = System.currentTimeMillis() % 10000;
@@ -293,7 +293,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional
-    public BranchResponse uploadBranchImage(UUID branchId, String imageType, String imageUrl, UUID requestingUserId) {
+    public BranchResponse uploadBranchImage(Long branchId, String imageType, String imageUrl, UUID requestingUserId) {
         log.info("Uploading branch image: branchId={}, imageType={}", branchId, imageType);
         
         VendorBranch branch = branchRepository.findById(branchId)
@@ -317,7 +317,7 @@ public class BranchOnboardingService {
     }
     
     @Transactional
-    public BranchResponse uploadBranchDocument(UUID branchId, String documentType, String documentNumber,
+    public BranchResponse uploadBranchDocument(Long branchId, String documentType, String documentNumber,
                                               String issueDate, String expiryDate, String documentUrl, UUID requestingUserId) {
         log.info("Uploading branch document: branchId={}, documentType={}", branchId, documentType);
         

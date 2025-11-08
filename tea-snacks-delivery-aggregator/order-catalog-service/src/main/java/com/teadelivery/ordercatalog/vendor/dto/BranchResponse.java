@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -16,8 +15,8 @@ import java.util.UUID;
 @Builder
 public class BranchResponse {
     
-    private UUID branchId;
-    private UUID vendorId;
+    private Long branchId;
+    private Long vendorId;
     private String branchName;
     private String branchCode;
     private Map<String, Object> address;

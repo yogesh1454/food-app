@@ -41,7 +41,7 @@ public class VendorController {
     
     @GetMapping("/{vendorId}")
     public ResponseEntity<VendorResponse> getVendor(
-            @PathVariable UUID vendorId) {
+            @PathVariable Long vendorId) {
         
         log.info("Get vendor request: {}", vendorId);
         
@@ -51,7 +51,7 @@ public class VendorController {
     
     @PutMapping("/{vendorId}")
     public ResponseEntity<VendorResponse> updateVendor(
-            @PathVariable UUID vendorId,
+            @PathVariable Long vendorId,
             @Valid @RequestBody VendorUpdateRequest request) {
         
         log.info("Update vendor request: {}", vendorId);
@@ -74,10 +74,10 @@ public class VendorController {
      */
     @PostMapping("/{vendorId}/upload")
     public ResponseEntity<?> uploadFile(
-            @PathVariable UUID vendorId,
+            @PathVariable Long vendorId,
             @RequestParam String target,  // "vendor" or "branch"
             @RequestParam String fileType,  // "logo", "cover", "fssai", "gst", etc.
-            @RequestParam(required = false) UUID branchId,
+            @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) String documentNumber,
             @RequestParam(required = false) String issueDate,
             @RequestParam(required = false) String expiryDate,

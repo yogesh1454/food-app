@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface VendorRepository extends JpaRepository<Vendor, UUID> {
+public interface VendorRepository extends JpaRepository<Vendor, Long> {
     Optional<Vendor> findByUserId(UUID userId);
     List<Vendor> findByCompanyNameContainingIgnoreCase(String companyName);
     Optional<Vendor> findByCompanyEmail(String companyEmail);

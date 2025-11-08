@@ -27,7 +27,7 @@ public class MenuController {
     @PostMapping("/branches/{branchId}")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<MenuItemResponse> createMenuItem(
-            @PathVariable UUID branchId,
+            @PathVariable Long branchId,
             @Valid @RequestBody MenuItemCreateRequest request) {
         
         log.info("Create menu item request for branch: {}", branchId);
@@ -53,7 +53,7 @@ public class MenuController {
     
     @GetMapping("/branches/{branchId}")
     public ResponseEntity<List<MenuItemResponse>> getBranchMenu(
-            @PathVariable UUID branchId,
+            @PathVariable Long branchId,
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {

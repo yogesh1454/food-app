@@ -24,7 +24,7 @@ public class BranchController {
     @PostMapping("/vendors/{vendorId}/branches")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<BranchResponse> createBranch(
-            @PathVariable UUID vendorId,
+            @PathVariable Long vendorId,
             @Valid @RequestBody BranchCreateRequest request) {
         
         log.info("Create branch request for vendor: {}", vendorId);
@@ -37,9 +37,9 @@ public class BranchController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
-    @GetMapping("/{branchId}")
+    @GetMapping("/branches/{branchId}")
     public ResponseEntity<BranchResponse> getBranch(
-            @PathVariable UUID branchId) {
+            @PathVariable Long branchId) {
         
         log.info("Get branch request: {}", branchId);
         
@@ -49,8 +49,8 @@ public class BranchController {
     
     @PutMapping("/vendors/{vendorId}/branches/{branchId}")
     public ResponseEntity<BranchResponse> updateBranch(
-            @PathVariable UUID vendorId,
-            @PathVariable UUID branchId,
+            @PathVariable Long vendorId,
+            @PathVariable Long branchId,
             @Valid @RequestBody BranchCreateRequest request) {
         
         log.info("Update branch request: vendorId={}, branchId={}", vendorId, branchId);
@@ -65,7 +65,7 @@ public class BranchController {
     
     @PutMapping("/branches/{branchId}/status")
     public ResponseEntity<BranchResponse> toggleStatus(
-            @PathVariable UUID branchId,
+            @PathVariable Long branchId,
             @Valid @RequestBody BranchStatusRequest request) {
         
         log.info("Toggle branch status request for branch: {}", branchId);
@@ -78,9 +78,9 @@ public class BranchController {
         return ResponseEntity.ok(response);
     }
     
-    @GetMapping("/{branchId}/availability")
+    @GetMapping("/branches/{branchId}/availability")
     public ResponseEntity<BranchAvailabilityResponse> checkAvailability(
-            @PathVariable UUID branchId) {
+            @PathVariable Long branchId) {
         
         log.info("Check availability request for branch: {}", branchId);
         
