@@ -15,6 +15,7 @@ echo "=============================================="
 # Array of databases to recreate
 databases=(
     "order_catalog_db"
+    "order_catalog_test_db"
     "user_management_db"
     "payment_management_db"
     "delivery_management_db"

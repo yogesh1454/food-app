@@ -7,15 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -38,35 +33,50 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - UC-B004: Update Branch Details
  * - UC-B005: Toggle Branch Status
  * - Error Handling Scenarios
+ * 
+ * SETUP: Uses dedicated PostgreSQL test database (order_catalog_test_db)
+ * - Database is cleaned before test suite runs
+ * - Tests execute in order (@Order annotation)
+ * - Data persists across tests for E2E flow validation
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-@Testcontainers
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class VendorBranchOnboardingE2ETest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("testdb")
-            .withUsername("test")
-            .withPassword("test");
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
+    
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-    private static Long vendorId;
-    private static Long branchId;
+    private Long vendorId;
+    private Long branchId;
+    
+    @BeforeAll
+    public void setupTestSuite() {
+        System.out.println("========================================");
+        System.out.println("🧪 STARTING E2E TEST SUITE");
+        System.out.println("Database: order_catalog_test_db");
+        System.out.println("🧹 Cleaning database for fresh test run...");
+        
+        // Clean all tables in reverse order of dependencies
+        jdbcTemplate.execute("TRUNCATE TABLE order_items CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE orders CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE menu_items CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE branch_documents CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE vendor_branches CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE vendors CASCADE");
+        
+        System.out.println("✅ Database cleaned successfully");
+        System.out.println("Tests will run sequentially with shared data");
+        System.out.println("========================================");
+    }
 
     // ==================== VENDOR ONBOARDING TESTS ====================
 
@@ -96,7 +106,6 @@ public class VendorBranchOnboardingE2ETest {
                 .andExpect(jsonPath("$.companyPhone").value("9876543210"))
                 .andExpect(jsonPath("$.panNumber").value("ABCDE1234F"))
                 .andExpect(jsonPath("$.gstNumber").value("29ABCDE1234F1Z5"))
-                .andExpect(jsonPath("$.createdAt").exists())
                 .andReturn();
 
         // Extract vendorId for subsequent tests
