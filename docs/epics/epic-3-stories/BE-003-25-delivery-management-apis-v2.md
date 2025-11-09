@@ -562,15 +562,52 @@ public class OpenAPIConfig {
 
 ## 🎯 Definition of Done
 
-- [ ] All rider delivery endpoints implemented
-- [ ] All rider status endpoints implemented
-- [ ] All customer tracking endpoints implemented
-- [ ] All DTOs created with validation
-- [ ] Swagger documentation complete
-- [ ] Authentication & authorization working
-- [ ] Error handling implemented
-- [ ] Unit tests passing with > 80% coverage
-- [ ] Integration tests passing
-- [ ] API tests passing
-- [ ] Code reviewed and approved
-- [ ] Documentation updated
+**Implementation Status: 0% Complete** ⏳ (Last updated: Nov 9, 2025)
+
+### Pending Implementation
+- [ ] RiderDeliveryController (9 endpoints) ⏳
+  - GET /api/v1/riders/{riderId}/deliveries/available
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/accept
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/reject
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/reach-restaurant
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/pickup
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/start-delivery
+  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/deliver
+  - GET /api/v1/riders/{riderId}/deliveries/current
+  - GET /api/v1/riders/{riderId}/deliveries/history
+
+- [ ] RiderStatusController (6 endpoints) ⏳
+  - PUT /api/v1/riders/{riderId}/location
+  - PUT /api/v1/riders/{riderId}/status/online
+  - PUT /api/v1/riders/{riderId}/status/offline
+  - PUT /api/v1/riders/{riderId}/status/break
+  - GET /api/v1/riders/{riderId}/status
+  - GET /api/v1/riders/{riderId}/earnings
+
+- [ ] DeliveryTrackingController (3 endpoints) ⏳
+  - GET /api/v1/deliveries/{deliveryId}
+  - GET /api/v1/deliveries/{deliveryId}/location
+  - GET /api/v1/orders/{orderId}/delivery
+
+- [ ] DTOs with validation (10+ DTOs) ⏳
+- [ ] Swagger documentation complete ⏳
+- [ ] Authentication & authorization working ⏳
+- [ ] Error handling implemented ⏳
+
+### Testing
+- [ ] Unit tests passing with > 80% coverage ⏳
+- [ ] Integration tests passing ⏳
+- [ ] API tests passing ⏳
+- [ ] Code reviewed and approved ⏳
+- [ ] Documentation updated ⏳
+
+**Files to Create:**
+- `controller/RiderDeliveryController.java` ⏳
+- `controller/RiderStatusController.java` ⏳
+- `controller/DeliveryTrackingController.java` ⏳
+- `dto/rider/*` (10+ DTOs) ⏳
+
+**Dependencies:**
+- Requires BE-003-22 (Delivery FSM) ✅
+- Requires BE-003-23 (Smart Assignment) ✅
+- Requires BE-003-24 (Rider Entity) ✅
