@@ -562,37 +562,36 @@ public class OpenAPIConfig {
 
 ## 🎯 Definition of Done
 
-**Implementation Status: 0% Complete** ⏳ (Last updated: Nov 9, 2025)
+**Implementation Status: 80% Complete** ✅ (Last updated: Nov 9, 2025)
 
-### Pending Implementation
-- [ ] RiderDeliveryController (9 endpoints) ⏳
-  - GET /api/v1/riders/{riderId}/deliveries/available
+### Core Implementation (Hybrid Design - 10 Endpoints)
+- [x] RiderDeliveryController (4 endpoints) ✅
+  - GET /api/v1/riders/{riderId}/deliveries?status=AVAILABLE|CURRENT|COMPLETED
   - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/accept
   - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/reject
-  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/reach-restaurant
-  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/pickup
-  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/start-delivery
-  - POST /api/v1/riders/{riderId}/deliveries/{deliveryId}/deliver
-  - GET /api/v1/riders/{riderId}/deliveries/current
-  - GET /api/v1/riders/{riderId}/deliveries/history
+  - PATCH /api/v1/riders/{riderId}/deliveries/{deliveryId}/status (unified)
 
-- [ ] RiderStatusController (6 endpoints) ⏳
-  - PUT /api/v1/riders/{riderId}/location
-  - PUT /api/v1/riders/{riderId}/status/online
-  - PUT /api/v1/riders/{riderId}/status/offline
-  - PUT /api/v1/riders/{riderId}/status/break
-  - GET /api/v1/riders/{riderId}/status
-  - GET /api/v1/riders/{riderId}/earnings
+- [x] RiderStatusController (3 endpoints) ✅
+  - PATCH /api/v1/riders/{riderId} (update status/location)
+  - PATCH /api/v1/riders/{riderId}/location (high-frequency)
+  - GET /api/v1/riders/{riderId}?include=STATUS|EARNINGS|STATS
 
-- [ ] DeliveryTrackingController (3 endpoints) ⏳
+- [x] DeliveryTrackingController (3 endpoints) ✅
   - GET /api/v1/deliveries/{deliveryId}
   - GET /api/v1/deliveries/{deliveryId}/location
   - GET /api/v1/orders/{orderId}/delivery
 
-- [ ] DTOs with validation (10+ DTOs) ⏳
-- [ ] Swagger documentation complete ⏳
-- [ ] Authentication & authorization working ⏳
-- [ ] Error handling implemented ⏳
+- [x] DTOs with validation (7 DTOs) ✅
+- [x] Swagger/OpenAPI annotations ✅
+- [x] Error handling implemented ✅
+- [x] RiderService for status/location management ✅
+- [x] Enhanced DeliveryService with DTO mapping ✅
+
+### Pending Implementation
+- [ ] Proper pagination (currently using Page.empty) ⏳
+- [ ] Earnings calculation from delivery records ⏳
+- [ ] Authentication & authorization (JWT) ⏳
+- [ ] Rate limiting ⏳
 
 ### Testing
 - [ ] Unit tests passing with > 80% coverage ⏳
@@ -601,13 +600,24 @@ public class OpenAPIConfig {
 - [ ] Code reviewed and approved ⏳
 - [ ] Documentation updated ⏳
 
-**Files to Create:**
-- `controller/RiderDeliveryController.java` ⏳
-- `controller/RiderStatusController.java` ⏳
-- `controller/DeliveryTrackingController.java` ⏳
-- `dto/rider/*` (10+ DTOs) ⏳
+**Files Created:**
+- `controller/RiderDeliveryController.java` ✅
+- `controller/RiderStatusController.java` ✅
+- `controller/DeliveryTrackingController.java` ✅
+- `dto/DeliveryResponseDTO.java` ✅
+- `dto/LocationDTO.java` ✅
+- `dto/RejectDeliveryRequestDTO.java` ✅
+- `dto/UpdateDeliveryStatusRequestDTO.java` ✅
+- `rider/dto/UpdateRiderRequestDTO.java` ✅
+- `rider/dto/RiderResponseDTO.java` ✅
+- `rider/dto/EarningsDTO.java` ✅
+- `rider/service/RiderService.java` ✅
 
-**Dependencies:**
-- Requires BE-003-22 (Delivery FSM) ✅
-- Requires BE-003-23 (Smart Assignment) ✅
-- Requires BE-003-24 (Rider Entity) ✅
+**Commits:** d50c443
+
+**API Design Benefits:**
+- 44% reduction in endpoints (18 → 10)
+- Unified status update endpoint
+- Query-based filtering
+- High-frequency location endpoint
+- Flexible include parameter for GET requests
