@@ -1,37 +1,27 @@
 package com.teadelivery.ordercatalog.delivery.model;
 
 import com.teadelivery.ordercatalog.fsm.DeliveryState;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Delivery Entity with FSM Support
  * Represents a delivery with complete state machine lifecycle
+ * As per BE-003-22
  */
 @Entity
-@Table(name = "deliveries", indexes = {
-    @Index(name = "idx_deliveries_order_id", columnList = "order_id"),
-    @Index(name = "idx_deliveries_rider_id", columnList = "rider_id"),
-    @Index(name = "idx_deliveries_state", columnList = "state"),
-    @Index(name = "idx_deliveries_created_at", columnList = "created_at DESC")
-})
-@Data
+@Table(name = "deliveries")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EntityListeners(AuditingEntityListener.class)
+@Builder
 public class Delivery {
     
     @Id
@@ -39,115 +29,74 @@ public class Delivery {
     @Column(name = "delivery_id")
     private UUID deliveryId;
     
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id", nullable = false, unique = true)
     private UUID orderId;
     
-    // ========== Rider Info ==========
     @Column(name = "rider_id")
     private UUID riderId;
     
-    // ========== Delivery State ==========
     @Enumerated(EnumType.STRING)
-    @Column(name = "state", nullable = false, length = 32)
-    private DeliveryState state = DeliveryState.PENDING_ASSIGNMENT;
+    @Column(name = "state", nullable = false)
+    private DeliveryState state;
     
-    // ========== Pickup Location ==========
-    @Column(name = "pickup_latitude", nullable = false, precision = 10, scale = 8)
-    private BigDecimal pickupLatitude;
+    @Column(name = "delivery_fee", precision = 10, scale = 2)
+    private BigDecimal deliveryFee;
     
-    @Column(name = "pickup_longitude", nullable = false, precision = 11, scale = 8)
-    private BigDecimal pickupLongitude;
+    @Column(name = "search_radius_km")
+    private Double searchRadiusKm = 2.0;
     
-    @Type(JsonBinaryType.class)
-    @Column(name = "pickup_address", columnDefinition = "jsonb", nullable = false)
-    private Map<String, Object> pickupAddress;
+    @Column(name = "retry_count")
+    private Integer retryCount = 0;
     
-    // ========== Delivery Location ==========
-    @Column(name = "delivery_latitude", nullable = false, precision = 10, scale = 8)
-    private BigDecimal deliveryLatitude;
+    // Location data (JSONB)
+    @Column(name = "pickup_location", columnDefinition = "jsonb")
+    private String pickupLocation;
     
-    @Column(name = "delivery_longitude", nullable = false, precision = 11, scale = 8)
-    private BigDecimal deliveryLongitude;
+    @Column(name = "delivery_location", columnDefinition = "jsonb")
+    private String deliveryLocation;
     
-    @Type(JsonBinaryType.class)
-    @Column(name = "delivery_address", columnDefinition = "jsonb", nullable = false)
-    private Map<String, Object> deliveryAddress;
+    @Column(name = "rider_location", columnDefinition = "jsonb")
+    private String riderLocation;
     
-    // ========== Distance and Time ==========
-    @Column(name = "distance_km", precision = 6, scale = 2)
-    private BigDecimal distanceKm;
-    
-    @Column(name = "estimated_time_minutes")
-    private Integer estimatedTimeMinutes;
-    
-    // ========== Timestamps ==========
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-    
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-    
-    @Column(name = "assigned_at")
-    private LocalDateTime assignedAt;
+    // Timestamps
+    @Column(name = "rider_assigned_at")
+    private Instant riderAssignedAt;
     
     @Column(name = "rider_accepted_at")
-    private LocalDateTime riderAcceptedAt;
+    private Instant riderAcceptedAt;
+    
+    @Column(name = "reached_restaurant_at")
+    private Instant reachedRestaurantAt;
     
     @Column(name = "picked_up_at")
-    private LocalDateTime pickedUpAt;
-    
-    @Column(name = "in_transit_at")
-    private LocalDateTime inTransitAt;
-    
-    @Column(name = "arrived_at")
-    private LocalDateTime arrivedAt;
+    private Instant pickedUpAt;
     
     @Column(name = "delivered_at")
-    private LocalDateTime deliveredAt;
+    private Instant deliveredAt;
     
-    @Column(name = "cancelled_at")
-    private LocalDateTime cancelledAt;
+    @Column(name = "failed_at")
+    private Instant failedAt;
     
-    // ========== Cancellation ==========
-    @Column(name = "cancellation_reason", length = 500)
-    private String cancellationReason;
+    @Column(name = "failure_reason")
+    private String failureReason;
     
-    // ========== Metadata ==========
-    @Type(JsonBinaryType.class)
-    @Column(name = "metadata", columnDefinition = "jsonb")
-    private Map<String, Object> metadata = new HashMap<>();
+    // Metrics
+    @Column(name = "restaurant_wait_time_minutes")
+    private Integer restaurantWaitTimeMinutes;
     
-    // ========== Helper Methods ==========
+    @Column(name = "total_delivery_time_minutes")
+    private Integer totalDeliveryTimeMinutes;
     
-    /**
-     * Update state timestamp based on new state
-     */
-    public void updateStateTimestamp(DeliveryState newState) {
-        LocalDateTime now = LocalDateTime.now();
-        switch (newState) {
-            case ASSIGNED -> this.assignedAt = now;
-            case RIDER_ACCEPTED -> this.riderAcceptedAt = now;
-            case PICKED_UP -> this.pickedUpAt = now;
-            case IN_TRANSIT -> this.inTransitAt = now;
-            case ARRIVED_AT_CUSTOMER -> this.arrivedAt = now;
-            case DELIVERED -> this.deliveredAt = now;
-            case CANCELLED -> this.cancelledAt = now;
-        }
-    }
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
     
-    /**
-     * Check if delivery is in a terminal state
-     */
-    public boolean isTerminal() {
-        return state != null && state.isTerminal();
-    }
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Instant updatedAt;
     
-    /**
-     * Check if delivery is in progress
-     */
-    public boolean isInProgress() {
-        return state != null && state.isInProgress();
-    }
+    @Version
+    @Column(name = "version")
+    private Long version;
+    
 }

@@ -9,16 +9,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Delivery Repository
+ * As per BE-003-22
+ */
 @Repository
 public interface DeliveryRepository extends JpaRepository<Delivery, UUID> {
     
     Optional<Delivery> findByOrderId(UUID orderId);
-    List<Delivery> findByRiderId(UUID riderId);
-    List<Delivery> findByState(DeliveryState state);
-    List<Delivery> findByRiderIdAndState(UUID riderId, DeliveryState state);
-    List<Delivery> findByStateIn(List<DeliveryState> states);
     
-    long countByRiderId(UUID riderId);
-    long countByState(DeliveryState state);
-    long countByRiderIdAndState(UUID riderId, DeliveryState state);
+    List<Delivery> findByState(DeliveryState state);
+    
+    List<Delivery> findByRiderId(UUID riderId);
+    
+    List<Delivery> findByStateAndRiderId(DeliveryState state, UUID riderId);
 }

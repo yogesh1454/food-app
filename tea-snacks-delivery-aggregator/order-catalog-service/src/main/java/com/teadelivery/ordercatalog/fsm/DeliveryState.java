@@ -2,18 +2,18 @@ package com.teadelivery.ordercatalog.fsm;
 
 /**
  * Delivery FSM States
- * Represents the 9 states in the delivery lifecycle
+ * Represents the 9 states in the delivery lifecycle as per BE-003-22
  */
 public enum DeliveryState {
-    PENDING_ASSIGNMENT("Waiting for rider assignment"),
-    ASSIGNED("Assigned to a delivery rider"),
-    RIDER_ACCEPTED("Rider accepted the delivery"),
-    RIDER_ARRIVED_AT_RESTAURANT("Rider arrived at restaurant"),
-    PICKED_UP("Order picked up by rider"),
-    IN_TRANSIT("Order in transit to customer"),
-    ARRIVED_AT_CUSTOMER("Rider arrived at customer location"),
-    DELIVERED("Order delivered to customer"),
-    CANCELLED("Delivery cancelled");
+    PENDING("Delivery created, ready to find riders"),
+    SEARCHING_RIDER("Actively searching for available riders"),
+    RIDER_ASSIGNED("Rider selected, awaiting acceptance"),
+    RIDER_ACCEPTED("Rider accepted, navigating to restaurant"),
+    AT_RESTAURANT("Rider reached restaurant, picking up order"),
+    PICKED_UP("Rider picked up order, ready to deliver"),
+    OUT_FOR_DELIVERY("Rider en route to customer"),
+    DELIVERED("Order successfully delivered"),
+    FAILED("Delivery failed (terminal state)");
     
     private final String description;
     
@@ -29,13 +29,13 @@ public enum DeliveryState {
      * Check if this is a terminal state
      */
     public boolean isTerminal() {
-        return this == DELIVERED || this == CANCELLED;
+        return this == DELIVERED || this == FAILED;
     }
     
     /**
      * Check if delivery is in progress
      */
     public boolean isInProgress() {
-        return !isTerminal() && this != PENDING_ASSIGNMENT;
+        return !isTerminal() && this != PENDING;
     }
 }

@@ -28,6 +28,10 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core:9.22.3'
     
+    // PostGIS/Geospatial support
+    implementation 'org.hibernate.orm:hibernate-spatial:6.4.4.Final'
+    implementation 'org.locationtech.jts:jts-core:1.19.0'
+    
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
