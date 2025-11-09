@@ -1,16 +1,25 @@
 package com.teadelivery.ordercatalog.delivery.service;
 
+import com.teadelivery.ordercatalog.delivery.dto.DeliveryResponseDTO;
+import com.teadelivery.ordercatalog.delivery.dto.LocationDTO;
+import com.teadelivery.ordercatalog.delivery.dto.UpdateDeliveryStatusRequestDTO;
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
 import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
 import com.teadelivery.ordercatalog.fsm.DeliveryState;
 import com.teadelivery.ordercatalog.fsm.DeliveryTrigger;
 import com.teadelivery.ordercatalog.fsm.delivery.DeliveryFSM;
+import com.teadelivery.ordercatalog.rider.model.Rider;
+import com.teadelivery.ordercatalog.rider.repository.RiderRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Delivery Service
@@ -25,15 +34,18 @@ public class DeliveryService {
     private final DeliveryRepository deliveryRepository;
     private final DeliveryFSM deliveryFSM;
     private final RiderAssignmentService riderAssignmentService;
+    private final RiderRepository riderRepository;
     
     public DeliveryService(
         DeliveryRepository deliveryRepository,
         DeliveryFSM deliveryFSM,
-        RiderAssignmentService riderAssignmentService
+        RiderAssignmentService riderAssignmentService,
+        RiderRepository riderRepository
     ) {
         this.deliveryRepository = deliveryRepository;
         this.deliveryFSM = deliveryFSM;
         this.riderAssignmentService = riderAssignmentService;
+        this.riderRepository = riderRepository;
     }
     
     /**
@@ -158,5 +170,147 @@ public class DeliveryService {
         return deliveryRepository.findByOrderId(orderId)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Delivery not found for order: " + orderId));
+    }
+    
+    /**
+     * Get deliveries for rider with pagination
+     */
+    public Page<DeliveryResponseDTO> getDeliveriesForRider(
+        UUID riderId, 
+        String status, 
+        Pageable pageable
+    ) {
+        List<Delivery> deliveries;
+        
+        switch (status.toUpperCase()) {
+            case "AVAILABLE":
+                // Get deliveries in RIDER_ASSIGNED state (not yet accepted)
+                deliveries = deliveryRepository.findByState(DeliveryState.RIDER_ASSIGNED);
+                break;
+            case "CURRENT":
+                // Get active deliveries for this rider
+                deliveries = deliveryRepository.findByStateAndRiderId(
+                    DeliveryState.RIDER_ACCEPTED, riderId);
+                deliveries.addAll(deliveryRepository.findByStateAndRiderId(
+                    DeliveryState.AT_RESTAURANT, riderId));
+                deliveries.addAll(deliveryRepository.findByStateAndRiderId(
+                    DeliveryState.PICKED_UP, riderId));
+                deliveries.addAll(deliveryRepository.findByStateAndRiderId(
+                    DeliveryState.OUT_FOR_DELIVERY, riderId));
+                break;
+            case "COMPLETED":
+                // Get completed deliveries for this rider
+                deliveries = deliveryRepository.findByStateAndRiderId(
+                    DeliveryState.DELIVERED, riderId);
+                break;
+            default:
+                // Get all deliveries for this rider
+                deliveries = deliveryRepository.findByRiderId(riderId);
+        }
+        
+        // Convert to Page (simplified - in production use proper pagination)
+        List<DeliveryResponseDTO> dtos = deliveries.stream()
+            .map(this::toDTO)
+            .collect(Collectors.toList());
+        
+        return Page.empty(pageable); // TODO: Implement proper pagination
+    }
+    
+    /**
+     * Update delivery status
+     */
+    public DeliveryResponseDTO updateDeliveryStatus(
+        UUID riderId,
+        UUID deliveryId,
+        UpdateDeliveryStatusRequestDTO request
+    ) {
+        Delivery delivery = getDelivery(deliveryId);
+        
+        // Verify rider owns this delivery
+        if (!riderId.equals(delivery.getRiderId())) {
+            throw new IllegalArgumentException(
+                "Rider not assigned to this delivery");
+        }
+        
+        // Map status to trigger and fire FSM
+        switch (request.getStatus()) {
+            case "REACHED_RESTAURANT":
+                riderReachedRestaurant(deliveryId);
+                break;
+            case "PICKED_UP":
+                riderPickedUpOrder(deliveryId);
+                break;
+            case "OUT_FOR_DELIVERY":
+                // Already handled in pickup
+                break;
+            case "DELIVERED":
+                riderDeliveredOrder(deliveryId);
+                break;
+        }
+        
+        return getDeliveryDTO(deliveryId);
+    }
+    
+    /**
+     * Get delivery as DTO
+     */
+    public DeliveryResponseDTO getDeliveryDTO(UUID deliveryId) {
+        Delivery delivery = getDelivery(deliveryId);
+        return toDTO(delivery);
+    }
+    
+    /**
+     * Get delivery by order ID as DTO
+     */
+    public DeliveryResponseDTO getDeliveryByOrderIdDTO(UUID orderId) {
+        Delivery delivery = getDeliveryByOrderId(orderId);
+        return toDTO(delivery);
+    }
+    
+    /**
+     * Get rider location for delivery
+     */
+    public LocationDTO getRiderLocationForDelivery(UUID deliveryId) {
+        Delivery delivery = getDelivery(deliveryId);
+        
+        if (delivery.getRiderId() == null) {
+            throw new IllegalArgumentException("No rider assigned to this delivery");
+        }
+        
+        Rider rider = riderRepository.findById(delivery.getRiderId())
+            .orElseThrow(() -> new IllegalArgumentException("Rider not found"));
+        
+        if (rider.getCurrentLocation() == null) {
+            throw new IllegalArgumentException("Rider location not available");
+        }
+        
+        return LocationDTO.builder()
+            .latitude(rider.getCurrentLocation().getY())
+            .longitude(rider.getCurrentLocation().getX())
+            .build();
+    }
+    
+    /**
+     * Helper: Convert Delivery to DTO
+     */
+    private DeliveryResponseDTO toDTO(Delivery delivery) {
+        return DeliveryResponseDTO.builder()
+            .deliveryId(delivery.getDeliveryId())
+            .orderId(delivery.getOrderId())
+            .riderId(delivery.getRiderId())
+            .state(delivery.getState())
+            .deliveryFee(delivery.getDeliveryFee())
+            .riderAssignedAt(delivery.getRiderAssignedAt())
+            .riderAcceptedAt(delivery.getRiderAcceptedAt())
+            .reachedRestaurantAt(delivery.getReachedRestaurantAt())
+            .pickedUpAt(delivery.getPickedUpAt())
+            .deliveredAt(delivery.getDeliveredAt())
+            .failedAt(delivery.getFailedAt())
+            .failureReason(delivery.getFailureReason())
+            .restaurantWaitTimeMinutes(delivery.getRestaurantWaitTimeMinutes())
+            .totalDeliveryTimeMinutes(delivery.getTotalDeliveryTimeMinutes())
+            .createdAt(delivery.getCreatedAt())
+            .updatedAt(delivery.getUpdatedAt())
+            .build();
     }
 }
