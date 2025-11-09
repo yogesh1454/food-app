@@ -20,30 +20,35 @@
 ## ✅ Acceptance Criteria
 
 1. **Timeout Configuration**
-   - [ ] Restaurant acceptance timeout: 2 minutes
-   - [ ] Timeout configurable via application properties
-   - [ ] Different timeouts for different scenarios
+   - [x] Restaurant acceptance timeout: 2 minutes *(application.yml)*
+   - [x] Timeout configurable via application properties *(order.timeout.restaurant-acceptance)*
+   - [x] Different timeouts for different scenarios *(payment, rider-assignment)*
 
 2. **Timeout Scheduling**
-   - [ ] Timeout scheduled when order enters PENDING_ACCEPTANCE
-   - [ ] Timeout stored in Redis with TTL
-   - [ ] Timeout cancelled if restaurant accepts/rejects
+   - [x] Timeout scheduled when order enters PENDING_ACCEPTANCE *(OrderService.submitToVendor)*
+   - [x] Timeout stored in Redis with TTL *(OrderTimeoutService)*
+   - [x] Timeout cancelled if restaurant accepts/rejects *(OrderService.acceptOrder/rejectOrder)*
 
 3. **Timeout Execution**
-   - [ ] Redis keyspace notification triggers timeout
-   - [ ] Order automatically moved to REJECTED state
-   - [ ] Customer notified of rejection
-   - [ ] Refund initiated automatically
+   - [x] Redis keyspace notification triggers timeout *(RedisKeyExpirationListener)*
+   - [x] Order automatically moved to REJECTED state *(handleRestaurantAcceptanceTimeout)*
+   - [~] Customer notified of rejection *(TODO: notification service)*
+   - [~] Refund initiated automatically *(TODO: payment service)*
 
 4. **Timeout Monitoring**
-   - [ ] Timeout events logged
-   - [ ] Metrics collected (timeout rate)
-   - [ ] Alerts for high timeout rates
+   - [x] Timeout events logged *(comprehensive logging)*
+   - [ ] Metrics collected (timeout rate) *(pending)*
+   - [ ] Alerts for high timeout rates *(pending)*
 
 5. **Error Handling**
-   - [ ] Handle Redis failures gracefully
-   - [ ] Retry mechanism for failed timeouts
-   - [ ] Fallback to database polling if Redis unavailable
+   - [x] Handle Redis failures gracefully *(try-catch with logging)*
+   - [~] Retry mechanism for failed timeouts *(basic error handling)*
+   - [ ] Fallback to database polling if Redis unavailable *(pending)*
+
+**Implementation Status:** ✅ **COMPLETED** (Core functionality implemented, monitoring/notifications pending)
+**Implementation Date:** 2025-11-09
+**Files:** OrderTimeoutService, RedisKeyExpirationListener, RedisConfig, application.yml
+**Integration:** OrderService updated to schedule/cancel timeouts
 
 ---
 

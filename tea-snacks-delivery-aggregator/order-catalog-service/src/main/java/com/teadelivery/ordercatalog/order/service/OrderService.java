@@ -11,6 +11,7 @@ import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.model.SubOrder;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
+import com.teadelivery.ordercatalog.timeout.OrderTimeoutService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class OrderService {
     private final SubOrderRepository subOrderRepository;
     private final OrderStateAuditRepository auditRepository;
     private final OrderFSM orderFSM;
+    private final OrderTimeoutService timeoutService;
     
     // ========== Order Creation ==========
     
@@ -198,8 +200,10 @@ public class OrderService {
         createAuditRecord(savedOrder, OrderState.PAYMENT_CONFIRMED, OrderState.PENDING_ACCEPTANCE,
             "NOTIFY_RESTAURANT", null, "SYSTEM");
         
+        // Schedule restaurant acceptance timeout (2 minutes)
+        timeoutService.scheduleRestaurantAcceptanceTimeout(orderId);
+        
         // TODO: Send notification to vendor
-        // TODO: Start timeout timer (2 minutes)
         
         log.info("Order submitted to vendor: {}", orderId);
         return savedOrder;
@@ -219,6 +223,9 @@ public class OrderService {
         if (order.getState() != OrderState.PENDING_ACCEPTANCE) {
             throw new IllegalStateException("Order must be in PENDING_ACCEPTANCE state to accept");
         }
+        
+        // Cancel timeout since restaurant accepted
+        timeoutService.cancelRestaurantAcceptanceTimeout(orderId);
         
         // Transition state
         orderFSM.acceptOrder(order);
@@ -244,6 +251,9 @@ public class OrderService {
         if (order.getState() != OrderState.PENDING_ACCEPTANCE) {
             throw new IllegalStateException("Order must be in PENDING_ACCEPTANCE state to reject");
         }
+        
+        // Cancel timeout since restaurant rejected
+        timeoutService.cancelRestaurantAcceptanceTimeout(orderId);
         
         // Transition state
         orderFSM.rejectOrder(order, reason);

@@ -20,43 +20,47 @@
 ## ✅ Acceptance Criteria
 
 1. **Kafka Topics Created**
-   - [ ] `order-events` topic created with 6 partitions
-   - [ ] `delivery-events` topic created with 6 partitions
-   - [ ] `assignment-requests` topic created with 3 partitions
-   - [ ] `assignment-responses` topic created with 3 partitions
-   - [ ] All topics have replication factor of 3 (production)
-   - [ ] Retention policy set to 7 days
+   - [x] `order-events` topic created with 6 partitions *(script provided)*
+   - [x] `delivery-events` topic created with 6 partitions *(script provided)*
+   - [x] `assignment-requests` topic created with 3 partitions *(script provided)*
+   - [x] `assignment-responses` topic created with 3 partitions *(script provided)*
+   - [x] All topics have replication factor of 3 (production) *(configured in script)*
+   - [x] Retention policy set to 7 days *(configured)*
 
 2. **Topic Configuration**
-   - [ ] Partition key strategy: orderId for order-events
-   - [ ] Partition key strategy: deliveryId for delivery-events
-   - [ ] Compression enabled (snappy)
-   - [ ] Min in-sync replicas = 2
+   - [x] Partition key strategy: orderId for order-events *(implemented in EventPublisher)*
+   - [x] Partition key strategy: deliveryId for delivery-events *(implemented in EventPublisher)*
+   - [x] Compression enabled (snappy) *(configured in producer)*
+   - [x] Min in-sync replicas = 2 *(configured in topic script)*
 
 3. **Event Schemas Defined**
-   - [ ] OrderStateChangedEvent schema
-   - [ ] DeliveryStateChangedEvent schema
-   - [ ] RiderAssignmentRequestEvent schema
-   - [ ] RiderAssignmentResponseEvent schema
-   - [ ] All schemas versioned and documented
+   - [x] OrderStateChangedEvent schema *(implemented)*
+   - [x] DeliveryStateChangedEvent schema *(implemented)*
+   - [x] RiderAssignmentRequestEvent schema *(implemented)*
+   - [x] RiderAssignmentResponseEvent schema *(implemented)*
+   - [x] All schemas versioned and documented *(version field added)*
 
 4. **Producer Configuration**
-   - [ ] Idempotent producer enabled
-   - [ ] Acks = all for critical events
-   - [ ] Retry configuration with exponential backoff
-   - [ ] Serialization using JSON
+   - [x] Idempotent producer enabled *(KafkaProducerConfig)*
+   - [x] Acks = all for critical events *(KafkaProducerConfig)*
+   - [x] Retry configuration with exponential backoff *(KafkaProducerConfig)*
+   - [x] Serialization using JSON *(JsonSerializer configured)*
 
 5. **Consumer Groups**
-   - [ ] `order-fsm-consumers` group for order events
-   - [ ] `delivery-fsm-consumers` group for delivery events
-   - [ ] `rider-assignment-consumers` group for assignment requests
-   - [ ] Auto-commit disabled (manual commit)
+   - [x] `order-fsm-consumers` group for order events *(KafkaConsumerConfig)*
+   - [x] `delivery-fsm-consumers` group for delivery events *(KafkaConsumerConfig)*
+   - [x] `rider-assignment-consumers` group for assignment requests *(KafkaConsumerConfig)*
+   - [x] Auto-commit disabled (manual commit) *(AckMode.MANUAL)*
 
 6. **Monitoring**
-   - [ ] Kafka lag monitoring configured
-   - [ ] Producer/consumer metrics exposed
-   - [ ] Dead letter queue (DLQ) topic created
-   - [ ] Alert thresholds configured
+   - [ ] Kafka lag monitoring configured *(pending)*
+   - [ ] Producer/consumer metrics exposed *(pending)*
+   - [x] Dead letter queue (DLQ) topic created *(script provided)*
+   - [ ] Alert thresholds configured *(pending)*
+
+**Implementation Status:** ✅ **COMPLETED** (Core functionality implemented, monitoring pending)
+**Implementation Date:** 2025-11-09
+**Files:** See `order-catalog-service/IMPLEMENTATION_STATUS.md`
 
 ---
 

@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: order-catalog-service-test
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+logging:
+  level:
+    com.teadelivery: DEBUG
+    org.springframework.kafka: INFO
+    org.testcontainers: INFO
+    
+# Disable health checks for tests
+management:
+  health:
+    redis:
+      enabled: false
+    kafka:
+      enabled: false
