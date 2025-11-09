@@ -49,6 +49,9 @@ dependencies {
     
     // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
+    
+    // State Machine (Stateless4j)
+    implementation 'com.github.stateless4j:stateless4j:2.6.0'
 }
 
 test {
