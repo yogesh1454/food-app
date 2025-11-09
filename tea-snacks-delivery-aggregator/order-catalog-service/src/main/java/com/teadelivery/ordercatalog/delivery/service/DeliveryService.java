@@ -84,6 +84,23 @@ public class DeliveryService {
     }
     
     /**
+     * Start rider search by order ID
+     */
+    public void startRiderSearch(UUID orderId) {
+        Delivery delivery = deliveryRepository.findByOrderId(orderId)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Delivery not found for order: " + orderId));
+        startRiderSearch(delivery.getDeliveryId());
+    }
+    
+    /**
+     * Check if delivery exists for order (idempotency check)
+     */
+    public boolean deliveryExistsForOrder(UUID orderId) {
+        return deliveryRepository.findByOrderId(orderId).isPresent();
+    }
+    
+    /**
      * Rider accepts delivery
      */
     public void riderAcceptDelivery(UUID deliveryId, UUID riderId) {
