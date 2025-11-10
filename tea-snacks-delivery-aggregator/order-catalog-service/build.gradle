@@ -12,14 +12,21 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://projectlombok.org/edge-releases'
+    }
+}
+
 dependencies {
     implementation project(':shared:common')
     
-    // Lombok (updated for Java 21 compatibility)
-    compileOnly 'org.projectlombok:lombok:1.18.34'
-    annotationProcessor 'org.projectlombok:lombok:1.18.34'
-    testCompileOnly 'org.projectlombok:lombok:1.18.34'
-    testAnnotationProcessor 'org.projectlombok:lombok:1.18.34'
+    // Lombok (edge version for Java 21 compatibility)
+    compileOnly 'org.projectlombok:lombok:edge-SNAPSHOT'
+    annotationProcessor 'org.projectlombok:lombok:edge-SNAPSHOT'
+    testCompileOnly 'org.projectlombok:lombok:edge-SNAPSHOT'
+    testAnnotationProcessor 'org.projectlombok:lombok:edge-SNAPSHOT'
     
     // Web & Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
