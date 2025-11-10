@@ -1,7 +1,7 @@
-package com.teadelivery.ordercatalog.order.status.controller;
+package com.teadelivery.ordercatalog.order.controller;
 
-import com.teadelivery.ordercatalog.order.status.dto.CustomerStatusResponseDTO;
-import com.teadelivery.ordercatalog.order.status.service.CustomerStatusService;
+import com.teadelivery.ordercatalog.order.dto.CustomerStatusResponseDTO;
+import com.teadelivery.ordercatalog.order.service.CustomerStatusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

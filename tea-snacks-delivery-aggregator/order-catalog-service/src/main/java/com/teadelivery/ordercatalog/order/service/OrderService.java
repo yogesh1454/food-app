@@ -11,7 +11,7 @@ import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.model.SubOrder;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
-import com.teadelivery.ordercatalog.order.timeout.OrderTimeoutService;
+import com.teadelivery.ordercatalog.order.service.OrderTimeoutService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

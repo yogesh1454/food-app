@@ -1,11 +1,11 @@
-package com.teadelivery.ordercatalog.order.status.service;
+package com.teadelivery.ordercatalog.order.service;
 
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
 import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
 import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.model.Order;
-import com.teadelivery.ordercatalog.order.status.model.CustomerStatus;
+import com.teadelivery.ordercatalog.order.model.CustomerStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

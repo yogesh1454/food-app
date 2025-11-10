@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.order.timeout;
+package com.teadelivery.ordercatalog.order.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

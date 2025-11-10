@@ -1,7 +1,7 @@
-package com.teadelivery.ordercatalog.order.status.dto;
+package com.teadelivery.ordercatalog.order.dto;
 
 import com.teadelivery.ordercatalog.delivery.dto.LocationDTO;
-import com.teadelivery.ordercatalog.order.status.model.CustomerStatus;
+import com.teadelivery.ordercatalog.order.model.CustomerStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

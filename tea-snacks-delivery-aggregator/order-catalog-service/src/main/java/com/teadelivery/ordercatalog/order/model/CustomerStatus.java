@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.order.status.model;
+package com.teadelivery.ordercatalog.order.model;
 
 /**
  * Customer-Facing Status Enum
