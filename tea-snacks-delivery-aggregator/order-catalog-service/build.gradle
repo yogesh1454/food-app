@@ -18,6 +18,8 @@ dependencies {
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    testCompileOnly 'org.projectlombok:lombok:1.18.30'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.30'
     
     // Web & Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -41,6 +43,7 @@ dependencies {
     testImplementation 'org.testcontainers:postgresql:1.19.3'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
     testImplementation 'org.testcontainers:kafka:1.19.3'
+    testImplementation 'com.redis:testcontainers-redis:2.2.2'
     
     // Awaitility for async testing
     testImplementation 'org.awaitility:awaitility:4.2.0'
