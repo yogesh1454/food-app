@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.event.consumer;
+package com.teadelivery.ordercatalog.delivery.consumer;
 
 import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
 import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
