@@ -1,8 +1,8 @@
 package com.teadelivery.ordercatalog.order.model;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.OrderType;
-import com.teadelivery.ordercatalog.fsm.PaymentStatus;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderType;
+import com.teadelivery.ordercatalog.order.fsm.PaymentStatus;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

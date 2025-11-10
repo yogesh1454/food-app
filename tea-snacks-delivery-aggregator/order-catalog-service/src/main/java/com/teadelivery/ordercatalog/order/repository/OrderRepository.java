@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.order.repository;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.OrderType;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderType;
 import com.teadelivery.ordercatalog.order.model.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

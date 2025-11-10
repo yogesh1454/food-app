@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.integration;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.events.OrderStateChangedEvent;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
 import com.teadelivery.ordercatalog.order.dto.AcceptOrderRequest;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.dto.OrderItemRequest;

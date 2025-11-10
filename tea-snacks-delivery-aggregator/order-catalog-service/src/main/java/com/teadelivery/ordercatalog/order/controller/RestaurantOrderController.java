@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.order.controller;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.dto.AcceptOrderRequest;
 import com.teadelivery.ordercatalog.order.dto.OrderResponse;
 import com.teadelivery.ordercatalog.order.dto.RejectOrderRequest;

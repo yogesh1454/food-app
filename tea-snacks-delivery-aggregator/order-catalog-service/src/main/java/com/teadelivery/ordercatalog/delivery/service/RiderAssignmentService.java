@@ -2,8 +2,8 @@ package com.teadelivery.ordercatalog.delivery.service;
 
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
 import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
-import com.teadelivery.ordercatalog.fsm.DeliveryTrigger;
-import com.teadelivery.ordercatalog.fsm.delivery.DeliveryFSM;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryTrigger;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryFSM;
 import com.teadelivery.ordercatalog.notification.service.NotificationService;
 import com.teadelivery.ordercatalog.rider.model.Rider;
 import lombok.extern.slf4j.Slf4j;

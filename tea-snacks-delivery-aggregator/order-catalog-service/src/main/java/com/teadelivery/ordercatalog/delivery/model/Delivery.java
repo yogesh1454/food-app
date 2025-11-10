@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.delivery.model;
 
-import com.teadelivery.ordercatalog.fsm.DeliveryState;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

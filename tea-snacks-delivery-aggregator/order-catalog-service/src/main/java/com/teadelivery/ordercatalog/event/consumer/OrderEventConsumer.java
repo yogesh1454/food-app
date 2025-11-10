@@ -1,8 +1,8 @@
 package com.teadelivery.ordercatalog.event.consumer;
 
 import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
-import com.teadelivery.ordercatalog.fsm.events.OrderStateChangedEvent;
-import com.teadelivery.ordercatalog.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;

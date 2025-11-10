@@ -1,8 +1,8 @@
 package com.teadelivery.ordercatalog.order.dto;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.OrderType;
-import com.teadelivery.ordercatalog.fsm.PaymentStatus;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderType;
+import com.teadelivery.ordercatalog.order.fsm.PaymentStatus;
 import com.teadelivery.ordercatalog.order.model.Order;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

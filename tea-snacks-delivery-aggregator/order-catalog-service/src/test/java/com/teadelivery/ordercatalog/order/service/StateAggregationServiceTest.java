@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.order.service;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.SubOrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.SubOrderState;
 import com.teadelivery.ordercatalog.order.model.SubOrder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

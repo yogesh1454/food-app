@@ -6,7 +6,7 @@ import com.teadelivery.ordercatalog.delivery.dto.RejectDeliveryRequestDTO;
 import com.teadelivery.ordercatalog.delivery.dto.UpdateDeliveryStatusRequestDTO;
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
 import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
-import com.teadelivery.ordercatalog.fsm.DeliveryState;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
 import com.teadelivery.ordercatalog.rider.model.Rider;
 import com.teadelivery.ordercatalog.rider.repository.RiderRepository;
 import org.junit.jupiter.api.DisplayName;

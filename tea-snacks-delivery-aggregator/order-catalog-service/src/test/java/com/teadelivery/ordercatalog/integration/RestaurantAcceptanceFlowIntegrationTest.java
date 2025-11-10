@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.integration;
 
-import com.teadelivery.ordercatalog.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.dto.*;
 import com.teadelivery.ordercatalog.order.model.Order;
 import org.junit.jupiter.api.DisplayName;

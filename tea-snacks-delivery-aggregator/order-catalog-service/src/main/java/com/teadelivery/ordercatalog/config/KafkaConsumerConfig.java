@@ -1,9 +1,9 @@
 package com.teadelivery.ordercatalog.config;
 
-import com.teadelivery.ordercatalog.fsm.events.DeliveryStateChangedEvent;
-import com.teadelivery.ordercatalog.fsm.events.OrderStateChangedEvent;
-import com.teadelivery.ordercatalog.fsm.events.RiderAssignmentRequestEvent;
-import com.teadelivery.ordercatalog.fsm.events.RiderAssignmentResponseEvent;
+import com.teadelivery.ordercatalog.delivery.fsm.events.DeliveryStateChangedEvent;
+import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
+import com.teadelivery.ordercatalog.delivery.fsm.events.RiderAssignmentRequestEvent;
+import com.teadelivery.ordercatalog.delivery.fsm.events.RiderAssignmentResponseEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;

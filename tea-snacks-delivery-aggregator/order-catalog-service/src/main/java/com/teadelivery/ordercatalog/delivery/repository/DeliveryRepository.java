@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.delivery.repository;
 
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
-import com.teadelivery.ordercatalog.fsm.DeliveryState;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

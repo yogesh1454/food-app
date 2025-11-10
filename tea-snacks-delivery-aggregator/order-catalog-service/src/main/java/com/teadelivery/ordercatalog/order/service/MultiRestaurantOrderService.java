@@ -2,9 +2,9 @@ package com.teadelivery.ordercatalog.order.service;
 
 import com.teadelivery.ordercatalog.delivery.service.DeliveryBatchingService;
 import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
-import com.teadelivery.ordercatalog.fsm.OrderState;
-import com.teadelivery.ordercatalog.fsm.OrderType;
-import com.teadelivery.ordercatalog.fsm.SubOrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderState;
+import com.teadelivery.ordercatalog.order.fsm.OrderType;
+import com.teadelivery.ordercatalog.order.fsm.SubOrderState;
 import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.SubOrder;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;

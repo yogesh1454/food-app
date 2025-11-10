@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.delivery.dto;
 
-import com.teadelivery.ordercatalog.fsm.DeliveryState;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
