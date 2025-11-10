@@ -24,8 +24,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "sub_orders", indexes = {
     @Index(name = "idx_sub_orders_parent_order_id", columnList = "parent_order_id"),
-    @Index(name = "idx_sub_orders_vendor_id", columnList = "vendor_id"),
-    @Index(name = "idx_sub_orders_branch_id", columnList = "branch_id"),
+    @Index(name = "idx_sub_orders_restaurant_id", columnList = "restaurant_id"),
     @Index(name = "idx_sub_orders_state", columnList = "state")
 })
 @Data
@@ -42,21 +41,27 @@ public class SubOrder {
     @Column(name = "parent_order_id", nullable = false)
     private UUID parentOrderId;
     
-    // ========== Vendor Info ==========
-    @Column(name = "vendor_id", nullable = false)
-    private UUID vendorId;
-    
-    @Column(name = "branch_id", nullable = false)
-    private Long branchId;
+    // ========== Restaurant Info ==========
+    @Column(name = "restaurant_id", nullable = false)
+    private UUID restaurantId;
     
     // ========== Sub-order State ==========
     @Enumerated(EnumType.STRING)
     @Column(name = "state", nullable = false, length = 32)
     private SubOrderState state = SubOrderState.PENDING_ACCEPTANCE;
     
+    // ========== Items ==========
+    @Type(JsonBinaryType.class)
+    @Column(name = "items", columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> items = new HashMap<>();
+    
     // ========== Pricing ==========
     @Column(name = "item_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal itemTotal;
+    
+    // ========== Special Instructions ==========
+    @Column(name = "special_instructions", columnDefinition = "TEXT")
+    private String specialInstructions;
     
     // ========== Timestamps ==========
     @CreatedDate
@@ -70,15 +75,18 @@ public class SubOrder {
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
     
-    @Column(name = "preparing_started_at")
-    private LocalDateTime preparingStartedAt;
-    
     @Column(name = "ready_at")
     private LocalDateTime readyAt;
     
-    // ========== Estimated Time ==========
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+    
+    // ========== Preparation Time ==========
     @Column(name = "estimated_prep_time_minutes")
     private Integer estimatedPrepTimeMinutes;
+    
+    @Column(name = "actual_prep_time_minutes")
+    private Integer actualPrepTimeMinutes;
     
     // ========== Metadata ==========
     @Type(JsonBinaryType.class)
@@ -94,8 +102,15 @@ public class SubOrder {
         LocalDateTime now = LocalDateTime.now();
         switch (newState) {
             case ACCEPTED -> this.acceptedAt = now;
-            case PREPARING -> this.preparingStartedAt = now;
-            case READY_FOR_PICKUP -> this.readyAt = now;
+            case READY_FOR_PICKUP -> {
+                this.readyAt = now;
+                // Calculate actual prep time if accepted
+                if (this.acceptedAt != null) {
+                    this.actualPrepTimeMinutes = (int) java.time.Duration
+                        .between(this.acceptedAt, now).toMinutes();
+                }
+            }
+            case REJECTED -> this.rejectedAt = now;
         }
     }
     
@@ -106,5 +121,13 @@ public class SubOrder {
         return state == SubOrderState.READY_FOR_PICKUP ||
                state == SubOrderState.CANCELLED ||
                state == SubOrderState.REJECTED;
+    }
+    
+    /**
+     * Check if sub-order can be cancelled
+     */
+    public boolean isCancellable() {
+        return state == SubOrderState.PENDING_ACCEPTANCE ||
+               state == SubOrderState.ACCEPTED;
     }
 }
