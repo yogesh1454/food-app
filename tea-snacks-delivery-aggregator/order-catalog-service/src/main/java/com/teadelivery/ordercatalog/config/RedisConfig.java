@@ -36,7 +36,7 @@ public class RedisConfig {
         
         // Enable keyspace notifications for expired events
         try {
-            template.execute(connection -> {
+            template.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
                 connection.serverCommands().setConfig("notify-keyspace-events", "Ex");
                 return null;
             });

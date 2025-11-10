@@ -25,16 +25,15 @@ import java.util.UUID;
 public class DeliveryFSM extends BaseStateMachine<DeliveryState, DeliveryTrigger> {
     
     private final DeliveryRepository deliveryRepository;
-    private final EventPublisher eventPublisher;
     
     public DeliveryFSM(
         StateCacheService stateCacheService,
-        DeliveryRepository deliveryRepository,
-        EventPublisher eventPublisher
+        com.teadelivery.ordercatalog.common.fsm.StateAuditService auditService,
+        EventPublisher eventPublisher,
+        DeliveryRepository deliveryRepository
     ) {
-        super(stateCacheService);
+        super(stateCacheService, auditService, eventPublisher);
         this.deliveryRepository = deliveryRepository;
-        this.eventPublisher = eventPublisher;
     }
     
     @Override
@@ -69,25 +68,17 @@ public class DeliveryFSM extends BaseStateMachine<DeliveryState, DeliveryTrigger
         
         // PICKED_UP state transitions
         config.configure(DeliveryState.PICKED_UP)
-            .permit(DeliveryTrigger.START_DELIVERY, DeliveryState.OUT_FOR_DELIVERY);
+            .permit(DeliveryTrigger.START_DELIVERY, DeliveryState.OUT_FOR_DELIVERY)
+            .permit(DeliveryTrigger.FAIL_DELIVERY, DeliveryState.FAILED);
         
         // OUT_FOR_DELIVERY state transitions
         config.configure(DeliveryState.OUT_FOR_DELIVERY)
             .permit(DeliveryTrigger.DELIVER_ORDER, DeliveryState.DELIVERED)
             .permit(DeliveryTrigger.FAIL_DELIVERY, DeliveryState.FAILED);
         
-        // Configure entry actions
-        config.configure(DeliveryState.RIDER_ACCEPTED)
-            .onEntry(this::onRiderAccepted);
-        
-        config.configure(DeliveryState.PICKED_UP)
-            .onEntry(this::onPickedUp);
-        
-        config.configure(DeliveryState.DELIVERED)
-            .onEntry(this::onDelivered);
-        
-        config.configure(DeliveryState.FAILED)
-            .onEntry(this::onFailed);
+        // Terminal states
+        config.configure(DeliveryState.DELIVERED);
+        config.configure(DeliveryState.FAILED);
         
         return config;
     }

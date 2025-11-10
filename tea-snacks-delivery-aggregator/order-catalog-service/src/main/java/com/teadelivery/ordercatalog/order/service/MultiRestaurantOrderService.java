@@ -44,7 +44,7 @@ public class MultiRestaurantOrderService {
     public Order createMultiRestaurantOrder(
         UUID customerId,
         List<RestaurantItems> restaurantItems,
-        String deliveryAddress,
+        Map<String, Object> deliveryAddress,
         Point deliveryLocation
     ) {
         log.info("Creating multi-restaurant order for customer: {}, restaurants: {}", 
@@ -191,21 +191,21 @@ public class MultiRestaurantOrderService {
         // TODO: Enhance to support batched deliveries with multiple pickups
         
         String pickupLocation = "Multiple Restaurants"; // Placeholder
-        String deliveryLocation = parentOrder.getDeliveryAddress();
+        Map<String, Object> deliveryAddress = parentOrder.getDeliveryAddress();
+        String deliveryLocation = deliveryAddress != null ? deliveryAddress.toString() : "Unknown";
         BigDecimal deliveryFee = new BigDecimal("50.00"); // Placeholder
         
-        UUID deliveryId = deliveryService.createDelivery(
+        deliveryService.createDelivery(
             parentOrder.getOrderId(),
             pickupLocation,
             deliveryLocation,
             deliveryFee
         );
         
-        log.info("Created batched delivery: {} for {} sub-orders", 
-                deliveryId, batch.size());
+        log.info("Created batched delivery for {} sub-orders", batch.size());
         
-        // Start rider search
-        deliveryService.startRiderSearch(deliveryId);
+        // Start rider search by order ID
+        deliveryService.startRiderSearchByOrderId(parentOrder.getOrderId());
     }
     
     /**

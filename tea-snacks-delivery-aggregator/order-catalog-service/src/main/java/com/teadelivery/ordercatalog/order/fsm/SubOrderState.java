@@ -9,6 +9,7 @@ public enum SubOrderState {
     ACCEPTED("Restaurant accepted the sub-order"),
     PREPARING("Food being prepared"),
     READY_FOR_PICKUP("Food ready for rider pickup"),
+    DELIVERED("Sub-order delivered"),
     CANCELLED("Sub-order cancelled"),
     REJECTED("Sub-order rejected by restaurant");
     
@@ -27,6 +28,7 @@ public enum SubOrderState {
      */
     public boolean isTerminal() {
         return this == READY_FOR_PICKUP ||
+               this == DELIVERED ||
                this == CANCELLED ||
                this == REJECTED;
     }

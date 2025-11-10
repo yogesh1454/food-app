@@ -68,8 +68,10 @@ public class CustomerStatusService {
                 .secondaryMessage(status.getSecondaryMessage())
                 .progressPercentage(status.getProgressPercentage())
                 .canCancel(status.canCancel())
-                .orderPlacedAt(order.getCreatedAt())
-                .lastUpdatedAt(order.getUpdatedAt());
+                .orderPlacedAt(order.getCreatedAt() != null ? 
+                    order.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant() : null)
+                .lastUpdatedAt(order.getUpdatedAt() != null ? 
+                    order.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant() : null);
         
         // Add delivery and rider info if available
         Optional<Delivery> deliveryOpt = deliveryRepository.findByOrderId(orderId);
