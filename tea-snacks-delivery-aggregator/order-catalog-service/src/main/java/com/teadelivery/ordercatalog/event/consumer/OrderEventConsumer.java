@@ -60,7 +60,7 @@ public class OrderEventConsumer {
                 );
                 
                 // Start rider search
-                deliveryService.startRiderSearch(event.getOrderId());
+                deliveryService.startRiderSearchByOrderId(event.getOrderId());
                 
                 log.info("Delivery created and rider search started: orderId={}", event.getOrderId());
             }

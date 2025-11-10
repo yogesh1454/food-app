@@ -86,7 +86,7 @@ public class DeliveryService {
     /**
      * Start rider search by order ID
      */
-    public void startRiderSearch(UUID orderId) {
+    public void startRiderSearchByOrderId(UUID orderId) {
         Delivery delivery = deliveryRepository.findByOrderId(orderId)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Delivery not found for order: " + orderId));
