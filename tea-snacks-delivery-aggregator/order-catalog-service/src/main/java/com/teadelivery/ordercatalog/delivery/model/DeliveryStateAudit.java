@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.order.audit.model;
+package com.teadelivery.ordercatalog.delivery.model;
 
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
@@ -13,26 +13,26 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Order State Audit Entity
- * Records all state transitions for orders
+ * Delivery State Audit Entity
+ * Records all state transitions for deliveries
  */
 @Entity
-@Table(name = "order_state_audit", indexes = {
-    @Index(name = "idx_order_state_audit_order_id", columnList = "order_id"),
-    @Index(name = "idx_order_state_audit_transitioned_at", columnList = "transitioned_at DESC")
+@Table(name = "delivery_state_audit", indexes = {
+    @Index(name = "idx_delivery_state_audit_delivery_id", columnList = "delivery_id"),
+    @Index(name = "idx_delivery_state_audit_transitioned_at", columnList = "transitioned_at DESC")
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderStateAudit {
+public class DeliveryStateAudit {
     
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "audit_id")
     private UUID auditId;
     
-    @Column(name = "order_id", nullable = false)
-    private UUID orderId;
+    @Column(name = "delivery_id", nullable = false)
+    private UUID deliveryId;
     
     // ========== State Transition ==========
     @Column(name = "from_state", length = 32)
@@ -65,16 +65,16 @@ public class OrderStateAudit {
     /**
      * Create audit record for state transition
      */
-    public static OrderStateAudit create(
-        UUID orderId,
+    public static DeliveryStateAudit create(
+        UUID deliveryId,
         String fromState,
         String toState,
         String triggerName,
         UUID triggeredBy,
         String triggeredByRole
     ) {
-        OrderStateAudit audit = new OrderStateAudit();
-        audit.setOrderId(orderId);
+        DeliveryStateAudit audit = new DeliveryStateAudit();
+        audit.setDeliveryId(deliveryId);
         audit.setFromState(fromState);
         audit.setToState(toState);
         audit.setTriggerName(triggerName);

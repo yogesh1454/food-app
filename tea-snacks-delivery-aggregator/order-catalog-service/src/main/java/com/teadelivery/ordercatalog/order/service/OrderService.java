@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.order.service;
 
-import com.teadelivery.ordercatalog.order.audit.model.OrderStateAudit;
-import com.teadelivery.ordercatalog.order.audit.repository.OrderStateAuditRepository;
+import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
+import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
 import com.teadelivery.ordercatalog.order.fsm.OrderFSM;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;

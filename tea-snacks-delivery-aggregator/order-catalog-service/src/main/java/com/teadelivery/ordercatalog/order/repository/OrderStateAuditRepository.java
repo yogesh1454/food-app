@@ -1,6 +1,6 @@
-package com.teadelivery.ordercatalog.order.audit.repository;
+package com.teadelivery.ordercatalog.order.repository;
 
-import com.teadelivery.ordercatalog.order.audit.model.OrderStateAudit;
+import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
