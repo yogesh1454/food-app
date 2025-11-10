@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.rider.model;
+package com.teadelivery.ordercatalog.delivery.rider.model;
 
 import jakarta.persistence.*;
 import lombok.*;

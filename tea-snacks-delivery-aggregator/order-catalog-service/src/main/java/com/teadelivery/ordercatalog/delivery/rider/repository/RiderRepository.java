@@ -1,6 +1,6 @@
-package com.teadelivery.ordercatalog.rider.repository;
+package com.teadelivery.ordercatalog.delivery.rider.repository;
 
-import com.teadelivery.ordercatalog.rider.model.Rider;
+import com.teadelivery.ordercatalog.delivery.rider.model.Rider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

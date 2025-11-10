@@ -1,9 +1,9 @@
-package com.teadelivery.ordercatalog.rider.controller;
+package com.teadelivery.ordercatalog.delivery.rider.controller;
 
 import com.teadelivery.ordercatalog.delivery.dto.LocationDTO;
-import com.teadelivery.ordercatalog.rider.dto.RiderResponseDTO;
-import com.teadelivery.ordercatalog.rider.dto.UpdateRiderRequestDTO;
-import com.teadelivery.ordercatalog.rider.service.RiderService;
+import com.teadelivery.ordercatalog.delivery.rider.dto.RiderResponseDTO;
+import com.teadelivery.ordercatalog.delivery.rider.dto.UpdateRiderRequestDTO;
+import com.teadelivery.ordercatalog.delivery.rider.service.RiderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

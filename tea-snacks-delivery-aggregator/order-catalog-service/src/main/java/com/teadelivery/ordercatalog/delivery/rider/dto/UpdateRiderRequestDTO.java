@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.rider.dto;
+package com.teadelivery.ordercatalog.delivery.rider.dto;
 
 import com.teadelivery.ordercatalog.delivery.dto.LocationDTO;
 import jakarta.validation.Valid;

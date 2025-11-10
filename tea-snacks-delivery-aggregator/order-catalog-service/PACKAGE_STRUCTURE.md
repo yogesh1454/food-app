@@ -72,7 +72,7 @@ order/
 ---
 
 ### **2. Delivery Domain** (`delivery/`)
-All delivery-related features and logic.
+All delivery and rider-related features and logic.
 
 ```
 delivery/
@@ -101,9 +101,23 @@ delivery/
 │   ├── RiderDeliveryController.java
 │   └── DeliveryTrackingController.java
 │
-└── dto/                          # Data transfer objects
-    ├── DeliveryResponseDTO.java
-    └── ...
+├── dto/                          # Data transfer objects
+│   ├── DeliveryResponseDTO.java
+│   └── ...
+│
+└── rider/                        # Rider subdomain (part of delivery)
+    ├── model/
+    │   └── Rider.java           # Rider entity with location
+    ├── repository/
+    │   └── RiderRepository.java # With PostGIS queries
+    ├── service/
+    │   └── RiderService.java
+    ├── controller/
+    │   └── RiderStatusController.java
+    └── dto/
+        ├── RiderResponseDTO.java
+        ├── EarningsDTO.java
+        └── UpdateRiderRequestDTO.java
 ```
 
 **Responsibilities:**
@@ -113,41 +127,14 @@ delivery/
 - Delivery batching for multi-restaurant
 - Route optimization
 - Rider tracking
+- **Rider profile management** (merged into delivery)
+- **Real-time rider location tracking**
+- **Rider availability status**
+- **Rider performance metrics**
 
 ---
 
-### **3. Rider Domain** (`rider/`)
-All rider-related features and logic.
-
-```
-rider/
-├── model/
-│   └── Rider.java               # Rider entity with location
-│
-├── repository/
-│   └── RiderRepository.java     # With PostGIS queries
-│
-├── service/
-│   ├── RiderService.java
-│   └── RiderLocationService.java
-│
-├── controller/
-│   ├── RiderController.java
-│   └── RiderStatusController.java
-│
-└── dto/
-    └── ...
-```
-
-**Responsibilities:**
-- Rider profile management
-- Real-time location tracking
-- Rider availability status
-- Rider performance metrics
-
----
-
-### **4. Common/Shared** (`common/`)
+### **3. Common/Shared** (`common/`)
 Shared infrastructure and base classes.
 
 ```
@@ -174,7 +161,7 @@ common/
 
 ---
 
-### **5. Event-Driven Integration** (`event/`)
+### **4. Event-Driven Integration** (`event/`)
 Kafka event consumers for FSM coordination.
 
 ```
@@ -195,7 +182,7 @@ event/
 
 ---
 
-### **6. Configuration** (`config/`)
+### **5. Configuration** (`config/`)
 Spring Boot configuration classes.
 
 ```
@@ -209,7 +196,7 @@ config/
 
 ---
 
-### **7. Other Domains**
+### **6. Other Domains**
 ```
 menu/          # Menu and catalog management
 vendor/        # Vendor/restaurant management
@@ -254,13 +241,15 @@ audit/         # Audit logging
 ❌ fsm/                  # Shared FSM (mixed concerns)
 ❌ status/               # Standalone (unclear ownership)
 ❌ timeout/              # Standalone (unclear ownership)
-❌ order/
-❌ delivery/
+❌ rider/                # Standalone (should be part of delivery)
+   order/
+   delivery/
 ```
 
 **Problems:**
 - FSM logic scattered across technical layers
 - Unclear which domain owns status/timeout
+- Rider separated from delivery (tight coupling anyway)
 - Hard to extract as microservices
 - Low cohesion, high coupling
 
@@ -271,7 +260,8 @@ audit/         # Audit logging
    ├── status/          # Customer status (order concern)
    └── timeout/         # Order timeout (order concern)
 ✅ delivery/
-   └── fsm/             # Delivery FSM
+   ├── fsm/             # Delivery FSM
+   └── rider/           # Rider subdomain (delivery concern)
 ✅ common/
    └── fsm/             # Shared FSM base classes
 ```
@@ -279,6 +269,77 @@ audit/         # Audit logging
 **Benefits:**
 - Clear domain ownership
 - High cohesion within domains
+- Rider integrated with delivery (natural fit)
+- Easy microservice extraction
+- Better encapsulation
+- Follows DDD principles
+
+---
+
+## 🎯 Design Principles
+
+### **1. Package by Feature/Domain**
+- ✅ Code organized by business capability
+- ✅ High cohesion within packages
+- ✅ Low coupling between packages
+- ✅ Easy to understand and navigate
+
+### **2. Domain-Driven Design (DDD)**
+- ✅ Clear domain boundaries (Order, Delivery, Rider)
+- ✅ Domain logic encapsulated within domains
+- ✅ Shared kernel in `common/`
+- ✅ Ubiquitous language reflected in code
+
+### **3. Microservice-Ready**
+- ✅ Each domain can be extracted as a microservice
+- ✅ Clear API boundaries (controllers)
+- ✅ Event-driven communication (Kafka)
+- ✅ Independent data models
+
+### **4. Separation of Concerns**
+- ✅ FSM logic within domain folders
+- ✅ Status abstraction within order domain
+- ✅ Timeout handling within order domain
+- ✅ Common infrastructure in `common/`
+
+---
+
+## 📊 Benefits
+
+### **Before (Technical Layers)**
+```
+❌ fsm/                  # Shared FSM (mixed concerns)
+❌ status/               # Standalone (unclear ownership)
+❌ timeout/              # Standalone (unclear ownership)
+❌ rider/                # Standalone (should be part of delivery)
+   order/
+   delivery/
+```
+
+**Problems:**
+- FSM logic scattered across technical layers
+- Unclear which domain owns status/timeout
+- Rider separated from delivery (tight coupling anyway)
+- Hard to extract as microservices
+- Low cohesion, high coupling
+
+### **After (Domain Features)**
+```
+✅ order/
+   ├── fsm/             # Order FSM
+   ├── status/          # Customer status (order concern)
+   └── timeout/         # Order timeout (order concern)
+✅ delivery/
+   ├── fsm/             # Delivery FSM
+   └── rider/           # Rider subdomain (delivery concern)
+✅ common/
+   └── fsm/             # Shared FSM base classes
+```
+
+**Benefits:**
+- Clear domain ownership
+- High cohesion within domains
+- Rider integrated with delivery (natural fit)
 - Easy microservice extraction
 - Better encapsulation
 - Follows DDD principles
