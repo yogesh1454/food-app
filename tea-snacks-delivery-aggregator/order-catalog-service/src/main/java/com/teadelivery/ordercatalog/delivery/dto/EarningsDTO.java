@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.delivery.rider.dto;
+package com.teadelivery.ordercatalog.delivery.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,11 +1,11 @@
-package com.teadelivery.ordercatalog.delivery.rider.service;
+package com.teadelivery.ordercatalog.delivery.service;
 
 import com.teadelivery.ordercatalog.delivery.dto.LocationDTO;
-import com.teadelivery.ordercatalog.delivery.rider.dto.EarningsDTO;
-import com.teadelivery.ordercatalog.delivery.rider.dto.RiderResponseDTO;
-import com.teadelivery.ordercatalog.delivery.rider.dto.UpdateRiderRequestDTO;
-import com.teadelivery.ordercatalog.delivery.rider.model.Rider;
-import com.teadelivery.ordercatalog.delivery.rider.repository.RiderRepository;
+import com.teadelivery.ordercatalog.delivery.dto.EarningsDTO;
+import com.teadelivery.ordercatalog.delivery.dto.RiderResponseDTO;
+import com.teadelivery.ordercatalog.delivery.dto.UpdateRiderRequestDTO;
+import com.teadelivery.ordercatalog.delivery.model.Rider;
+import com.teadelivery.ordercatalog.delivery.repository.RiderRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;

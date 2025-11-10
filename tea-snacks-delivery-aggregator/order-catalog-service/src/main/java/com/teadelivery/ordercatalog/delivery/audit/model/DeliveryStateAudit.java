@@ -1,4 +1,4 @@
-package com.teadelivery.ordercatalog.audit.model;
+package com.teadelivery.ordercatalog.delivery.audit.model;
 
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;

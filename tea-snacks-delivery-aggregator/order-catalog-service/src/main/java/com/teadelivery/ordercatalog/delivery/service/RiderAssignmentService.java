@@ -5,7 +5,7 @@ import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
 import com.teadelivery.ordercatalog.delivery.fsm.DeliveryTrigger;
 import com.teadelivery.ordercatalog.delivery.fsm.DeliveryFSM;
 import com.teadelivery.ordercatalog.notification.service.NotificationService;
-import com.teadelivery.ordercatalog.delivery.rider.model.Rider;
+import com.teadelivery.ordercatalog.delivery.model.Rider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
