@@ -11,7 +11,15 @@ import java.util.UUID;
 
 /**
  * Order Finite State Machine
- * Manages the complete lifecycle of an order with 13 states and 12 triggers
+ * Manages the complete lifecycle of an order with 13 states and 14 triggers
+ * 
+ * States: CREATED, VALIDATED, PAYMENT_CONFIRMED, PENDING_ACCEPTANCE, ACCEPTED,
+ *         PREPARING, READY_FOR_PICKUP, ASSIGNED_TO_RIDER, PICKED_UP, DELIVERED,
+ *         CLOSED, CANCELLED, REJECTED
+ * 
+ * Cancellation Policy:
+ * - Can cancel: CREATED, VALIDATED, PAYMENT_CONFIRMED, PENDING_ACCEPTANCE, ACCEPTED
+ * - Cannot cancel: PREPARING onwards (food already being prepared)
  */
 @Slf4j
 @Component
@@ -26,14 +34,16 @@ public class OrderFSM {
     private StateMachineConfig<OrderState, OrderTrigger> configureStateMachine() {
         StateMachineConfig<OrderState, OrderTrigger> config = new StateMachineConfig<>();
         
-        // ========== CREATED → VALIDATED ==========
+        // ========== CREATED → VALIDATED / REJECTED ==========
         config.configure(OrderState.CREATED)
             .permit(OrderTrigger.VALIDATE_ORDER, OrderState.VALIDATED)
+            .permit(OrderTrigger.VALIDATION_FAILED, OrderState.REJECTED)
             .onEntry(this::onOrderCreated);
         
-        // ========== VALIDATED → PAYMENT_CONFIRMED ==========
+        // ========== VALIDATED → PAYMENT_CONFIRMED / REJECTED / CANCELLED ==========
         config.configure(OrderState.VALIDATED)
             .permit(OrderTrigger.CONFIRM_PAYMENT, OrderState.PAYMENT_CONFIRMED)
+            .permit(OrderTrigger.PAYMENT_FAILED, OrderState.REJECTED)
             .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onOrderValidated);
         
@@ -57,32 +67,29 @@ public class OrderFSM {
             .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onOrderAccepted);
         
-        // ========== PREPARING → READY_FOR_PICKUP ==========
+        // ========== PREPARING → READY_FOR_PICKUP (No Cancellation Allowed) ==========
         config.configure(OrderState.PREPARING)
             .permit(OrderTrigger.MARK_READY, OrderState.READY_FOR_PICKUP)
-            .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onPreparingStarted);
         
-        // ========== READY_FOR_PICKUP → ASSIGNED_TO_RIDER ==========
+        // ========== READY_FOR_PICKUP → ASSIGNED_TO_RIDER (No Cancellation Allowed) ==========
         config.configure(OrderState.READY_FOR_PICKUP)
             .permit(OrderTrigger.ASSIGN_RIDER, OrderState.ASSIGNED_TO_RIDER)
-            .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onReadyForPickup);
         
-        // ========== ASSIGNED_TO_RIDER → PICKED_UP ==========
+        // ========== ASSIGNED_TO_RIDER → PICKED_UP (No Cancellation Allowed) ==========
         config.configure(OrderState.ASSIGNED_TO_RIDER)
             .permit(OrderTrigger.RIDER_PICKUP, OrderState.PICKED_UP)
-            .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onRiderAssigned);
         
-        // ========== PICKED_UP → DELIVERED ==========
+        // ========== PICKED_UP → DELIVERED (No Cancellation Allowed) ==========
         config.configure(OrderState.PICKED_UP)
             .permit(OrderTrigger.DELIVER_ORDER, OrderState.DELIVERED)
-            .permit(OrderTrigger.CANCEL_ORDER, OrderState.CANCELLED)
             .onEntry(this::onPickedUp);
         
-        // ========== DELIVERED (Terminal State) ==========
+        // ========== DELIVERED → CLOSED ==========
         config.configure(OrderState.DELIVERED)
+            .permit(OrderTrigger.CLOSE_ORDER, OrderState.CLOSED)
             .onEntry(this::onDelivered);
         
         // ========== CANCELLED (Terminal State) ==========
@@ -280,6 +287,38 @@ public class OrderFSM {
         log.info("Delivering order: {}", order.getOrderId());
         order.setState(OrderState.DELIVERED);
         order.updateStateTimestamp(OrderState.DELIVERED);
+    }
+    
+    /**
+     * Validation failed (CREATED → REJECTED)
+     */
+    public void validationFailed(Order order, String reason) {
+        validateTransition(order, OrderTrigger.VALIDATION_FAILED);
+        log.warn("Order validation failed: {} - Reason: {}", order.getOrderId(), reason);
+        order.setState(OrderState.REJECTED);
+        order.setCancellationReason(reason);
+        order.updateStateTimestamp(OrderState.REJECTED);
+    }
+    
+    /**
+     * Payment failed (VALIDATED → REJECTED)
+     */
+    public void paymentFailed(Order order, String reason) {
+        validateTransition(order, OrderTrigger.PAYMENT_FAILED);
+        log.warn("Payment failed for order: {} - Reason: {}", order.getOrderId(), reason);
+        order.setState(OrderState.REJECTED);
+        order.setCancellationReason(reason);
+        order.updateStateTimestamp(OrderState.REJECTED);
+    }
+    
+    /**
+     * Close order (DELIVERED → CLOSED)
+     */
+    public void closeOrder(Order order) {
+        validateTransition(order, OrderTrigger.CLOSE_ORDER);
+        log.info("Closing order: {}", order.getOrderId());
+        order.setState(OrderState.CLOSED);
+        order.updateStateTimestamp(OrderState.CLOSED);
     }
     
     /**
