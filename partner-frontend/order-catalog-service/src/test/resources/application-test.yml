@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/order_catalog_test_db
+    username: tea_snacks_user
+    password: tea_snacks_password
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  flyway:
+    enabled: true
+    clean-disabled: false
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    # Clean database before each test run for fresh state
+    clean-on-validation-error: true
+  
+  data:
+    redis:
+      repositories:
+        enabled: false
+  
+  kafka:
+    enabled: false
+
+server:
+  port: 0
+
+logging:
+  level:
+    com.teadelivery: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
