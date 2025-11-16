@@ -1,0 +1,61 @@
+# Kafka Topics Configuration for Order & Delivery FSM
+# This file documents the required Kafka topics and their configurations
+# Topics should be created using kafka-topics.sh or Terraform/Helm in production
+
+topics:
+  - name: order-events
+    partitions: 6
+    replication-factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      compression.type: snappy
+      min.insync.replicas: 2
+      cleanup.policy: delete
+    description: "Order state change events with orderId as partition key"
+    
+  - name: delivery-events
+    partitions: 6
+    replication-factor: 3
+    config:
+      retention.ms: 604800000  # 7 days
+      compression.type: snappy
+      min.insync.replicas: 2
+      cleanup.policy: delete
+    description: "Delivery state change events with deliveryId as partition key"
+    
+  - name: assignment-requests
+    partitions: 3
+    replication-factor: 3
+    config:
+      retention.ms: 86400000  # 1 day
+      compression.type: snappy
+      min.insync.replicas: 2
+      cleanup.policy: delete
+    description: "Rider assignment requests with orderId as partition key"
+    
+  - name: assignment-responses
+    partitions: 3
+    replication-factor: 3
+    config:
+      retention.ms: 86400000  # 1 day
+      compression.type: snappy
+      min.insync.replicas: 2
+      cleanup.policy: delete
+    description: "Rider assignment responses with deliveryId as partition key"
+    
+  - name: order-events-dlq
+    partitions: 3
+    replication-factor: 3
+    config:
+      retention.ms: 2592000000  # 30 days
+      compression.type: snappy
+      min.insync.replicas: 2
+      cleanup.policy: delete
+    description: "Dead letter queue for failed order event processing"
+
+# Topic Creation Commands (for local development)
+# kafka-topics.sh --create --bootstrap-server localhost:9092 --topic order-events --partitions 6 --replication-factor 1 --config retention.ms=604800000 --config compression.type=snappy
+# kafka-topics.sh --create --bootstrap-server localhost:9092 --topic delivery-events --partitions 6 --replication-factor 1 --config retention.ms=604800000 --config compression.type=snappy
+# kafka-topics.sh --create --bootstrap-server localhost:9092 --topic assignment-requests --partitions 3 --replication-factor 1 --config retention.ms=86400000 --config compression.type=snappy
+# kafka-topics.sh --create --bootstrap-server localhost:9092 --topic assignment-responses --partitions 3 --replication-factor 1 --config retention.ms=86400000 --config compression.type=snappy
+# kafka-topics.sh --create --bootstrap-server localhost:9092 --topic order-events-dlq --partitions 3 --replication-factor 1 --config retention.ms=2592000000 --config compression.type=snappy

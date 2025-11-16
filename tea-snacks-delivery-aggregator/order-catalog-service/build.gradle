@@ -12,12 +12,21 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://projectlombok.org/edge-releases'
+    }
+}
+
 dependencies {
     implementation project(':shared:common')
     
-    // Lombok
-    compileOnly 'org.projectlombok:lombok:1.18.30'
-    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+    // Lombok (edge version for Java 21 compatibility)
+    compileOnly 'org.projectlombok:lombok:edge-SNAPSHOT'
+    annotationProcessor 'org.projectlombok:lombok:edge-SNAPSHOT'
+    testCompileOnly 'org.projectlombok:lombok:edge-SNAPSHOT'
+    testAnnotationProcessor 'org.projectlombok:lombok:edge-SNAPSHOT'
     
     // Web & Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -28,13 +37,23 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core:9.22.3'
     
+    // PostGIS/Geospatial support
+    implementation 'org.hibernate.orm:hibernate-spatial:6.4.4.Final'
+    implementation 'org.locationtech.jts:jts-core:1.19.0'
+    
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
     
     // Test Database
     testImplementation 'org.testcontainers:testcontainers:1.19.3'
     testImplementation 'org.testcontainers:postgresql:1.19.3'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
+    testImplementation 'org.testcontainers:kafka:1.19.3'
+    testImplementation 'com.redis:testcontainers-redis:2.2.2'
+    
+    // Awaitility for async testing
+    testImplementation 'org.awaitility:awaitility:4.2.0'
     
     // Hibernate Types for JSONB support
     implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.3'
@@ -49,6 +68,9 @@ dependencies {
     
     // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
+    
+    // State Machine (Stateless4j)
+    implementation 'com.github.stateless4j:stateless4j:2.6.0'
 }
 
 test {

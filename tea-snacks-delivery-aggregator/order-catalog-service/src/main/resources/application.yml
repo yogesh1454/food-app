@@ -87,3 +87,10 @@ logging:
     com.teadelivery: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+
+# Order timeout configuration
+order:
+  timeout:
+    restaurant-acceptance: 2m  # 2 minutes
+    payment-processing: 5m     # 5 minutes
+    rider-assignment: 5m       # 5 minutes
