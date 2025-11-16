@@ -182,17 +182,21 @@ public class SessionManagementService {
      */
     private String generateSessionId(CheckoutSession session) {
         try {
-            // Create input string for hashing
+            // Create input string for hashing (deterministic - no timestamp!)
+            // This ensures same request always generates same session ID (idempotency)
             String input = session.getUserId().toString() +
-                          session.getVendorBranchId() +
-                          session.getItems().toString() +
-                          session.getDeliveryAddress().toString();
+                          "|" + session.getVendorBranchId() +
+                          "|" + session.getItems().toString() +
+                          "|" + session.getDeliveryAddress().toString() +
+                          "|" + session.getPaymentMethod();
+            
+            log.debug("Generating session ID from input hash");
             
             // Generate SHA-256 hash
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
             
-            // Convert to hex string and take first 20 characters
+            // Convert to hex string
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
@@ -200,15 +204,15 @@ public class SessionManagementService {
                 hexString.append(hex);
             }
             
-            String hashPart = hexString.substring(0, 20);
-            long timestamp = System.currentTimeMillis();
+            // Use only hash for deterministic ID (no timestamp!)
+            String hashPart = hexString.substring(0, 24);
             
-            return String.format("chk_%d_%s", timestamp, hashPart);
+            return String.format("chk_%s", hashPart);
             
         } catch (NoSuchAlgorithmException e) {
             log.error("Error generating session ID", e);
-            // Fallback to timestamp-based ID
-            return "chk_" + System.currentTimeMillis() + "_" + session.getUserId().toString().substring(0, 8);
+            // Fallback to UUID (still deterministic per request if we use the same seed)
+            throw new RuntimeException("SHA-256 algorithm not available", e);
         }
     }
     

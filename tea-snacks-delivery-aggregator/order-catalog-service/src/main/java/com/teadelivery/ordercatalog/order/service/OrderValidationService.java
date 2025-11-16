@@ -117,8 +117,7 @@ public class OrderValidationService {
      */
     private boolean validateVendorStatus(Order order, List<String> errors) {
         try {
-            Map<String, Object> metadata = order.getMetadata();
-            UUID vendorId = (UUID) metadata.get("vendorId");
+            Long vendorId = order.getVendorId();
             
             if (vendorId == null) {
                 errors.add("Vendor ID is missing");
@@ -193,7 +192,7 @@ public class OrderValidationService {
      */
     private boolean validateMenuItems(Order order, List<String> errors) {
         try {
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+            List<OrderItem> items = orderItemRepository.findByOrder_OrderId(order.getOrderId());
             
             if (items == null || items.isEmpty()) {
                 errors.add("No items in order");
@@ -216,7 +215,7 @@ public class OrderValidationService {
      */
     private boolean validateInventory(Order order, List<String> errors) {
         try {
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+            List<OrderItem> items = orderItemRepository.findByOrder_OrderId(order.getOrderId());
             
             if (items == null || items.isEmpty()) {
                 errors.add("No items in order");

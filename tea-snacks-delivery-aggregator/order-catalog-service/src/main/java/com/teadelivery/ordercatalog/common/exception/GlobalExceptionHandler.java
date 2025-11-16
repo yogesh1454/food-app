@@ -1,5 +1,8 @@
 package com.teadelivery.ordercatalog.common.exception;
 
+import com.teadelivery.ordercatalog.order.checkout.dto.CheckoutResponse;
+import com.teadelivery.ordercatalog.order.checkout.exception.CheckoutSessionNotFoundException;
+import com.teadelivery.ordercatalog.order.checkout.exception.CheckoutValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,47 @@ import java.util.Map;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    /**
+     * Handle checkout validation exceptions
+     */
+    @ExceptionHandler(CheckoutValidationException.class)
+    public ResponseEntity<CheckoutResponse> handleCheckoutValidationException(CheckoutValidationException ex) {
+        log.warn("Checkout validation failed: {}", ex.getMessage());
+        
+        // Determine HTTP status based on error codes
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        if (ex.getErrors() != null && !ex.getErrors().isEmpty()) {
+            String firstErrorCode = ex.getErrors().get(0).getCode();
+            if (firstErrorCode != null && (firstErrorCode.contains("NOT_FOUND") || 
+                firstErrorCode.contains("VENDOR") || firstErrorCode.contains("ITEM"))) {
+                status = HttpStatus.NOT_FOUND;
+            }
+        }
+        
+        CheckoutResponse response = CheckoutResponse.builder()
+            .status(CheckoutResponse.CheckoutStatus.VALIDATION_FAILED)
+            .errors(ex.getErrors())
+            .build();
+            
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * Handle checkout session not found exceptions
+     */
+    @ExceptionHandler(CheckoutSessionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleCheckoutSessionNotFound(CheckoutSessionNotFoundException ex, WebRequest request) {
+        log.warn("Checkout session not found: {}", ex.getMessage());
+        return ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.NOT_FOUND.value())
+            .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+    }
 
     /**
      * Handle vendor not found exceptions

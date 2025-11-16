@@ -1,13 +1,19 @@
 -- V8__create_deliveries_table.sql
 -- Create deliveries table for Delivery FSM (BE-003-22)
 
+-- Drop existing table if it exists (dev environment)
+DROP TABLE IF EXISTS deliveries CASCADE;
+
+-- Drop existing trigger function if it exists
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
 CREATE TABLE deliveries (
     delivery_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL UNIQUE REFERENCES orders(order_id),
     rider_id UUID,
     state VARCHAR(50) NOT NULL,
     delivery_fee DECIMAL(10, 2),
-    search_radius_km DECIMAL(5, 2) DEFAULT 2.0,
+    search_radius_km DOUBLE PRECISION DEFAULT 2.0,
     retry_count INTEGER DEFAULT 0,
     
     -- Location data (JSONB)

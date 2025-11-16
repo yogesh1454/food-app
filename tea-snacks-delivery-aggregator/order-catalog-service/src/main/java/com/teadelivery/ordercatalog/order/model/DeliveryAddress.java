@@ -30,7 +30,7 @@ public class DeliveryAddress {
     @Column(name = "city", nullable = false, length = 100)
     private String city;
     
-    @Column(name = "state", nullable = false, length = 100)
+    @Column(name = "address_state", nullable = false, length = 100)
     private String state;
     
     @Column(name = "pincode", nullable = false, length = 10)

@@ -21,6 +21,11 @@ CREATE TABLE orders (
     -- Customer Info
     customer_id UUID NOT NULL,
     
+    -- Vendor Info
+    vendor_id BIGINT NOT NULL,
+    vendor_branch_id BIGINT NOT NULL,
+    checkout_session_id VARCHAR(100),
+    
     -- FSM State
     state VARCHAR(32) NOT NULL,
     
@@ -37,8 +42,15 @@ CREATE TABLE orders (
     payment_method VARCHAR(32),
     payment_transaction_id VARCHAR(100),
     
-    -- Delivery Address
-    delivery_address JSONB NOT NULL,
+    -- Delivery Address (Embedded)
+    address_line1 VARCHAR(255) NOT NULL,
+    address_line2 VARCHAR(255),
+    landmark VARCHAR(255),
+    city VARCHAR(100) NOT NULL,
+    address_state VARCHAR(100) NOT NULL,
+    pincode VARCHAR(10) NOT NULL,
+    address_type VARCHAR(32),
+    address_label VARCHAR(100),
     delivery_latitude DECIMAL(10,8),
     delivery_longitude DECIMAL(11,8),
     
@@ -75,7 +87,7 @@ CREATE TABLE orders (
         'PICKED_UP', 'DELIVERED', 'CLOSED', 'CANCELLED', 'REJECTED'
     )),
     CONSTRAINT chk_payment_status CHECK (payment_status IN (
-        'PENDING', 'AUTHORIZED', 'CAPTURED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'
+        'PENDING', 'AUTHORIZED', 'CAPTURED', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'
     )),
     CONSTRAINT chk_order_type CHECK (order_type IN ('SINGLE', 'MULTI_RESTAURANT'))
 );
@@ -86,7 +98,7 @@ CREATE TABLE orders (
 CREATE TABLE order_items (
     order_item_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
-    menu_item_id UUID NOT NULL,
+    menu_item_id BIGINT NOT NULL,
     
     -- Item snapshot
     item_name VARCHAR(255) NOT NULL,
@@ -238,6 +250,8 @@ CREATE TABLE delivery_state_audit (
 
 -- Orders indexes
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_orders_vendor_id ON orders(vendor_id);
+CREATE INDEX idx_orders_vendor_branch_id ON orders(vendor_branch_id);
 CREATE INDEX idx_orders_state ON orders(state);
 CREATE INDEX idx_orders_order_type ON orders(order_type);
 CREATE INDEX idx_orders_parent_order_id ON orders(parent_order_id) WHERE parent_order_id IS NOT NULL;

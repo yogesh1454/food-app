@@ -34,7 +34,6 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OrderFSM {
     
     private final OrderRepository orderRepository;
@@ -738,7 +737,7 @@ public class OrderFSM {
     private java.util.Map<Long, Integer> buildItemQuantitiesMap(Order order) {
         java.util.Map<Long, Integer> itemQuantities = new java.util.HashMap<>();
         
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getOrderId());
+        List<OrderItem> items = orderItemRepository.findByOrder_OrderId(order.getOrderId());
         for (OrderItem item : items) {
             itemQuantities.put(item.getMenuItemId(), item.getQuantity());
         }

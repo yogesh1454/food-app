@@ -54,6 +54,16 @@ public class Order {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
     
+    // ========== Vendor Info ==========
+    @Column(name = "vendor_id", nullable = false)
+    private Long vendorId;
+    
+    @Column(name = "vendor_branch_id", nullable = false)
+    private Long vendorBranchId;
+    
+    @Column(name = "checkout_session_id", length = 100)
+    private String checkoutSessionId;
+    
     // ========== FSM State ==========
     @Enumerated(EnumType.STRING)
     @Column(name = "state", nullable = false, length = 32)

@@ -20,6 +20,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Integration Tests for Checkout API
  * Tests all scenarios for POST /api/v1/checkout/calculate and GET /api/v1/checkout/session/{sessionId}
+ * 
+ * Note: Tests currently use existing test data in the database.
+ * To make tests fully independent, refactor to use TestDataBuilder (see TestDataBuilder.java)
  */
 @DisplayName("Checkout API Integration Tests")
 class CheckoutAPIIntegrationTest extends BaseIntegrationTest {

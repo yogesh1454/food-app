@@ -46,14 +46,9 @@ public class CheckoutController {
         
         CheckoutResponse response = checkoutService.calculateCheckout(request);
         
-        if (response.getStatus() == CheckoutResponse.CheckoutStatus.VALIDATION_FAILED) {
-            log.warn("Checkout validation failed for user: {}, errors: {}", 
-                request.getUserId(), response.getErrors().size());
-        } else {
-            log.info("Checkout session created: {}, total: {}", 
-                response.getCheckoutSessionId(), 
-                response.getPricing() != null ? response.getPricing().getTotalAmount() : "N/A");
-        }
+        log.info("Checkout session created: {}, total: {}", 
+            response.getCheckoutSessionId(), 
+            response.getPricing() != null ? response.getPricing().getTotalAmount() : "N/A");
         
         return response;
     }

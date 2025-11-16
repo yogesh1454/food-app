@@ -2,7 +2,10 @@
 -- This enables parent-child order model where a single customer order
 -- can contain multiple sub-orders from different restaurants
 
-CREATE TABLE IF NOT EXISTS sub_orders (
+-- Drop existing table and indexes if they exist (dev environment)
+DROP TABLE IF EXISTS sub_orders CASCADE;
+
+CREATE TABLE sub_orders (
     -- Primary Key
     sub_order_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     

@@ -43,56 +43,97 @@ public class CheckoutService {
     /**
      * Calculate checkout and create session
      * This is the main entry point for checkout calculation
+     * 
+     * Note: Not using @Transactional to allow graceful handling of exceptions
+     * from other services (like MenuService) without transaction rollback issues
      */
-    @Transactional(readOnly = true)
     public CheckoutResponse calculateCheckout(CheckoutRequest request) {
+        log.info("=== CHECKOUT STARTED ===");
         log.info("Processing checkout for user: {}, vendor branch: {}", 
             request.getUserId(), request.getVendorBranchId());
+        log.debug("Full request: {}", request);
         
         List<CheckoutResponse.CheckoutError> errors = new ArrayList<>();
         
-        // Step 1: Validate vendor branch
-        VendorBranch vendorBranch = validateVendorBranch(request.getVendorBranchId(), errors);
-        if (vendorBranch == null) {
-            return buildErrorResponse(errors);
+        try {
+            // Step 1: Validate vendor branch
+            log.info("Step 1: Validating vendor branch ID: {}", request.getVendorBranchId());
+            VendorBranch vendorBranch = validateVendorBranch(request.getVendorBranchId(), errors);
+            if (vendorBranch == null) {
+                log.warn("Vendor branch validation failed. Errors: {}", errors);
+                throw new com.teadelivery.ordercatalog.order.checkout.exception.CheckoutValidationException(
+                    "Vendor validation failed", errors);
+            }
+            log.info("Vendor branch validated: {} (Active: {}, Open: {})", 
+                vendorBranch.getBranchName(), vendorBranch.getIsActive(), vendorBranch.getIsOpen());
+            log.info("Vendor: {} (ID: {})", vendorBranch.getVendor().getCompanyName(), 
+                vendorBranch.getVendor().getVendorId());
+        
+            // Step 2: Validate and get menu items with prices
+            log.info("Step 2: Validating {} cart items", request.getItems().size());
+            List<CheckoutResponse.CheckoutItem> checkoutItems = 
+                validateAndBuildCheckoutItems(request, vendorBranch, errors);
+            
+            if (!errors.isEmpty()) {
+                log.warn("Item validation failed. Errors: {}", errors);
+                throw new com.teadelivery.ordercatalog.order.checkout.exception.CheckoutValidationException(
+                    "Item validation failed", errors);
+            }
+            log.info("All items validated successfully. Total items: {}", checkoutItems.size());
+            
+            // Step 3: Calculate delivery fee
+            log.info("Step 3: Calculating delivery details");
+            CheckoutResponse.DeliveryDetails deliveryDetails = 
+                calculateDeliveryDetails(request, vendorBranch);
+            log.info("Delivery details calculated: distance={}, zone={}, baseFee={}, distanceFee={}", 
+                deliveryDetails.getDistance(), deliveryDetails.getDeliveryZone(),
+                deliveryDetails.getBaseFee(), deliveryDetails.getDistanceFee());
+            
+            // Step 4: Apply discount (if coupon provided)
+            log.info("Step 4: Checking for discount/coupon");
+            CheckoutResponse.DiscountDetails discountDetails = 
+                applyDiscount(request, checkoutItems);
+            if (discountDetails != null) {
+                log.info("Discount applied: {} ({})", discountDetails.getAppliedDiscount(), 
+                    discountDetails.getCouponCode());
+            }
+            
+            // Step 5: Calculate final pricing
+            log.info("Step 5: Calculating final pricing");
+            CheckoutResponse.PricingDetails pricing = 
+                priceCalculationService.calculatePricing(checkoutItems, discountDetails, deliveryDetails);
+            log.info("Final pricing calculated. Total: {}", pricing.getTotalAmount());
+            
+            // Step 6: Build validation results
+            log.info("Step 6: Building validation results");
+            CheckoutResponse.ValidationResults validations = buildValidationResults(
+                checkoutItems, vendorBranch, true, true
+            );
+            log.info("Validations: {}", validations);
+            
+            // Step 7: Create checkout session
+            log.info("Step 7: Creating checkout session in Redis");
+            CheckoutSession session = buildCheckoutSession(
+                request, vendorBranch, checkoutItems, pricing, validations
+            );
+            
+            String sessionId = sessionManagementService.createSession(session);
+            log.info("Checkout session created with ID: {}", sessionId);
+            
+            // Step 8: Build and return response
+            log.info("Step 8: Building success response");
+            CheckoutResponse response = buildSuccessResponse(
+                sessionId, vendorBranch, checkoutItems, pricing, validations, session.getExpiresAt()
+            );
+            log.info("=== CHECKOUT COMPLETED SUCCESSFULLY ===");
+            return response;
+            
+        } catch (Exception e) {
+            log.error("=== CHECKOUT FAILED WITH EXCEPTION ===", e);
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            throw e;
         }
-        
-        // Step 2: Validate and get menu items with prices
-        List<CheckoutResponse.CheckoutItem> checkoutItems = 
-            validateAndBuildCheckoutItems(request, vendorBranch, errors);
-        
-        if (!errors.isEmpty()) {
-            return buildErrorResponse(errors);
-        }
-        
-        // Step 3: Calculate delivery fee
-        CheckoutResponse.DeliveryDetails deliveryDetails = 
-            calculateDeliveryDetails(request, vendorBranch);
-        
-        // Step 4: Apply discount (if coupon provided)
-        CheckoutResponse.DiscountDetails discountDetails = 
-            applyDiscount(request, checkoutItems);
-        
-        // Step 5: Calculate final pricing
-        CheckoutResponse.PricingDetails pricing = 
-            priceCalculationService.calculatePricing(checkoutItems, discountDetails, deliveryDetails);
-        
-        // Step 6: Build validation results
-        CheckoutResponse.ValidationResults validations = buildValidationResults(
-            checkoutItems, vendorBranch, true, true
-        );
-        
-        // Step 7: Create checkout session
-        CheckoutSession session = buildCheckoutSession(
-            request, vendorBranch, checkoutItems, pricing, validations
-        );
-        
-        String sessionId = sessionManagementService.createSession(session);
-        
-        // Step 8: Build and return response
-        return buildSuccessResponse(
-            sessionId, vendorBranch, checkoutItems, pricing, validations, session.getExpiresAt()
-        );
     }
     
     /**
@@ -101,14 +142,19 @@ public class CheckoutService {
     public CheckoutResponse getCheckoutSession(String sessionId) {
         return sessionManagementService.getSession(sessionId)
             .map(this::convertSessionToResponse)
-            .orElseThrow(() -> new IllegalArgumentException("Checkout session not found or expired: " + sessionId));
+            .orElseThrow(() -> {
+                log.warn("Checkout session not found or expired: {}", sessionId);
+                return new com.teadelivery.ordercatalog.order.checkout.exception.CheckoutSessionNotFoundException(
+                    "Checkout session not found or expired: " + sessionId);
+            });
     }
     
     /**
      * Validate vendor branch
+     * Uses JOIN FETCH to eagerly load vendor to avoid LazyInitializationException
      */
     private VendorBranch validateVendorBranch(Long branchId, List<CheckoutResponse.CheckoutError> errors) {
-        return vendorBranchRepository.findById(branchId)
+        return vendorBranchRepository.findByIdWithVendor(branchId)
             .filter(VendorBranch::getIsActive)
             .orElseGet(() -> {
                 errors.add(buildError(
@@ -132,8 +178,13 @@ public class CheckoutService {
         
         for (CheckoutRequest.CartItemRequest cartItem : request.getItems()) {
             try {
+                log.debug("Validating cart item: menuItemId={}, quantity={}", 
+                    cartItem.getMenuItemId(), cartItem.getQuantity());
+                    
                 // Get menu item with current price
                 MenuItemResponse menuItem = menuService.getMenuItem(cartItem.getMenuItemId());
+                log.debug("Menu item found: {} (price: {}, available: {})", 
+                    menuItem.getName(), menuItem.getPrice(), menuItem.getIsAvailable());
                 
                 // Validate item belongs to vendor branch
                 if (!menuItem.getBranchId().equals(request.getVendorBranchId())) {
@@ -176,14 +227,26 @@ public class CheckoutService {
                     .stockQuantity(null) // TODO: Add stock quantity to MenuItemResponse
                     .build());
                     
+            } catch (com.teadelivery.ordercatalog.common.exception.MenuItemNotFoundException e) {
+                // Menu item not found - add specific error
+                log.warn("Caught MenuItemNotFoundException for item: {}", cartItem.getMenuItemId());
+                errors.add(buildError(
+                    "ITEM_NOT_FOUND",
+                    "Menu item not found",
+                    "items[].menuItemId",
+                    Map.of("itemId", cartItem.getMenuItemId())
+                ));
+                log.warn("Error added to list. Total errors so far: {}", errors.size());
             } catch (Exception e) {
-                log.error("Error validating item: {}", cartItem.getMenuItemId(), e);
+                // Unexpected error - add generic validation error
+                log.error("Caught unexpected exception for item: {}", cartItem.getMenuItemId(), e);
                 errors.add(buildError(
                     "ITEM_VALIDATION_ERROR",
                     "Error validating item: " + e.getMessage(),
                     "items[].menuItemId",
                     Map.of("itemId", cartItem.getMenuItemId())
                 ));
+                log.error("Error added to list. Total errors so far: {}", errors.size());
             }
         }
         

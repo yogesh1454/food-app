@@ -54,6 +54,7 @@ public class OrderCreationService {
     private final OrderFSM orderFSM;
     private final OrderService orderService;
     private final OrderEventPublisher orderEventPublisher;
+    private final com.teadelivery.ordercatalog.menu.service.MenuService menuService;
     
     // Configuration constants
     private static final int DUPLICATE_ORDER_WINDOW_MINUTES = 5;
@@ -196,13 +197,16 @@ public class OrderCreationService {
     private Order createOrderEntity(CheckoutSession session, PaymentTransaction paymentTransaction) {
         log.info("Step 4: Creating order entity for session: {}", session.getCheckoutSessionId());
         
-        // Get vendor branch
-        VendorBranch vendorBranch = vendorBranchRepository.findById(session.getVendorBranchId())
+        // Get vendor branch with vendor (using eager loading to avoid LazyInitializationException)
+        VendorBranch vendorBranch = vendorBranchRepository.findByIdWithVendor(session.getVendorBranchId())
             .orElseThrow(() -> new IllegalStateException("Vendor branch not found"));
         
         // Create order
         Order order = new Order();
         order.setCustomerId(session.getUserId());
+        order.setVendorId(vendorBranch.getVendor().getVendorId());
+        order.setVendorBranchId(session.getVendorBranchId());
+        order.setCheckoutSessionId(session.getCheckoutSessionId());
         order.setState(OrderState.CREATED);
         order.setOrderType(OrderType.SINGLE);
         order.setPaymentStatus(paymentTransaction.getStatus());
@@ -210,6 +214,12 @@ public class OrderCreationService {
         order.setPaymentTransactionId(paymentTransaction.getTransactionId());
         order.setCreatedAt(LocalDateTime.now());
         order.updateStateTimestamp(OrderState.CREATED);
+        
+        // Set metadata with additional information (optional)
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("vendorName", vendorBranch.getVendor().getCompanyName());
+        metadata.put("branchName", vendorBranch.getBranchName());
+        order.setMetadata(metadata);
         
         // Set delivery address
         order.setDeliveryAddress(session.getDeliveryAddress());
@@ -231,15 +241,28 @@ public class OrderCreationService {
         // Set delivery preferences
         order.setSpecialInstructions(session.getDeliveryInstructions());
         
-        // Add order items
+        // Add order items - need to fetch menu item details for name and price
         session.getItems().forEach(cartItem -> {
-            OrderItem item = new OrderItem();
-            item.setMenuItemId(cartItem.getMenuItemId());
-            item.setQuantity(cartItem.getQuantity());
-            item.setPriceAtOrder(BigDecimal.ZERO); // TODO: Get from menu service
-            item.setCustomizations(cartItem.getCustomizations());
-            item.setNotes(cartItem.getSpecialInstructions());
-            order.addOrderItem(item);
+            try {
+                // Fetch menu item to get name and current price
+                com.teadelivery.ordercatalog.menu.dto.MenuItemResponse menuItem = 
+                    menuService.getMenuItem(cartItem.getMenuItemId());
+                
+                OrderItem item = new OrderItem();
+                item.setMenuItemId(cartItem.getMenuItemId());
+                item.setItemName(menuItem.getName()); // ✅ FIX: Set item name from menu service
+                item.setQuantity(cartItem.getQuantity());
+                item.setPriceAtOrder(menuItem.getPrice()); // ✅ FIX: Set price from menu service
+                item.setCustomizations(cartItem.getCustomizations());
+                item.setNotes(cartItem.getSpecialInstructions());
+                item.setCreatedAt(LocalDateTime.now());
+                order.addOrderItem(item);
+                
+                log.debug("Added order item: {} x {} @ {}", menuItem.getName(), cartItem.getQuantity(), menuItem.getPrice());
+            } catch (Exception e) {
+                log.error("Error fetching menu item {} for order creation", cartItem.getMenuItemId(), e);
+                throw new IllegalStateException("Failed to fetch menu item: " + cartItem.getMenuItemId(), e);
+            }
         });
         
         // Save order

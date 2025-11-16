@@ -12,14 +12,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base Integration Test
@@ -27,8 +19,10 @@ import org.testcontainers.utility.DockerImageName;
  * Uses real PostgreSQL, Redis, and Kafka containers
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
-@ActiveProfiles("integration-test")
+@ActiveProfiles("local-integration")
+// Note: NOT using @Transactional on class level because it prevents the test from seeing
+// data changes made by the API (different transactions). Instead, tests should create 
+// unique data that won't conflict with other tests.
 public abstract class BaseIntegrationTest {
 
     @LocalServerPort
@@ -54,60 +48,19 @@ public abstract class BaseIntegrationTest {
 
     @Autowired
     protected KafkaTemplate<String, Object> kafkaTemplate;
+    
+    @Autowired
+    protected TestDataBuilder testDataBuilder;
 
-    // PostgreSQL Container
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine")
-        .withDatabaseName("test_order_catalog_db")
-        .withUsername("test_user")
-        .withPassword("test_password")
-        .withReuse(true);
-
-    // Redis Container
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine")
-        .withExposedPorts(6379)
-        .withReuse(true);
-
-    // Kafka Container
-    @Container
-    static KafkaContainer kafka = new KafkaContainer(
-        DockerImageName.parse("confluentinc/cp-kafka:7.5.0")
-    ).withReuse(true);
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        // PostgreSQL
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
-        
-        // Redis
-        registry.add("spring.data.redis.host", redis::getHost);
-        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379).toString());
-        
-        // Kafka
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-        registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");
-        
-        // Timeout configuration for tests (shorter timeouts)
-        registry.add("order.timeout.restaurant-acceptance", () -> "5s");
-        registry.add("order.timeout.payment-processing", () -> "10s");
-        registry.add("order.timeout.rider-assignment", () -> "10s");
-    }
-
+    // Note: Using local Docker containers (docker-compose)
+    // No Testcontainers - connects to localhost:5432, localhost:6379, localhost:9092
+    // Containers must be started with: docker-compose up -d
+    
     @BeforeEach
     void setUp() {
-        // Clean up before each test
-        cleanDatabase();
+        // Clean Redis before each test (Redis data doesn't rollback with @Transactional)
         cleanRedis();
-    }
-
-    protected void cleanDatabase() {
-        auditRepository.deleteAll();
-        subOrderRepository.deleteAll();
-        orderRepository.deleteAll();
+        // Note: Database cleanup handled automatically by @Transactional rollback
     }
 
     protected void cleanRedis() {
