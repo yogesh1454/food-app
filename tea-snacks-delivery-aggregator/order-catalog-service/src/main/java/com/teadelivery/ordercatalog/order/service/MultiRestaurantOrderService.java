@@ -5,6 +5,7 @@ import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;
 import com.teadelivery.ordercatalog.order.fsm.SubOrderState;
+import com.teadelivery.ordercatalog.order.model.DeliveryAddress;
 import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.SubOrder;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
@@ -44,7 +45,7 @@ public class MultiRestaurantOrderService {
     public Order createMultiRestaurantOrder(
         UUID customerId,
         List<RestaurantItems> restaurantItems,
-        Map<String, Object> deliveryAddress,
+        DeliveryAddress deliveryAddress,
         Point deliveryLocation
     ) {
         log.info("Creating multi-restaurant order for customer: {}, restaurants: {}", 
@@ -191,8 +192,8 @@ public class MultiRestaurantOrderService {
         // TODO: Enhance to support batched deliveries with multiple pickups
         
         String pickupLocation = "Multiple Restaurants"; // Placeholder
-        Map<String, Object> deliveryAddress = parentOrder.getDeliveryAddress();
-        String deliveryLocation = deliveryAddress != null ? deliveryAddress.toString() : "Unknown";
+        DeliveryAddress deliveryAddress = parentOrder.getDeliveryAddress();
+        String deliveryLocation = deliveryAddress != null ? deliveryAddress.getAddressLine1() : "Unknown";
         BigDecimal deliveryFee = new BigDecimal("50.00"); // Placeholder
         
         deliveryService.createDelivery(

@@ -8,6 +8,7 @@ public enum PaymentStatus {
     PENDING("Payment pending"),
     AUTHORIZED("Payment authorized"),
     CAPTURED("Payment captured"),
+    PAID("Payment completed"),  // For successful wallet/GPay payments
     FAILED("Payment failed"),
     REFUNDED("Payment refunded"),
     PARTIALLY_REFUNDED("Payment partially refunded");

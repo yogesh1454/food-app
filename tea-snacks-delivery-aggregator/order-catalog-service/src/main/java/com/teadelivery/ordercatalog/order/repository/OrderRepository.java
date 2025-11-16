@@ -44,4 +44,25 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     long countByCustomerId(UUID customerId);
     long countByState(OrderState state);
     long countByCustomerIdAndState(UUID customerId, OrderState state);
+    
+    // ========== Duplicate Detection Queries ==========
+    /**
+     * Find recent orders by customer for duplicate detection
+     * Used to prevent multiple orders from same customer in short time window
+     */
+    @Query("SELECT o FROM Order o WHERE o.customerId = :customerId " +
+           "AND o.createdAt > :since " +
+           "AND o.state NOT IN ('CANCELLED', 'REJECTED', 'CLOSED') " +
+           "ORDER BY o.createdAt DESC")
+    List<Order> findRecentActiveOrdersByCustomer(UUID customerId, LocalDateTime since);
+    
+    /**
+     * Find recent orders by customer and vendor branch for duplicate detection
+     */
+    @Query("SELECT o FROM Order o JOIN o.orderItems oi " +
+           "WHERE o.customerId = :customerId " +
+           "AND o.createdAt > :since " +
+           "AND o.state NOT IN ('CANCELLED', 'REJECTED', 'CLOSED') " +
+           "ORDER BY o.createdAt DESC")
+    List<Order> findRecentActiveOrdersByCustomerAndVendor(UUID customerId, LocalDateTime since);
 }

@@ -2,8 +2,10 @@ package com.teadelivery.ordercatalog.order.consumer;
 
 import com.teadelivery.ordercatalog.delivery.fsm.events.DeliveryStateChangedEvent;
 import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
-import com.teadelivery.ordercatalog.order.fsm.OrderTrigger;
 import com.teadelivery.ordercatalog.order.fsm.OrderFSM;
+import com.teadelivery.ordercatalog.order.model.Order;
+import com.teadelivery.ordercatalog.order.repository.OrderRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -16,13 +18,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class DeliveryEventConsumer {
     
     private final OrderFSM orderFSM;
-    
-    public DeliveryEventConsumer(OrderFSM orderFSM) {
-        this.orderFSM = orderFSM;
-    }
+    private final OrderRepository orderRepository;
     
     /**
      * Handle delivery state changed events
@@ -39,35 +39,50 @@ public class DeliveryEventConsumer {
                      event.getDeliveryId(), event.getOrderId(), event.getFromState(), 
                      event.getToState(), event.getIdempotencyKey());
             
-            // Map delivery state to order trigger
+            // Fetch order
+            Order order = orderRepository.findById(event.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Order not found: " + event.getOrderId()));
+            
+            // Map delivery state to order FSM transition
             DeliveryState toState = event.getToState();
             
-            // Note: OrderFSM methods require Order object, not just orderId
-            // This consumer should be refactored to fetch Order and call appropriate FSM methods
-            // For now, logging the events
             switch (toState) {
                 case RIDER_ACCEPTED:
-                    log.info("Rider accepted delivery, order should transition to ASSIGNED_TO_RIDER: orderId={}, riderId={}", 
+                    log.info("Rider accepted delivery, transitioning order to ASSIGNED_TO_RIDER: orderId={}, riderId={}", 
                              event.getOrderId(), event.getRiderId());
-                    // TODO: Fetch order and call orderFSM.assignRider(order)
+                    orderFSM.assignRider(order);
+                    orderRepository.save(order);
                     break;
                     
                 case PICKED_UP:
-                    log.info("Rider picked up order, order should transition to PICKED_UP: orderId={}, riderId={}", 
+                    log.info("Rider picked up order, transitioning to PICKED_UP: orderId={}, riderId={}", 
                              event.getOrderId(), event.getRiderId());
-                    // TODO: Fetch order and call orderFSM.pickupOrder(order)
+                    orderFSM.pickupOrder(order);
+                    orderRepository.save(order);
                     break;
                     
                 case DELIVERED:
-                    log.info("Order delivered successfully, order should transition to DELIVERED: orderId={}, riderId={}", 
+                    log.info("Order delivered successfully, transitioning to DELIVERED: orderId={}, riderId={}", 
                              event.getOrderId(), event.getRiderId());
-                    // TODO: Fetch order and call orderFSM.deliverOrder(order)
+                    orderFSM.deliverOrder(order);
+                    orderRepository.save(order);
                     break;
                     
                 case FAILED:
-                    log.error("Delivery failed, order should be cancelled: orderId={}, reason={}", 
-                              event.getOrderId(), event.getFailureReason());
-                    // TODO: Fetch order and call orderFSM.cancelOrder(order, "SYSTEM", failureReason)
+                    String failureReason = event.getMetadata() != null 
+                        ? (String) event.getMetadata().get("failureReason") 
+                        : "Delivery failed";
+                    log.error("Delivery failed, cancelling order: orderId={}, reason={}", 
+                              event.getOrderId(), failureReason);
+                    
+                    // Only cancel if order is still cancellable
+                    if (order.isCancellable()) {
+                        orderFSM.cancelOrder(order, "SYSTEM", "Delivery failed: " + failureReason);
+                        orderRepository.save(order);
+                    } else {
+                        log.warn("Cannot cancel order in state: {}", order.getState());
+                    }
                     break;
                     
                 default:

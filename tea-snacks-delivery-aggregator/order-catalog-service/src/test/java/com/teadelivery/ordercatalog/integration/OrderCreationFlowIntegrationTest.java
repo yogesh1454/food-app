@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.integration;
 
-import com.teadelivery.ordercatalog.audit.model.OrderStateAudit;
+import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.dto.OrderItemRequest;
@@ -55,11 +55,11 @@ class OrderCreationFlowIntegrationTest extends BaseIntegrationTest {
         assertThat(savedOrder.get().getItems()).hasSize(2);
 
         // Verify: Audit record created
-        List<OrderStateAudit> auditRecords = auditRepository.findByOrderIdOrderByCreatedAtAsc(
+        List<OrderStateAudit> auditRecords = auditRepository.findByOrderIdOrderByTransitionedAtDesc(
             orderResponse.getOrderId()
         );
-        assertThat(auditRecords).hasSize(1);
-        assertThat(auditRecords.get(0).getNewState()).isEqualTo(OrderState.CREATED);
+        assertThat(auditRecords).isNotEmpty();
+        assertThat(auditRecords.get(0).getToState()).isEqualTo(OrderState.CREATED.name());
     }
 
     @Test

@@ -173,4 +173,95 @@ public class MenuService {
         
         log.info("Menu item deleted: {}", menuItemId);
     }
+    
+    // ========== Inventory/Stock Management ==========
+    
+    /**
+     * Check if menu item has sufficient stock
+     * 
+     * @param menuItemId Menu item ID
+     * @param requestedQuantity Quantity requested
+     * @return true if sufficient stock available
+     */
+    @Transactional(readOnly = true)
+    public boolean checkMenuItemStock(Long menuItemId, int requestedQuantity) {
+        log.debug("Checking stock for menu item: {}, quantity: {}", menuItemId, requestedQuantity);
+        
+        MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
+            .orElse(null);
+        
+        if (menuItem == null) {
+            log.warn("Menu item not found: {}", menuItemId);
+            return false;
+        }
+        
+        // Check if item is available
+        if (!menuItem.getIsAvailable()) {
+            log.warn("Menu item not available: {}", menuItemId);
+            return false;
+        }
+        
+        // TODO: Add actual stock tracking in MenuItem model
+        // For now, assume all available items are in stock
+        log.debug("Stock check passed for menu item: {}", menuItemId);
+        return true;
+    }
+    
+    /**
+     * Check if multiple menu items have sufficient stock
+     * 
+     * @param itemQuantities Map of menuItemId -> quantity
+     * @return true if all items have sufficient stock
+     */
+    @Transactional(readOnly = true)
+    public boolean checkMultipleItemsStock(java.util.Map<Long, Integer> itemQuantities) {
+        log.debug("Checking stock for {} items", itemQuantities.size());
+        
+        for (java.util.Map.Entry<Long, Integer> entry : itemQuantities.entrySet()) {
+            if (!checkMenuItemStock(entry.getKey(), entry.getValue())) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Reserve stock for menu items (for order placement)
+     * 
+     * @param itemQuantities Map of menuItemId -> quantity
+     * @return true if reservation successful
+     */
+    @Transactional
+    public boolean reserveStock(java.util.Map<Long, Integer> itemQuantities) {
+        log.info("Reserving stock for {} items", itemQuantities.size());
+        
+        // First check if all items are available
+        if (!checkMultipleItemsStock(itemQuantities)) {
+            log.warn("Stock check failed, cannot reserve");
+            return false;
+        }
+        
+        // TODO: Implement actual stock reservation logic
+        // This would decrement available quantity in MenuItem model
+        // For now, just return true if items are available
+        
+        log.info("Stock reserved successfully for {} items", itemQuantities.size());
+        return true;
+    }
+    
+    /**
+     * Release reserved stock (on order cancellation/rejection)
+     * 
+     * @param itemQuantities Map of menuItemId -> quantity
+     */
+    @Transactional
+    public void releaseStock(java.util.Map<Long, Integer> itemQuantities) {
+        log.info("Releasing stock for {} items", itemQuantities.size());
+        
+        // TODO: Implement actual stock release logic
+        // This would increment available quantity in MenuItem model
+        
+        log.info("Stock released successfully for {} items", itemQuantities.size());
+    }
 }

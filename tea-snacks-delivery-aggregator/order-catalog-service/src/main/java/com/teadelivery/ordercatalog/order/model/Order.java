@@ -90,9 +90,8 @@ public class Order {
     private String paymentTransactionId;
     
     // ========== Delivery Address ==========
-    @Type(JsonBinaryType.class)
-    @Column(name = "delivery_address", columnDefinition = "jsonb", nullable = false)
-    private Map<String, Object> deliveryAddress;
+    @Embedded
+    private DeliveryAddress deliveryAddress;
     
     @Column(name = "delivery_latitude", precision = 10, scale = 8)
     private BigDecimal deliveryLatitude;

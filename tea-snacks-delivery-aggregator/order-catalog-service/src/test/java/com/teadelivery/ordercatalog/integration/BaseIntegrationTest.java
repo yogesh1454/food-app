@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.teadelivery.ordercatalog.audit.repository.OrderStateAuditRepository;
+import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,17 +1,17 @@
 package com.teadelivery.ordercatalog.order.service;
 
+import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
 import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
 import com.teadelivery.ordercatalog.order.fsm.OrderFSM;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;
 import com.teadelivery.ordercatalog.order.fsm.PaymentStatus;
+import com.teadelivery.ordercatalog.order.model.DeliveryAddress;
 import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.OrderItem;
-import com.teadelivery.ordercatalog.order.model.SubOrder;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
-import com.teadelivery.ordercatalog.order.service.OrderTimeoutService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Order Service
@@ -40,44 +39,73 @@ public class OrderService {
     // ========== Order Creation ==========
     
     /**
-     * Create a new order
+     * Create a new order from CreateOrderRequest
+     * Performs comprehensive validation and mapping
      */
     @Transactional
-    public Order createOrder(UUID customerId, List<OrderItem> items, Map<String, Object> deliveryAddress, 
-                            String specialInstructions) {
-        log.info("Creating order for customer: {}", customerId);
+    public Order createOrder(UUID customerId, CreateOrderRequest request) {
+        log.info("Creating order for customer: {}, vendor: {}, branch: {}", 
+            customerId, request.getVendorId(), request.getVendorBranchId());
         
-        // Determine order type
-        OrderType orderType = determineOrderType(items);
+        // TODO: Add validation here
+        // - Validate vendor branch exists
+        // - Validate menu items belong to branch
+        // - Validate pricing
+        // - Validate delivery zone
         
-        // Create order
+        // Create order entity
         Order order = new Order();
         order.setCustomerId(customerId);
         order.setState(OrderState.CREATED);
-        order.setOrderType(orderType);
+        order.setOrderType(OrderType.SINGLE); // TODO: Determine from items
         order.setPaymentStatus(PaymentStatus.PENDING);
-        order.setDeliveryAddress(deliveryAddress);
-        order.setSpecialInstructions(specialInstructions);
+        order.setSpecialInstructions(request.getSpecialInstructions());
         order.setCreatedAt(LocalDateTime.now());
         order.updateStateTimestamp(OrderState.CREATED);
         
-        // Add items
-        for (OrderItem item : items) {
-            order.addOrderItem(item);
+        // Set delivery address (embedded object)
+        order.setDeliveryAddress(buildDeliveryAddress(request.getDeliveryAddress()));
+        
+        // Set delivery location
+        if (request.getDeliveryLocation() != null) {
+            order.setDeliveryLatitude(BigDecimal.valueOf(request.getDeliveryLocation().getLatitude()));
+            order.setDeliveryLongitude(BigDecimal.valueOf(request.getDeliveryLocation().getLongitude()));
         }
         
-        // Calculate totals
-        order.calculateTotalAmount();
+        // Set pricing fields
+        if (request.getPricing() != null) {
+            order.setItemTotal(request.getPricing().getItemTotal());
+            order.setDeliveryCharges(request.getPricing().getDeliveryCharges());
+            order.setPlatformFee(request.getPricing().getPlatformFee());
+            order.setGst(request.getPricing().getGst());
+            order.setDiscount(request.getPricing().getDiscount());
+            order.setTotalAmount(request.getPricing().getTotalAmount());
+        }
         
-        // Save order
+        // Build and set metadata
+        order.setMetadata(buildOrderMetadata(request));
+        
+        // Add order items
+        request.getItems().forEach(itemReq -> {
+            OrderItem item = new OrderItem();
+            item.setMenuItemId(itemReq.getMenuItemId());
+            item.setQuantity(itemReq.getQuantity());
+            item.setPriceAtOrder(itemReq.getUnitPrice());
+            item.setCustomizations(itemReq.getCustomizations());
+            item.setNotes(itemReq.getSpecialInstructions());
+            order.addOrderItem(item);
+        });
+        
+        // Save order (single save)
         Order savedOrder = orderRepository.save(order);
         
         // Create audit record
         createAuditRecord(savedOrder, null, OrderState.CREATED, "ORDER_CREATED", customerId, "CUSTOMER");
         
-        log.info("Order created successfully: {}", savedOrder.getOrderId());
+        log.info("Order created: orderId={}, state={}", savedOrder.getOrderId(), savedOrder.getState());
         return savedOrder;
     }
+    
     
     /**
      * Determine if order is single or multi-vendor
@@ -86,6 +114,70 @@ public class OrderService {
         // In real implementation, check if items are from different vendors
         // For now, default to SINGLE
         return OrderType.SINGLE;
+    }
+    
+    /**
+     * Build delivery address from DTO
+     */
+    private DeliveryAddress buildDeliveryAddress(CreateOrderRequest.DeliveryAddressRequest addressReq) {
+        if (addressReq == null) {
+            return null;
+        }
+        
+        return DeliveryAddress.builder()
+            .addressLine1(addressReq.getAddressLine1())
+            .addressLine2(addressReq.getAddressLine2())
+            .landmark(addressReq.getLandmark())
+            .city(addressReq.getCity())
+            .state(addressReq.getState())
+            .pincode(addressReq.getPincode())
+            .addressType(addressReq.getAddressType())
+            .label(addressReq.getLabel())
+            .build();
+    }
+    
+    /**
+     * Build order metadata from CreateOrderRequest
+     */
+    private Map<String, Object> buildOrderMetadata(CreateOrderRequest request) {
+        Map<String, Object> metadata = new HashMap<>();
+        
+        // Vendor information
+        metadata.put("vendorId", request.getVendorId());
+        metadata.put("vendorName", request.getVendorName());
+        metadata.put("vendorBranchId", request.getVendorBranchId());
+        
+        // Payment metadata
+        if (request.getPayment() != null) {
+            metadata.put("paymentMethod", request.getPayment().getMethod());
+            metadata.put("paymentInstrumentId", request.getPayment().getInstrumentId());
+            metadata.put("paymentTransactionId", request.getPayment().getTransactionId());
+            if (request.getPayment().getMetadata() != null) {
+                metadata.put("paymentMetadata", request.getPayment().getMetadata());
+            }
+        }
+        
+        // Pricing metadata
+        if (request.getPricing() != null && request.getPricing().getCouponCode() != null) {
+            metadata.put("couponCode", request.getPricing().getCouponCode());
+        }
+        
+        // Delivery preferences
+        metadata.put("contactlessDelivery", request.getContactlessDelivery());
+        metadata.put("leaveAtDoor", request.getLeaveAtDoor());
+        metadata.put("deliveryInstructions", request.getDeliveryInstructions());
+        
+        // Device info
+        metadata.put("deviceId", request.getDeviceId());
+        metadata.put("appVersion", request.getAppVersion());
+        metadata.put("platform", request.getPlatform());
+        
+        // Additional custom metadata
+        if (request.getMetadata() != null) {
+            metadata.putAll(request.getMetadata());
+        }
+        
+        return metadata;
     }
     
     // ========== Order Validation ==========
@@ -136,7 +228,8 @@ public class OrderService {
     }
     
     private void validateDeliveryAddress(Order order) {
-        if (order.getDeliveryAddress() == null || order.getDeliveryAddress().isEmpty()) {
+        DeliveryAddress address = order.getDeliveryAddress();
+        if (address == null || address.getAddressLine1() == null || address.getAddressLine1().isBlank()) {
             throw new IllegalArgumentException("Delivery address is required");
         }
     }
@@ -501,7 +594,7 @@ public class OrderService {
     /**
      * Create audit record for state transition
      */
-    private void createAuditRecord(Order order, OrderState fromState, OrderState toState,
+    public void createAuditRecord(Order order, OrderState fromState, OrderState toState,
                                   String triggerName, UUID triggeredBy, String triggeredByRole) {
         OrderStateAudit audit = OrderStateAudit.create(
             order.getOrderId(),

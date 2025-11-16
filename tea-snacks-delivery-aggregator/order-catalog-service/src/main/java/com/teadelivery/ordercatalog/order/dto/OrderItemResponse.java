@@ -20,7 +20,7 @@ import java.util.UUID;
 public class OrderItemResponse {
     
     private UUID orderItemId;
-    private UUID menuItemId;
+    private Long menuItemId;
     private String itemName;
     private Integer quantity;
     private BigDecimal priceAtOrder;

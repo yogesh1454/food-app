@@ -2,11 +2,12 @@ package com.teadelivery.ordercatalog.order.controller;
 
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.dto.CancelOrderRequest;
-import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
+import com.teadelivery.ordercatalog.order.dto.CreateOrderFromCheckoutRequest;
 import com.teadelivery.ordercatalog.order.dto.OrderResponse;
 import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.service.OrderService;
+import com.teadelivery.ordercatalog.order.service.OrderCreationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -19,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,52 +36,45 @@ import java.util.stream.Collectors;
 public class OrderController {
     
     private final OrderService orderService;
+    private final OrderCreationService orderCreationService;
     
     /**
-     * Create a new order
+     * Create order from checkout session (Two-step checkout - Step 2)
+     * This is the transactional step that executes payment and creates the order
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create order", description = "Create a new order with items")
+    @Operation(
+        summary = "Create order from checkout session", 
+        description = "Second step of two-step checkout: executes payment and creates order from validated checkout session"
+    )
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Order created successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid request or validation failed"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "402", description = "Payment failed"),
+        @ApiResponse(responseCode = "404", description = "Checkout session not found"),
+        @ApiResponse(responseCode = "409", description = "Session already committed or validation failed"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<OrderResponse> createOrder(
-        @RequestBody @Valid CreateOrderRequest request,
-        @RequestHeader(value = "X-Customer-Id", required = false) String customerIdHeader
+    public OrderResponse createOrder(
+        @RequestBody @Valid CreateOrderFromCheckoutRequest request
     ) {
-        // For now, use header or generate UUID (in production, extract from JWT token)
-        UUID customerId = customerIdHeader != null ? 
-            UUID.fromString(customerIdHeader) : UUID.randomUUID();
+        log.info("Creating order from checkout session: {}", request.getCheckoutSessionId());
         
-        log.info("Creating order for customer: {}", customerId);
-        
-        // Convert DTOs to entities
-        List<OrderItem> items = request.getItems().stream()
-            .map(itemReq -> {
-                OrderItem item = new OrderItem();
-                item.setMenuItemId(itemReq.getMenuItemId());
-                item.setQuantity(itemReq.getQuantity());
-                item.setPriceAtOrder(itemReq.getUnitPrice());
-                item.setCustomizations(itemReq.getCustomizations());
-                item.setNotes(itemReq.getSpecialInstructions());
-                // itemName will be set by the service layer after fetching menu item details
-                return item;
-            })
-            .collect(Collectors.toList());
-        
-        Order order = orderService.createOrder(
-            customerId,
-            items,
-            request.getDeliveryAddress(),
-            request.getSpecialInstructions()
-        );
-        
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(OrderResponse.from(order));
+        try {
+            // Execute 6-step atomic process
+            Order order = orderCreationService.createOrderFromCheckout(request);
+            
+            log.info("Order created from checkout: orderId={}, sessionId={}, state={}", 
+                order.getOrderId(), request.getCheckoutSessionId(), order.getState());
+            
+            return OrderResponse.from(order);
+            
+        } catch (Exception e) {
+            log.error("Failed to create order from checkout session: {}", 
+                request.getCheckoutSessionId(), e);
+            throw e;
+        }
     }
     
     /**

@@ -34,7 +34,7 @@ public class OrderItem {
     private Order order;
     
     @Column(name = "menu_item_id", nullable = false)
-    private UUID menuItemId;
+    private Long menuItemId;
     
     @Column(name = "item_name", nullable = false, length = 255)
     private String itemName;
