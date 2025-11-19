@@ -1,0 +1,264 @@
+# ============================================================================
+# ENVIRONMENT CONFIGURATION TEMPLATE
+# ============================================================================
+# This file shows all environment variables created by the CloudFormation stack.
+# After stack deployment, these values will be automatically populated in:
+# /opt/nashtto/.env on the EC2 instance
+#
+# Copy this file to your local project and fill in the values from stack outputs.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# APPLICATION CONFIGURATION
+# ----------------------------------------------------------------------------
+ENVIRONMENT=production
+NODE_ENV=production
+DOMAIN=nashtto.com
+APP_PORT=3000
+APP_URL=https://nashtto.com
+
+# ----------------------------------------------------------------------------
+# DATABASE CONFIGURATION (RDS PostgreSQL)
+# ----------------------------------------------------------------------------
+# Get these values from CloudFormation outputs or EC2's /opt/nashtto/.env
+DB_HOST=<RDS_ENDPOINT>
+DB_PORT=5432
+DB_NAME=nastto_db
+DB_USERNAME=nastto_admin
+DB_PASSWORD=<YOUR_DB_PASSWORD>
+
+# Connection string format (for ORMs)
+DATABASE_URL=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+
+# Connection pool settings
+DB_POOL_MIN=2
+DB_POOL_MAX=10
+DB_CONNECTION_TIMEOUT=30000
+DB_IDLE_TIMEOUT=10000
+
+# ----------------------------------------------------------------------------
+# REDIS CONFIGURATION (ElastiCache)
+# ----------------------------------------------------------------------------
+REDIS_HOST=<REDIS_ENDPOINT>
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=0
+
+# Connection string format
+REDIS_URL=redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
+
+# Redis settings
+REDIS_CONNECT_TIMEOUT=10000
+REDIS_KEEPALIVE=30000
+REDIS_RETRY_STRATEGY=exponential
+
+# ----------------------------------------------------------------------------
+# AWS S3 BUCKETS
+# ----------------------------------------------------------------------------
+# Static assets bucket (public read for /public/* folder)
+S3_STATIC_BUCKET=nashtto-static-assets-<ACCOUNT_ID>
+S3_STATIC_REGION=us-east-1
+
+# User uploads bucket (private)
+S3_UPLOADS_BUCKET=nashtto-user-uploads-<ACCOUNT_ID>
+S3_UPLOADS_REGION=us-east-1
+
+# Backups bucket (versioned, lifecycle policies)
+S3_BACKUPS_BUCKET=nashtto-backups-<ACCOUNT_ID>
+S3_BACKUPS_REGION=us-east-1
+
+# Logs bucket (lifecycle: IA after 30 days, Glacier after 90 days)
+S3_LOGS_BUCKET=nashtto-logs-<ACCOUNT_ID>
+S3_LOGS_REGION=us-east-1
+
+# S3 settings
+S3_SIGNED_URL_EXPIRATION=3600
+S3_UPLOAD_MAX_SIZE=10485760
+
+# ----------------------------------------------------------------------------
+# AWS SQS QUEUES
+# ----------------------------------------------------------------------------
+# Email queue (for sending emails)
+SQS_EMAIL_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/nashtto-email-queue
+SQS_EMAIL_QUEUE_NAME=nashtto-email-queue
+
+# Image processing queue (resize, compress, etc.)
+SQS_IMAGE_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/nashtto-image-processing-queue
+SQS_IMAGE_QUEUE_NAME=nashtto-image-processing-queue
+
+# Backup queue (automated backups)
+SQS_BACKUP_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/nashtto-backup-queue
+SQS_BACKUP_QUEUE_NAME=nashtto-backup-queue
+
+# Dead letter queue (failed messages)
+SQS_DLQ_URL=https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/nashtto-dead-letter-queue
+SQS_DLQ_NAME=nashtto-dead-letter-queue
+
+# SQS settings
+SQS_REGION=us-east-1
+SQS_WAIT_TIME_SECONDS=20
+SQS_MAX_MESSAGES=10
+SQS_VISIBILITY_TIMEOUT=300
+
+# ----------------------------------------------------------------------------
+# AWS SNS TOPICS
+# ----------------------------------------------------------------------------
+# User notifications (order updates, promotions)
+SNS_USER_NOTIFICATIONS_ARN=arn:aws:sns:us-east-1:<ACCOUNT_ID>:nashtto-user-notifications
+
+# Admin notifications (new orders, system events)
+SNS_ADMIN_NOTIFICATIONS_ARN=arn:aws:sns:us-east-1:<ACCOUNT_ID>:nashtto-admin-notifications
+
+# System alerts (errors, CloudWatch alarms)
+SNS_SYSTEM_ALERTS_ARN=arn:aws:sns:us-east-1:<ACCOUNT_ID>:nashtto-system-alerts
+
+# SNS settings
+SNS_REGION=us-east-1
+
+# ----------------------------------------------------------------------------
+# AWS CLOUDWATCH
+# ----------------------------------------------------------------------------
+CLOUDWATCH_LOG_GROUP=/aws/ec2/nashtto-app
+CLOUDWATCH_LOG_STREAM={instance_id}
+CLOUDWATCH_REGION=us-east-1
+CLOUDWATCH_NAMESPACE=Nashtto/Application
+
+# Log levels
+LOG_LEVEL=info
+LOG_FORMAT=json
+
+# ----------------------------------------------------------------------------
+# SECURITY & AUTHENTICATION
+# ----------------------------------------------------------------------------
+# JWT settings
+JWT_SECRET=<GENERATE_RANDOM_SECRET>
+JWT_EXPIRATION=86400
+JWT_REFRESH_EXPIRATION=604800
+
+# Session settings
+SESSION_SECRET=<GENERATE_RANDOM_SECRET>
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_HTTP_ONLY=true
+SESSION_MAX_AGE=86400000
+
+# Encryption keys
+ENCRYPTION_KEY=<GENERATE_RANDOM_KEY>
+ENCRYPTION_ALGORITHM=aes-256-gcm
+
+# CORS settings
+CORS_ORIGIN=https://nashtto.com,https://www.nashtto.com
+CORS_CREDENTIALS=true
+
+# ----------------------------------------------------------------------------
+# THIRD-PARTY SERVICES (Add your keys)
+# ----------------------------------------------------------------------------
+# Email service (e.g., SendGrid, AWS SES)
+EMAIL_SERVICE=ses
+EMAIL_FROM=noreply@nashtto.com
+EMAIL_FROM_NAME=Nashtto
+SENDGRID_API_KEY=<YOUR_SENDGRID_KEY>
+
+# Payment gateway (e.g., Stripe, PayPal)
+STRIPE_PUBLIC_KEY=<YOUR_STRIPE_PUBLIC_KEY>
+STRIPE_SECRET_KEY=<YOUR_STRIPE_SECRET_KEY>
+STRIPE_WEBHOOK_SECRET=<YOUR_STRIPE_WEBHOOK_SECRET>
+
+# SMS service (e.g., Twilio, AWS SNS)
+TWILIO_ACCOUNT_SID=<YOUR_TWILIO_SID>
+TWILIO_AUTH_TOKEN=<YOUR_TWILIO_TOKEN>
+TWILIO_PHONE_NUMBER=<YOUR_TWILIO_PHONE>
+
+# Google Maps API (for restaurant locations)
+GOOGLE_MAPS_API_KEY=<YOUR_GOOGLE_MAPS_KEY>
+
+# Firebase (for push notifications)
+FIREBASE_PROJECT_ID=<YOUR_FIREBASE_PROJECT>
+FIREBASE_PRIVATE_KEY=<YOUR_FIREBASE_PRIVATE_KEY>
+FIREBASE_CLIENT_EMAIL=<YOUR_FIREBASE_EMAIL>
+
+# ----------------------------------------------------------------------------
+# APPLICATION FEATURES
+# ----------------------------------------------------------------------------
+# Feature flags
+FEATURE_EMAIL_VERIFICATION=true
+FEATURE_SMS_NOTIFICATIONS=true
+FEATURE_PUSH_NOTIFICATIONS=true
+FEATURE_ANALYTICS=true
+FEATURE_MAINTENANCE_MODE=false
+
+# Rate limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# File upload limits
+MAX_FILE_SIZE=10485760
+ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,image/webp
+
+# ----------------------------------------------------------------------------
+# MONITORING & ANALYTICS
+# ----------------------------------------------------------------------------
+# APM (e.g., New Relic, DataDog)
+NEW_RELIC_LICENSE_KEY=<YOUR_NEW_RELIC_KEY>
+NEW_RELIC_APP_NAME=nashtto-api
+
+# Sentry (error tracking)
+SENTRY_DSN=<YOUR_SENTRY_DSN>
+SENTRY_ENVIRONMENT=production
+
+# Google Analytics
+GOOGLE_ANALYTICS_ID=<YOUR_GA_ID>
+
+# ----------------------------------------------------------------------------
+# DEVELOPMENT & TESTING (for local development)
+# ----------------------------------------------------------------------------
+# Set to 'true' for development mode
+DEBUG=false
+VERBOSE_LOGGING=false
+
+# Mock services (for testing)
+MOCK_EMAIL=false
+MOCK_SMS=false
+MOCK_PAYMENT=false
+
+# Testing
+TEST_DATABASE_URL=postgresql://test:test@localhost:5432/nashtto_test
+TEST_REDIS_URL=redis://localhost:6379/1
+
+# ----------------------------------------------------------------------------
+# DOCKER CONFIGURATION (if using Docker Compose)
+# ----------------------------------------------------------------------------
+COMPOSE_PROJECT_NAME=nashtto
+COMPOSE_FILE=docker-compose.yml
+
+# ----------------------------------------------------------------------------
+# SSL CERTIFICATE
+# ----------------------------------------------------------------------------
+SSL_CERTIFICATE_ARN=<ACM_CERTIFICATE_ARN>
+
+# ----------------------------------------------------------------------------
+# NOTES
+# ----------------------------------------------------------------------------
+# 1. After CloudFormation stack creation, get actual values from:
+#    aws cloudformation describe-stacks --stack-name nashtto-infrastructure
+#
+# 2. On EC2 instance, values are auto-populated at: /opt/nashtto/.env
+#
+# 3. For local development, copy this file to .env and fill in local values:
+#    cp environment-variables-template.txt .env
+#
+# 4. NEVER commit .env file to version control (add to .gitignore)
+#
+# 5. Store sensitive values in AWS Secrets Manager for production:
+#    aws secretsmanager create-secret --name nashtto/db/password --secret-string "password"
+#
+# 6. Generate strong secrets:
+#    openssl rand -base64 32
+#
+# 7. To get values from CloudFormation outputs:
+#    aws cloudformation describe-stacks \
+#      --stack-name nashtto-infrastructure \
+#      --query 'Stacks[0].Outputs' \
+#      --output table
+# ============================================================================
+
+
