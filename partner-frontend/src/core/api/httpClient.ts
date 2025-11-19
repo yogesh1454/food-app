@@ -1,9 +1,13 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { Alert } from 'react-native';
+<<<<<<< HEAD
 
 // Configuration constants
 const API_BASE_URL = 'https://api.nashtto.com'; // Replace with actual API URL
 const DEFAULT_TIMEOUT = 30000; // 30 seconds
+=======
+import config from '../config/environment';
+>>>>>>> origin/partner-frontend
 
 // Error types for better error handling
 export interface ApiError {
@@ -26,8 +30,13 @@ class HttpClient {
 
   constructor() {
     this.instance = axios.create({
+<<<<<<< HEAD
       baseURL: API_BASE_URL,
       timeout: DEFAULT_TIMEOUT,
+=======
+      baseURL: config.apiUrl,
+      timeout: config.apiTimeout,
+>>>>>>> origin/partner-frontend
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -47,11 +56,23 @@ class HttpClient {
           config.headers.Authorization = `Bearer ${token}`;
         }
         
+<<<<<<< HEAD
         console.log(`[HTTP] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
         console.error('[HTTP] Request Error:', error);
+=======
+        if (config.enableLogging) {
+      console.log(`[HTTP] ${config.method?.toUpperCase()} ${config.url}`);
+    }
+        return config;
+      },
+      (error) => {
+        if (config.enableLogging) {
+          console.error('[HTTP] Request Error:', error);
+        }
+>>>>>>> origin/partner-frontend
         return Promise.reject(error);
       }
     );
@@ -59,11 +80,23 @@ class HttpClient {
     // Response interceptor
     this.instance.interceptors.response.use(
       (response: AxiosResponse) => {
+<<<<<<< HEAD
         console.log(`[HTTP] Response: ${response.status} ${response.config.url}`);
         return response;
       },
       (error: AxiosError) => {
         console.error('[HTTP] Response Error:', error.response?.status, error.message);
+=======
+        if (config.enableLogging) {
+          console.log(`[HTTP] Response: ${response.status} ${response.config.url}`);
+        }
+        return response;
+      },
+      (error: AxiosError) => {
+        if (config.enableLogging) {
+          console.error('[HTTP] Response Error:', error.response?.status, error.message);
+        }
+>>>>>>> origin/partner-frontend
         
         // Handle common HTTP errors
         this.handleHttpError(error);

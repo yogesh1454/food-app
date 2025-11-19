@@ -11,8 +11,16 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import PostOnboardingScreen from './screens/PostOnboardingScreen';
 import UploadTestScreen from './screens/UploadTestScreen';
 import DashboardScreen from './screens/DashboardScreen';
+<<<<<<< HEAD
 import MenuScreen from './screens/MenuScreen';
 import OrdersScreen from './screens/OrdersScreen';
+=======
+import DashboardScreenImproved from './screens/DashboardScreenImproved';
+import MenuScreen from './screens/MenuScreen';
+import MenuScreenImproved from './screens/MenuScreenImproved';
+import OrdersScreen from './screens/OrdersScreen';
+import OrdersScreenImproved from './screens/OrdersScreenImproved';
+>>>>>>> origin/partner-frontend
 import ProfileScreen from './screens/ProfileScreen';
 
 export type RootStackParamList = {

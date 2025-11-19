@@ -1,15 +1,23 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState, useEffect } from 'react';
+>>>>>>> origin/partner-frontend
 import {
   View,
   Text,
   TouchableOpacity,
+<<<<<<< HEAD
   SafeAreaView,
+=======
+>>>>>>> origin/partner-frontend
   ScrollView,
   TextInput,
   StyleSheet,
   Modal,
   Alert,
   Image,
+<<<<<<< HEAD
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -20,6 +28,31 @@ import DocumentUploadButton from '../core/components/DocumentUploadButton';
 import FeatureGate from '../core/components/FeatureGate';
 import featureFlags from '../core/api/featureFlags';
 import { useFeatureFlags } from '../core/hooks/useFeatureFlags';
+=======
+  FlatList,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchMenuItems,
+  fetchMenuItemCategories,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem,
+  setSelectedCategory,
+  clearError,
+} from '../store/slices/menuSlice';
+import { RootState } from '../store';
+import { MenuItem, MenuItemCreateRequest } from '../core/types/api';
+import ScreenLayout, { Section, EmptyState } from '../core/components/ScreenLayout';
+import { Card, MenuItemCard } from '../core/components/Card';
+import { Button } from '../core/components/Button';
+import { TextInputField } from '../core/components/TextInputField';
+import { LoadingSpinner } from '../core/components/LoadingSpinner';
+import { ErrorHandler, useErrorHandler } from '../core/components/ErrorHandler';
+import { colors, spacing } from '../core/constants';
+import { apiService } from '../core/api/unifiedApiService';
+>>>>>>> origin/partner-frontend
 
 const styles = StyleSheet.create({
   container: {
