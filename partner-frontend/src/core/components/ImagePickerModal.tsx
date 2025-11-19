@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FileUploadService } from '../services/fileUploadService';
+import MediaHelper from '../helpers/mediaHelper';
 
 interface ImagePickerModalProps {
   visible: boolean;
@@ -26,19 +26,18 @@ export default function ImagePickerModal({
   const handleOptionPress = async (option: 'camera' | 'gallery') => {
     try {
       let result;
-      
+
       if (option === 'camera') {
-        result = await FileUploadService.pickImage();
+        result = await MediaHelper.takePhoto();
       } else {
-        result = await FileUploadService.pickImage();
+        result = await MediaHelper.pickImageFromLibrary();
       }
 
-      if (result && result.uri) {
+      if (result.success && result.uri) {
         onImageSelected(result.uri);
         onClose();
-        Alert.alert('Success', 'Image uploaded successfully!');
-      } else {
-        Alert.alert('Error', 'Failed to upload image');
+      } else if (result.error) {
+        Alert.alert('Error', result.error);
       }
     } catch (error: any) {
       Alert.alert('Error', error.message);

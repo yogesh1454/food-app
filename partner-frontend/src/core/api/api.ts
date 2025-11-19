@@ -1,7 +1,7 @@
 // Mock API service - replace with actual API calls later
 import { Order } from '../../store/slices/ordersSlice';
 import { MenuItem as MenuItemType } from '../../store/slices/menuSlice';
-import { FileUploadService } from '../services/fileUploadService';
+
 
 class ApiService {
   private baseURL = 'https://api.nashtto.com'; // Replace with actual API URL
@@ -236,7 +236,7 @@ class ApiService {
 
     // For mock implementation, return a placeholder URL
     const mockUrl = `https://via.placeholder.com/400x400.png?text=${encodeURIComponent(category.toUpperCase())}`;
-    
+
     return {
       success: true,
       url: mockUrl,
@@ -277,7 +277,7 @@ class ApiService {
     await this.delay(1500);
 
     let imageUrl = menuItem.imageUrl;
-    
+
     if (imageUri) {
       const uploadResult = await this.uploadImage(restaurantId, imageUri, 'menu');
       if (uploadResult.success) {
