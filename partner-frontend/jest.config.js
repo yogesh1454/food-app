@@ -22,7 +22,8 @@ module.exports = {
     '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@/store/(.*)$': '<rootDir>/src/store/$1',
     '^@/constants/(.*)$': '<rootDir>/src/core/constants/$1',
-    '^@/api/(.*)$': '<rootDir>/src/core/api/$1'
+    '^@/api/(.*)$': '<rootDir>/src/core/api/$1',
+    '^@env$': '<rootDir>/src/__mocks__/@env.ts'
   },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

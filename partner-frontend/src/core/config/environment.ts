@@ -1,4 +1,13 @@
 // Environment configuration for different deployment stages
+import {
+  API_URL,
+  API_TIMEOUT,
+  ENABLE_LOGGING,
+  ENABLE_MOCK_DATA,
+  IMAGE_UPLOAD_URL,
+  DOCUMENT_UPLOAD_URL,
+} from '@env';
+
 export interface EnvironmentConfig {
   apiUrl: string;
   apiTimeout: number;
@@ -8,49 +17,14 @@ export interface EnvironmentConfig {
   documentUploadUrl: string;
 }
 
-const development: EnvironmentConfig = {
-  apiUrl: 'http://localhost:8082/api/v1',
-  apiTimeout: 30000,
-  enableLogging: true,
-  enableMockData: false,
-  imageUploadUrl: 'http://localhost:8082/api/v1/upload/image',
-  documentUploadUrl: 'http://localhost:8082/api/v1/upload/document',
+const config: EnvironmentConfig = {
+  apiUrl: API_URL,
+  apiTimeout: parseInt(API_TIMEOUT, 10) || 30000,
+  enableLogging: ENABLE_LOGGING === 'true',
+  enableMockData: ENABLE_MOCK_DATA === 'true',
+  imageUploadUrl: IMAGE_UPLOAD_URL,
+  documentUploadUrl: DOCUMENT_UPLOAD_URL,
 };
 
-const staging: EnvironmentConfig = {
-  apiUrl: 'https://staging-api.nashtto.com/api/v1',
-  apiTimeout: 30000,
-  enableLogging: true,
-  enableMockData: false,
-  imageUploadUrl: 'https://staging-api.nashtto.com/api/v1/upload/image',
-  documentUploadUrl: 'https://staging-api.nashtto.com/api/v1/upload/document',
-};
-
-const production: EnvironmentConfig = {
-  apiUrl: 'https://api.nashtto.com/api/v1',
-  apiTimeout: 30000,
-  enableLogging: false,
-  enableMockData: false,
-  imageUploadUrl: 'https://api.nashtto.com/api/v1/upload/image',
-  documentUploadUrl: 'https://api.nashtto.com/api/v1/upload/document',
-};
-
-const getEnvironment = (): EnvironmentConfig => {
-  // In a real app, this would be determined by build-time variables
-  // For now, we'll use a simple check or default to development
-  const env = process.env.NODE_ENV || 'development';
-  
-  switch (env) {
-    case 'production':
-      return production;
-    case 'staging':
-      return staging;
-    case 'development':
-    default:
-      return development;
-  }
-};
-
-export const config = getEnvironment();
-
+export { config };
 export default config;
