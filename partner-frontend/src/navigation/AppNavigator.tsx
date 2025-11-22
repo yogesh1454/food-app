@@ -13,9 +13,10 @@ import { DashboardScreen } from '../features/dashboard';
 import { MenuScreen } from '../features/menu';
 import { OrdersScreen } from '../features/orders';
 import { ProfileScreen } from '../features/profile';
-
+import PhoneLoginScreen from '../screens/PhoneLoginScreen';
 export type RootStackParamList = {
   Welcome: undefined;
+  PhoneLogin: undefined;
   Onboarding: undefined;
   PostOnboarding: undefined;
   Main: undefined;
@@ -96,6 +97,7 @@ export default function AppNavigator() {
         <Stack.Screen name="PostOnboarding" component={PostOnboardingScreen} />
         <Stack.Screen name="UploadTest" component={UploadTestScreen} />
         <Stack.Screen name="Main" component={MainTabNavigator} />
+        <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

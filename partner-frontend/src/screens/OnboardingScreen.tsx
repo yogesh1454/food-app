@@ -23,6 +23,7 @@ import { commonStyles } from '../core/styles/commonStyles';
 import { colors } from '../core/constants/colors';
 import ImageUploadButton from '../core/components/ImageUploadButton';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
+import { sendOTP, verifyOTP, clearRecaptcha } from '../core/services/phoneAuthservice';
 
 type OnboardingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   menuOptionButtonActive: {
     borderColor: colors.primary,
-    ...commonStyles.bgGreen50,
+    backgroundColor: '#f0fdf4', // Light green background for active state
   },
   menuOptionText: {
     color: colors.textSecondary,
@@ -425,6 +426,7 @@ const cuisines = [
 ];
 
 export default function OnboardingScreen() {
+  const [confirmation, setConfirmation] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [cuisineDropdownVisible, setCuisineDropdownVisible] = useState(false);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
@@ -512,9 +514,23 @@ export default function OnboardingScreen() {
     setData({ ...data, extractedItems: items });
   };
 
-  const handleVerifyPhone = () => {
-    setOtpType('phone');
-    setOtpModalVisible(true);
+  const handleVerifyPhone = async () => {
+    if (!data.phone || data.phone.length < 10) {
+      Alert.alert('Error', 'Please enter a valid phone number');
+      return;
+    }
+
+    try {
+      const formattedPhone = data.phone.startsWith('+91') ? data.phone : `+91${data.phone}`;
+      const confirmationResult = await sendOTP(formattedPhone);
+      setConfirmation(confirmationResult);
+      setOtpType('phone');
+      setOtpModalVisible(true);
+      Alert.alert('Success', 'OTP sent to your phone!');
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', error.message || 'Failed to send OTP');
+    }
   };
 
   const handleVerifyEmail = () => {
@@ -522,18 +538,38 @@ export default function OnboardingScreen() {
     setOtpModalVisible(true);
   };
 
-  const handleOtpSubmit = () => {
-    if (otp === '1234') { // Mock OTP
-      if (otpType === 'phone') {
+  const handleOtpSubmit = async () => {
+    if (!otp || otp.length !== 6) {
+      Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+      return;
+    }
+
+    // For phone verification with Firebase
+    if (otpType === 'phone' && confirmation) {
+      try {
+        const userCredential = await verifyOTP(confirmation, otp);
         setData({ ...data, phoneVerified: true });
-      } else {
-        setData({ ...data, emailVerified: true });
+        setOtpModalVisible(false);
+        setOtp('');
+        setConfirmation(null);
+        clearRecaptcha();
+        Alert.alert('Success', 'Phone verified successfully!');
+        console.log('User:', userCredential.user);
+      } catch (error: any) {
+        console.error(error);
+        Alert.alert('Error', 'Invalid OTP. Please try again.');
       }
-      setOtpModalVisible(false);
-      setOtp('');
-      Alert.alert('Success', `${otpType === 'phone' ? 'Phone' : 'Email'} verified successfully!`);
-    } else {
-      Alert.alert('Error', 'Invalid OTP');
+    }
+    // Keep email as mock for now (or implement email OTP similarly)
+    else if (otpType === 'email') {
+      if (otp === '1234') { // Mock OTP for email
+        setData({ ...data, emailVerified: true });
+        setOtpModalVisible(false);
+        setOtp('');
+        Alert.alert('Success', 'Email verified successfully!');
+      } else {
+        Alert.alert('Error', 'Invalid OTP');
+      }
     }
   };
 
@@ -933,6 +969,8 @@ export default function OnboardingScreen() {
           </View>
         </View>
       </Modal>
+      {/* Recaptcha Container - Must be outside modal and always rendered */}
+      <View id="recaptcha-container" style={{ position: 'absolute', top: -1000 }} />
 
       {/* OTP Modal */}
       <Modal visible={otpModalVisible} animationType="slide" transparent={true}>
@@ -946,7 +984,7 @@ export default function OnboardingScreen() {
               <View />
             </View>
             <Text style={styles.sectionTitle}>Enter OTP</Text>
-            <Text style={styles.subtitle}>Mock OTP: 1234</Text>
+            {/* <Text style={styles.subtitle}>Mock OTP: 1234</Text> */}
             <TextInput
               style={styles.otpInput}
               placeholder="Enter OTP"
