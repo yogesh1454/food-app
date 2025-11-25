@@ -17,7 +17,7 @@
   },
   {
     "ParameterKey": "SSHAccessIP",
-    "ParameterValue": "0.0.0.0/0"
+    "ParameterValue": "49.207.205.84/32"
   },
   {
     "ParameterKey": "DBMasterUsername",
@@ -25,7 +25,7 @@
   },
   {
     "ParameterKey": "DBMasterPassword",
-    "ParameterValue": "CHANGE_THIS_PASSWORD_123"
+    "ParameterValue": "IjhY3HEqWGjk0deZ"
   },
   {
     "ParameterKey": "DBName",
@@ -33,7 +33,7 @@
   },
   {
     "ParameterKey": "EC2InstanceType",
-    "ParameterValue": "t3.micro"
+    "ParameterValue": "t2.micro"
   },
   {
     "ParameterKey": "RDSInstanceType",

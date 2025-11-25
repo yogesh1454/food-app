@@ -58,7 +58,7 @@ Parameters:
 
   EC2InstanceType:
     Type: String
-    Default: t3.micro
+    Default: t2.micro
     Description: EC2 instance type
     AllowedValues:
       - t2.micro
@@ -396,7 +396,7 @@ Resources:
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
       PubliclyAccessible: false
-      BackupRetentionPeriod: 7
+      BackupRetentionPeriod: 1
       PreferredBackupWindow: '03:00-04:00'
       PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
       MultiAZ: false
@@ -438,7 +438,6 @@ Resources:
   RedisCluster:
     Type: AWS::ElastiCache::CacheCluster
     Properties:
-      CacheClusterId: !Sub ${ProjectName}-redis
       Engine: redis
       EngineVersion: '7.0'
       CacheNodeType: !Ref CacheNodeType
@@ -572,10 +571,13 @@ Resources:
           Value: !Ref EnvironmentName
 
 # ============================================================================
-# RESOURCES - PHASE 6: SQS + SNS
+# RESOURCES - PHASE 6: SQS + SNS (Test Queue/Topic Only)
+# ============================================================================
+# Note: Only 1 test queue and 1 test topic created.
+# Add more queues/topics later based on your project requirements.
 # ============================================================================
 
-  # Dead Letter Queue (created first)
+  # Dead Letter Queue (for failed messages)
   DeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -587,11 +589,11 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
-  # SQS Queues
-  EmailQueue:
+  # Test Queue (single queue for testing)
+  TestQueue:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: !Sub ${ProjectName}-email-queue
+      QueueName: !Sub ${ProjectName}-test-queue
       VisibilityTimeout: 300
       MessageRetentionPeriod: 345600  # 4 days
       RedrivePolicy:
@@ -599,106 +601,54 @@ Resources:
         maxReceiveCount: 3
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-email-queue
+          Value: !Sub ${ProjectName}-test-queue
         - Key: Environment
           Value: !Ref EnvironmentName
 
-  ImageProcessingQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub ${ProjectName}-image-processing-queue
-      VisibilityTimeout: 600  # 10 minutes for image processing
-      MessageRetentionPeriod: 345600
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
-        maxReceiveCount: 3
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-image-processing-queue
-        - Key: Environment
-          Value: !Ref EnvironmentName
-
-  BackupQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub ${ProjectName}-backup-queue
-      VisibilityTimeout: 900  # 15 minutes for backups
-      MessageRetentionPeriod: 345600
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
-        maxReceiveCount: 3
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-backup-queue
-        - Key: Environment
-          Value: !Ref EnvironmentName
-
-  # SNS Topics
-  UserNotificationsTopic:
+  # Test SNS Topic (single topic for testing)
+  TestTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: !Sub ${ProjectName}-user-notifications
-      DisplayName: User Notifications
+      TopicName: !Sub ${ProjectName}-test-topic
+      DisplayName: Test Topic
       Tags:
         - Key: Name
-          Value: !Sub ${ProjectName}-user-notifications
+          Value: !Sub ${ProjectName}-test-topic
         - Key: Environment
           Value: !Ref EnvironmentName
 
-  AdminNotificationsTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub ${ProjectName}-admin-notifications
-      DisplayName: Admin Notifications
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-admin-notifications
-        - Key: Environment
-          Value: !Ref EnvironmentName
-
-  SystemAlertsTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: !Sub ${ProjectName}-system-alerts
-      DisplayName: System Alerts
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-system-alerts
-        - Key: Environment
-          Value: !Ref EnvironmentName
-
-  # Optional: Subscribe email to system alerts
-  SystemAlertsEmailSubscription:
+  # Optional: Subscribe email to test topic
+  TestTopicEmailSubscription:
     Type: AWS::SNS::Subscription
     Condition: HasAlarmEmail
     Properties:
       Protocol: email
-      TopicArn: !Ref SystemAlertsTopic
+      TopicArn: !Ref TestTopic
       Endpoint: !Ref AlarmEmail
 
-  # SNS to SQS Subscriptions
-  EmailQueuePolicy:
+  # SNS to SQS Subscription (Test Queue)
+  TestQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
       Queues:
-        - !Ref EmailQueue
+        - !Ref TestQueue
       PolicyDocument:
         Statement:
           - Effect: Allow
             Principal:
               Service: sns.amazonaws.com
             Action: SQS:SendMessage
-            Resource: !GetAtt EmailQueue.Arn
+            Resource: !GetAtt TestQueue.Arn
             Condition:
               ArnEquals:
-                aws:SourceArn: !Ref UserNotificationsTopic
+                aws:SourceArn: !Ref TestTopic
 
-  UserNotificationsToEmailSubscription:
+  TestTopicToTestQueueSubscription:
     Type: AWS::SNS::Subscription
     Properties:
       Protocol: sqs
-      TopicArn: !Ref UserNotificationsTopic
-      Endpoint: !GetAtt EmailQueue.Arn
+      TopicArn: !Ref TestTopic
+      Endpoint: !GetAtt TestQueue.Arn
 
 # ============================================================================
 # RESOURCES - PHASE 7: EC2 INSTANCE
@@ -747,16 +697,13 @@ Resources:
                   - sqs:GetQueueAttributes
                   - sqs:GetQueueUrl
                 Resource:
-                  - !GetAtt EmailQueue.Arn
-                  - !GetAtt ImageProcessingQueue.Arn
-                  - !GetAtt BackupQueue.Arn
+                  - !GetAtt TestQueue.Arn
+                  - !GetAtt DeadLetterQueue.Arn
               - Effect: Allow
                 Action:
                   - sns:Publish
                 Resource:
-                  - !Ref UserNotificationsTopic
-                  - !Ref AdminNotificationsTopic
-                  - !Ref SystemAlertsTopic
+                  - !Ref TestTopic
               - Effect: Allow
                 Action:
                   - cloudwatch:PutMetricData
@@ -764,11 +711,6 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: '*'
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-ec2-role
-        - Key: Environment
-          Value: !Ref EnvironmentName
 
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -819,27 +761,22 @@ Resources:
           # Update system
           dnf update -y
           
-          # Install Docker
-          dnf install -y docker
-          systemctl start docker
-          systemctl enable docker
-          usermod -aG docker ec2-user
+          # Install Java 21 (for Spring Boot JAR deployment)
+          dnf install -y java-21-amazon-corretto-devel
           
-          # Install Docker Compose
-          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          chmod +x /usr/local/bin/docker-compose
-          ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
-          
-          # Install Git
+          # Install Git (for code deployment)
           dnf install -y git
           
-          # Install PostgreSQL client
+          # Install PostgreSQL client (for database management)
           dnf install -y postgresql15
           
-          # Install Redis CLI
+          # Install Redis CLI (for cache management)
           dnf install -y redis6
           
           # Install AWS CLI v2 (already included in Amazon Linux 2023)
+          
+          # Install htop for monitoring (optional)
+          dnf install -y htop
           
           # Install CloudWatch Agent
           wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
@@ -868,20 +805,17 @@ Resources:
           S3_BACKUPS_BUCKET=${BackupsBucket}
           S3_LOGS_BUCKET=${LogsBucket}
           
-          # SQS Queues
-          SQS_EMAIL_QUEUE_URL=${EmailQueue}
-          SQS_IMAGE_QUEUE_URL=${ImageProcessingQueue}
-          SQS_BACKUP_QUEUE_URL=${BackupQueue}
+          # SQS Queues (add more as needed)
+          SQS_TEST_QUEUE_URL=${TestQueue}
           SQS_DLQ_URL=${DeadLetterQueue}
           
-          # SNS Topics
-          SNS_USER_NOTIFICATIONS_ARN=${UserNotificationsTopic}
-          SNS_ADMIN_NOTIFICATIONS_ARN=${AdminNotificationsTopic}
-          SNS_SYSTEM_ALERTS_ARN=${SystemAlertsTopic}
+          # SNS Topics (add more as needed)
+          SNS_TEST_TOPIC_ARN=${TestTopic}
           
           # Application Configuration
           ENVIRONMENT=${EnvironmentName}
           DOMAIN=${DomainName}
+          SERVER_PORT=8080
           EOF
           
           chown ec2-user:ec2-user /opt/${ProjectName}/.env
@@ -951,18 +885,26 @@ Resources:
           Environment variables: /opt/${ProjectName}/.env
           
           Installed software:
-          - Docker & Docker Compose
-          - Git
-          - PostgreSQL client
-          - Redis CLI
-          - AWS CLI v2
-          - CloudWatch Agent
+          - Java 21 (Amazon Corretto) - for running Spring Boot JARs
+          - Git - for code deployment
+          - PostgreSQL 15 client - for database management
+          - Redis CLI - for cache management
+          - AWS CLI v2 - for AWS resource management
+          - CloudWatch Agent - for monitoring and logging
+          - htop - for system monitoring
+          
+          To deploy your application JAR:
+          1. Upload JAR: scp -i key.pem your-app.jar ec2-user@<ip>:/opt/${ProjectName}/
+          2. Run JAR: java -jar /opt/${ProjectName}/your-app.jar
           
           To test database connection:
           psql -h ${RDSInstance.Endpoint.Address} -U ${DBMasterUsername} -d ${DBName}
           
           To test Redis connection:
           redis-cli -h ${RedisCluster.RedisEndpoint.Address} -p ${RedisCluster.RedisEndpoint.Port}
+          
+          To verify Java installation:
+          java -version
           
           For more information, see /opt/${ProjectName}/.env
           EOF
@@ -1064,7 +1006,7 @@ Resources:
         - Name: InstanceId
           Value: !Ref EC2Instance
       AlarmActions:
-        - !Ref SystemAlertsTopic
+        - !Ref TestTopic
       TreatMissingData: notBreaching
 
   RDSHighCPUAlarm:
@@ -1083,7 +1025,7 @@ Resources:
         - Name: DBInstanceIdentifier
           Value: !Ref RDSInstance
       AlarmActions:
-        - !Ref SystemAlertsTopic
+        - !Ref TestTopic
       TreatMissingData: notBreaching
 
   RDSLowStorageAlarm:
@@ -1102,7 +1044,7 @@ Resources:
         - Name: DBInstanceIdentifier
           Value: !Ref RDSInstance
       AlarmActions:
-        - !Ref SystemAlertsTopic
+        - !Ref TestTopic
       TreatMissingData: notBreaching
 
   RDSHighConnectionsAlarm:
@@ -1121,7 +1063,7 @@ Resources:
         - Name: DBInstanceIdentifier
           Value: !Ref RDSInstance
       AlarmActions:
-        - !Ref SystemAlertsTopic
+        - !Ref TestTopic
       TreatMissingData: notBreaching
 
   RedisHighMemoryAlarm:
@@ -1140,7 +1082,7 @@ Resources:
         - Name: CacheClusterId
           Value: !Ref RedisCluster
       AlarmActions:
-        - !Ref SystemAlertsTopic
+        - !Ref TestTopic
       TreatMissingData: notBreaching
 
 # ============================================================================
@@ -1238,23 +1180,11 @@ Outputs:
       Name: !Sub ${AWS::StackName}-Logs-Bucket
 
   # SQS Outputs
-  EmailQueueURL:
-    Description: Email queue URL
-    Value: !Ref EmailQueue
+  TestQueueURL:
+    Description: Test queue URL (add more queues as needed)
+    Value: !Ref TestQueue
     Export:
-      Name: !Sub ${AWS::StackName}-EmailQueue-URL
-
-  ImageProcessingQueueURL:
-    Description: Image processing queue URL
-    Value: !Ref ImageProcessingQueue
-    Export:
-      Name: !Sub ${AWS::StackName}-ImageQueue-URL
-
-  BackupQueueURL:
-    Description: Backup queue URL
-    Value: !Ref BackupQueue
-    Export:
-      Name: !Sub ${AWS::StackName}-BackupQueue-URL
+      Name: !Sub ${AWS::StackName}-TestQueue-URL
 
   DeadLetterQueueURL:
     Description: Dead letter queue URL
@@ -1263,23 +1193,11 @@ Outputs:
       Name: !Sub ${AWS::StackName}-DLQ-URL
 
   # SNS Outputs
-  UserNotificationsTopicARN:
-    Description: User notifications topic ARN
-    Value: !Ref UserNotificationsTopic
+  TestTopicARN:
+    Description: Test topic ARN (add more topics as needed)
+    Value: !Ref TestTopic
     Export:
-      Name: !Sub ${AWS::StackName}-UserNotifications-ARN
-
-  AdminNotificationsTopicARN:
-    Description: Admin notifications topic ARN
-    Value: !Ref AdminNotificationsTopic
-    Export:
-      Name: !Sub ${AWS::StackName}-AdminNotifications-ARN
-
-  SystemAlertsTopicARN:
-    Description: System alerts topic ARN
-    Value: !Ref SystemAlertsTopic
-    Export:
-      Name: !Sub ${AWS::StackName}-SystemAlerts-ARN
+      Name: !Sub ${AWS::StackName}-TestTopic-ARN
 
   # EC2 Outputs
   EC2InstanceID:
