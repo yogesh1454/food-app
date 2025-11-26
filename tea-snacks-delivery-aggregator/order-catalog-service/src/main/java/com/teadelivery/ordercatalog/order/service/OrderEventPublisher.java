@@ -3,20 +3,25 @@ package com.teadelivery.ordercatalog.order.service;
 import com.teadelivery.ordercatalog.order.event.OrderPlacedEvent;
 import com.teadelivery.ordercatalog.order.event.PaymentCompletedEvent;
 import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 /**
  * Service for publishing order-related events to Kafka
+ * Falls back to no-op when Kafka is disabled
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class OrderEventPublisher {
     
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    @Value("${features.kafka.enabled:false}")
+    private boolean kafkaEnabled;
+    
+    @Autowired(required = false)
+    private KafkaTemplate<String, Object> kafkaTemplate;
     
     private static final String ORDER_PLACED_TOPIC = "order-placed-events";
     private static final String PAYMENT_COMPLETED_TOPIC = "payment-completed-events";
@@ -26,6 +31,10 @@ public class OrderEventPublisher {
      * Publish OrderPlacedEvent
      */
     public void publishOrderPlaced(OrderPlacedEvent event) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping OrderPlacedEvent: orderId={}", event.getOrderId());
+            return;
+        }
         try {
             log.info("Publishing OrderPlacedEvent: orderId={}", event.getOrderId());
             kafkaTemplate.send(ORDER_PLACED_TOPIC, event.getOrderId().toString(), event);
@@ -40,6 +49,10 @@ public class OrderEventPublisher {
      * Publish PaymentCompletedEvent
      */
     public void publishPaymentCompleted(PaymentCompletedEvent event) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping PaymentCompletedEvent: orderId={}", event.getOrderId());
+            return;
+        }
         try {
             log.info("Publishing PaymentCompletedEvent: orderId={}, txnId={}", 
                 event.getOrderId(), event.getTransactionId());
@@ -55,6 +68,10 @@ public class OrderEventPublisher {
      * Publish OrderStateChangedEvent
      */
     public void publishOrderStateChanged(OrderStateChangedEvent event) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping OrderStateChangedEvent: orderId={}", event.getOrderId());
+            return;
+        }
         try {
             log.info("Publishing OrderStateChangedEvent: orderId={}, {} -> {}", 
                 event.getOrderId(), event.getPreviousState(), event.getNewState());
