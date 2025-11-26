@@ -17,7 +17,7 @@ spring:
   datasource:
     url: jdbc:postgresql://nashtto-postgres.c2z440siod1m.us-east-1.rds.amazonaws.com:5432/nastto_db
     username: nastto_admin
-    password: IjhY3HEqWGjk0deZ
+    password: {}
     driver-class-name: org.postgresql.Driver
   
   jpa:
