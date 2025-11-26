@@ -10,6 +10,7 @@ import {
   Alert,
   Image,
   FlatList,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -21,8 +22,9 @@ import {
   deleteMenuItem,
   setSelectedCategory,
   clearError,
+  setCurrentBranchId,
 } from '../store/slices/menuSlice';
-import { RootState } from '../store';
+import { RootState, AppDispatch } from '../store';
 import { MenuItem, MenuItemCreateRequest } from '../core/types/api';
 import ScreenLayout, { Section, EmptyState } from '../core/components/ScreenLayout';
 import { Card, MenuItemCard } from '../core/components/Card';
@@ -32,6 +34,9 @@ import { LoadingSpinner } from '../core/components/LoadingSpinner';
 import { ErrorHandler, useErrorHandler } from '../core/components/ErrorHandler';
 import { colors, spacing } from '../core/constants';
 import { apiService } from '../core/api/unifiedApiService';
+import useFeatureFlags from '../core/hooks/useFeatureFlags';
+import FeatureGate from '../core/components/FeatureGate';
+import ImageUploadButton from '../core/components/ImageUploadButton';
 
 const styles = StyleSheet.create({
   container: {
@@ -289,14 +294,25 @@ export default function MenuScreen() {
     imageUrl: '',
     nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
   });
-  
+
   // Feature flag hooks
   const { flags, isEnabled, loading } = useFeatureFlags();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const menuItems = useSelector((state: RootState) => state.menu.items);
   const categories = useSelector((state: RootState) => state.menu.categories);
+  const currentBranchId = useSelector((state: RootState) => state.menu.currentBranchId);
 
   const filteredItems = selectedCategory === 'All' ? menuItems : menuItems.filter(item => item.category === selectedCategory);
+
+  useEffect(() => {
+    // Initialize with default branch ID 1 since branch selection is not implemented yet
+    if (!currentBranchId) {
+      dispatch(setCurrentBranchId(1));
+      dispatch(fetchMenuItems({ branchId: 1 }));
+    } else {
+      dispatch(fetchMenuItems({ branchId: currentBranchId }));
+    }
+  }, [dispatch, currentBranchId]);
 
   const handleImageUpload = async (uri: string) => {
     setNewItem({ ...newItem, imageUrl: uri });
@@ -318,98 +334,127 @@ export default function MenuScreen() {
     }, 2000);
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
+    if (!currentBranchId) {
+      Alert.alert('Error', 'No branch selected. Please select a branch first.');
+      return;
+    }
+
     if (newItem.name && newItem.price) {
-      const addons = newItem.addons.split(',').map(a => ({ id: Date.now().toString() + Math.random(), name: a.trim(), price: 0 }));
-      const complimentaryItems = newItem.complimentaryItems.split(',').map(c => ({ id: Date.now().toString() + Math.random(), name: c.trim() }));
-      const item = {
-        id: Date.now().toString(),
-        name: newItem.name,
-        description: 'Mock description',
-        price: parseFloat(newItem.price),
-        category: newItem.category,
-        isAvailable: newItem.isAvailable,
-        isVegetarian: newItem.isVegetarian,
-        isVegan: false,
-        spiceLevel: 'medium' as const,
-        preparationTime: 15,
-        quantity: parseInt(newItem.quantity) || undefined,
-        addons: addons.length > 0 ? addons : undefined,
-        complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
-        imageUrl: newItem.imageUrl || undefined,
-        nutritionInfo: newItem.nutritionInfo,
-      };
-      dispatch(addMenuItem(item));
-      setNewItem({
-        name: '',
-        price: '',
-        category: 'Main Course',
-        isAvailable: true,
-        isVegetarian: true,
-        quantity: '',
-        addons: '',
-        complimentaryItems: '',
-        imageUrl: '',
-        nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
-      });
-      setAddModalVisible(false);
-      Alert.alert('Success', 'Item added successfully!');
+      try {
+        const addons = newItem.addons.split(',').filter(a => a.trim()).map(a => ({ name: a.trim(), price: 0 }));
+        const complimentaryItems = newItem.complimentaryItems.split(',').filter(c => c.trim()).map(c => ({ name: c.trim() }));
+
+        const item: MenuItemCreateRequest = {
+          name: newItem.name,
+          description: 'Mock description', // You might want to add a description field to the form
+          price: parseFloat(newItem.price),
+          category: newItem.category,
+          preparationTimeMinutes: 15,
+          metadata: {
+            isVegetarian: newItem.isVegetarian,
+            isVegan: false,
+            spiceLevel: 'medium',
+            quantity: newItem.quantity ? parseInt(newItem.quantity) : undefined,
+            addons: addons.length > 0 ? addons : undefined,
+            complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
+            imageUrl: newItem.imageUrl || undefined,
+            nutritionInfo: newItem.nutritionInfo,
+            isAvailable: newItem.isAvailable
+          }
+        };
+
+        await dispatch(createMenuItem({
+          branchId: currentBranchId,
+          menuItemData: item
+        })).unwrap();
+
+        setNewItem({
+          name: '',
+          price: '',
+          category: 'Main Course',
+          isAvailable: true,
+          isVegetarian: true,
+          quantity: '',
+          addons: '',
+          complimentaryItems: '',
+          imageUrl: '',
+          nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        });
+        setAddModalVisible(false);
+        Alert.alert('Success', 'Item added successfully!');
+      } catch (error: any) {
+        console.error('Failed to add item:', error);
+        Alert.alert('Error', error.message || 'Failed to add item. Please try again.');
+      }
     } else {
       Alert.alert('Error', 'Please fill name and price');
     }
   };
 
-  const handleEditItem = (item: any) => {
+  const handleEditItem = (item: MenuItem) => {
     setSelectedItem(item);
     setNewItem({
       name: item.name,
       price: item.price.toString(),
       category: item.category,
       isAvailable: item.isAvailable,
-      isVegetarian: item.isVegetarian,
-      quantity: item.quantity?.toString() || '',
-      addons: item.addons?.map((a: any) => a.name).join(', ') || '',
-      complimentaryItems: item.complimentaryItems?.map((c: any) => c.name).join(', ') || '',
-      imageUrl: item.imageUrl || '',
-      nutritionInfo: item.nutritionInfo || { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      isVegetarian: item.metadata?.isVegetarian ?? true,
+      quantity: item.metadata?.quantity?.toString() || '',
+      addons: item.metadata?.addons?.map((a: any) => a.name).join(', ') || '',
+      complimentaryItems: item.metadata?.complimentaryItems?.map((c: any) => c.name).join(', ') || '',
+      imageUrl: item.metadata?.imageUrl || '',
+      nutritionInfo: item.metadata?.nutritionInfo || { calories: 0, protein: 0, carbs: 0, fat: 0 }
     });
     setEditModalVisible(true);
   };
 
-  const handleUpdateItem = () => {
+  const handleUpdateItem = async () => {
     if (selectedItem && newItem.name && newItem.price) {
-      const addons = newItem.addons.split(',').map(a => ({ id: Date.now().toString() + Math.random(), name: a.trim(), price: 0 }));
-      const complimentaryItems = newItem.complimentaryItems.split(',').map(c => ({ id: Date.now().toString() + Math.random(), name: c.trim() }));
-      dispatch(updateMenuItem({
-        id: selectedItem.id,
-        updates: {
-          name: newItem.name,
-          price: parseFloat(newItem.price),
-          category: newItem.category,
-          isAvailable: newItem.isAvailable,
-          isVegetarian: newItem.isVegetarian,
-          quantity: parseInt(newItem.quantity) || undefined,
-          addons: addons.length > 0 ? addons : undefined,
-          complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
-          imageUrl: newItem.imageUrl || undefined,
-          nutritionInfo: newItem.nutritionInfo,
-        }
-      }));
-      setNewItem({
-        name: '',
-        price: '',
-        category: 'Main Course',
-        isAvailable: true,
-        isVegetarian: true,
-        quantity: '',
-        addons: '',
-        complimentaryItems: '',
-        imageUrl: '',
-        nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
-      });
-      setSelectedItem(null);
-      setEditModalVisible(false);
-      Alert.alert('Success', 'Item updated successfully!');
+      try {
+        const addons = newItem.addons.split(',').filter(a => a.trim()).map(a => ({ name: a.trim(), price: 0 }));
+        const complimentaryItems = newItem.complimentaryItems.split(',').filter(c => c.trim()).map(c => ({ name: c.trim() }));
+
+        await dispatch(updateMenuItem({
+          menuItemId: selectedItem.menuItemId,
+          menuItemData: {
+            name: newItem.name,
+            price: parseFloat(newItem.price),
+            category: newItem.category,
+            isAvailable: newItem.isAvailable,
+            preparationTimeMinutes: 15,
+            metadata: {
+              isVegetarian: newItem.isVegetarian,
+              isVegan: false,
+              spiceLevel: 'medium',
+              quantity: newItem.quantity ? parseInt(newItem.quantity) : undefined,
+              addons: addons.length > 0 ? addons : undefined,
+              complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
+              imageUrl: newItem.imageUrl || undefined,
+              nutritionInfo: newItem.nutritionInfo,
+            }
+          }
+        })).unwrap();
+
+        setNewItem({
+          name: '',
+          price: '',
+          category: 'Main Course',
+          isAvailable: true,
+          isVegetarian: true,
+          quantity: '',
+          addons: '',
+          complimentaryItems: '',
+          imageUrl: '',
+          nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        });
+        setSelectedItem(null);
+        setEditModalVisible(false);
+        Alert.alert('Success', 'Item updated successfully!');
+      } catch (error: any) {
+        console.error('Failed to update item:', error);
+        Alert.alert('Error', error.message || 'Failed to update item.');
+      }
     } else {
       Alert.alert('Error', 'Please fill name and price');
     }
@@ -422,7 +467,7 @@ export default function MenuScreen() {
 
   const handleDeleteItem = () => {
     if (selectedItem) {
-      dispatch(deleteMenuItem(selectedItem.id));
+      dispatch(deleteMenuItem(selectedItem.menuItemId));
       setSelectedItem(null);
       setOptionsModalVisible(false);
       Alert.alert('Success', 'Item deleted successfully!');
@@ -484,7 +529,7 @@ export default function MenuScreen() {
         <View style={styles.content}>
           <View style={styles.menuItemsContainer}>
             {filteredItems.map((item) => (
-              <View key={item.id} style={styles.menuItem}>
+              <View key={item.menuItemId} style={styles.menuItem}>
                 <View style={styles.menuItemHeader}>
                   <View style={styles.menuItemInfo}>
                     <Text style={styles.menuItemName}>
@@ -506,45 +551,45 @@ export default function MenuScreen() {
 
                 <View style={styles.menuItemFooter}>
                   <View style={styles.menuItemDetails}>
-                    {item.isVegetarian && (
+                    {item.metadata?.isVegetarian && (
                       <View style={styles.vegIndicator} />
                     )}
                     <Text style={styles.itemCategoryText}>{item.category}</Text>
-                    {item.quantity !== undefined && (
-                      <Text style={styles.itemCategoryText}>Qty: {item.quantity}</Text>
+                    {item.metadata?.quantity !== undefined && (
+                      <Text style={styles.itemCategoryText}>Qty: {item.metadata.quantity}</Text>
                     )}
                   </View>
 
                   <TouchableOpacity style={[
                     styles.availabilityBadge,
-                    (item.isAvailable && (item.quantity === undefined || item.quantity > 0)) ? styles.availableBadge : styles.unavailableBadge,
+                    (item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? styles.availableBadge : styles.unavailableBadge,
                   ]}>
                     <Text style={[
-                      (item.isAvailable && (item.quantity === undefined || item.quantity > 0)) ? styles.availableText : styles.unavailableText,
+                      (item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? styles.availableText : styles.unavailableText,
                     ]}>
-                      {(item.isAvailable && (item.quantity === undefined || item.quantity > 0)) ? 'Available' : 'Out of Stock'}
+                      {(item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? 'Available' : 'Out of Stock'}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {item.nutritionInfo && (
+                {item.metadata?.nutritionInfo && (
                   <View style={styles.menuItemFooter}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
                       <View style={{ alignItems: 'center', backgroundColor: '#f3f4f6', padding: 8, borderRadius: 8, minWidth: 60 }}>
                         <Text style={{ fontSize: 12, color: '#6b7280', fontWeight: '500' }}>Calories</Text>
-                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.nutritionInfo.calories}</Text>
+                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.metadata.nutritionInfo.calories}</Text>
                       </View>
                       <View style={{ alignItems: 'center', backgroundColor: '#f3f4f6', padding: 8, borderRadius: 8, minWidth: 60 }}>
                         <Text style={{ fontSize: 12, color: '#6b7280', fontWeight: '500' }}>Carbs</Text>
-                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.nutritionInfo.carbs}g</Text>
+                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.metadata.nutritionInfo.carbs}g</Text>
                       </View>
                       <View style={{ alignItems: 'center', backgroundColor: '#f3f4f6', padding: 8, borderRadius: 8, minWidth: 60 }}>
                         <Text style={{ fontSize: 12, color: '#6b7280', fontWeight: '500' }}>Protein</Text>
-                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.nutritionInfo.protein}g</Text>
+                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.metadata.nutritionInfo.protein}g</Text>
                       </View>
                       <View style={{ alignItems: 'center', backgroundColor: '#f3f4f6', padding: 8, borderRadius: 8, minWidth: 60 }}>
                         <Text style={{ fontSize: 12, color: '#6b7280', fontWeight: '500' }}>Fat</Text>
-                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.nutritionInfo.fat}g</Text>
+                        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#111827' }}>{item.metadata.nutritionInfo.fat}g</Text>
                       </View>
                     </View>
                   </View>
@@ -625,13 +670,15 @@ export default function MenuScreen() {
                 onChangeText={(text) => setNewItem({ ...newItem, imageUrl: text })}
                 accessibilityLabel="Item Image URL Input"
               />
-<FeatureGate feature="imageUpload">
+              {/* TEMPORARILY COMMENTED OUT - DEBUG TEXT NODE ERROR
+              <FeatureGate feature="imageUpload">
                 <ImageUploadButton
                   onImageUploaded={handleImageUpload}
                   buttonText="Upload Image"
                   style={{ marginTop: 8 }}
                 />
               </FeatureGate>
+              */}
               {newItem.imageUrl && (
                 <View style={{ marginTop: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 }}>
@@ -720,18 +767,20 @@ export default function MenuScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => { setEditModalVisible(false); setSelectedItem(null); setNewItem({
-                name: '',
-                price: '',
-                category: 'Main Course',
-                isAvailable: true,
-                isVegetarian: true,
-                quantity: '',
-                addons: '',
-                complimentaryItems: '',
-                imageUrl: '',
-                nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
-              }); }} accessibilityLabel="Close Edit Item Modal">
+              <TouchableOpacity onPress={() => {
+                setEditModalVisible(false); setSelectedItem(null); setNewItem({
+                  name: '',
+                  price: '',
+                  category: 'Main Course',
+                  isAvailable: true,
+                  isVegetarian: true,
+                  quantity: '',
+                  addons: '',
+                  complimentaryItems: '',
+                  imageUrl: '',
+                  nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+                });
+              }} accessibilityLabel="Close Edit Item Modal">
                 <Ionicons name="close" size={24} color="#111827" />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>Edit Item</Text>
@@ -796,6 +845,7 @@ export default function MenuScreen() {
                 onChangeText={(text) => setNewItem({ ...newItem, imageUrl: text })}
                 accessibilityLabel="Edit Item Image URL Input"
               />
+              {/* TEMPORARILY COMMENTED OUT - DEBUG TEXT NODE ERROR
               <FeatureGate feature="imageUpload">
                 <ImageUploadButton
                   onImageUploaded={(uri) => setNewItem({ ...newItem, imageUrl: uri })}
@@ -803,6 +853,7 @@ export default function MenuScreen() {
                   style={{ marginTop: 8 }}
                 />
               </FeatureGate>
+              */}
               {newItem.imageUrl && (
                 <View style={{ marginTop: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 }}>
