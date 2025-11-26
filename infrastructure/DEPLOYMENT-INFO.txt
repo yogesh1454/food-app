@@ -1,0 +1,239 @@
+================================================================================
+AWS INFRASTRUCTURE DEPLOYMENT - IMPORTANT INFORMATION
+================================================================================
+
+STEP 1: ADD PERMISSIONS TO IAM USER
+================================================================================
+Your IAM user 'nastto-admin' needs AdministratorAccess to deploy infrastructure.
+
+Option A - AWS Console (Easiest):
+  1. Login to AWS Console with ROOT account
+  2. Go to: IAM → Users → nastto-admin
+  3. Click "Add permissions" → "Attach policies directly"
+  4. Search for "AdministratorAccess"
+  5. Select it and click "Add permissions"
+
+Option B - AWS CLI with Root:
+  aws iam attach-user-policy \
+    --user-name nastto-admin \
+    --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+================================================================================
+STEP 2: RUN DEPLOYMENT SCRIPT
+================================================================================
+
+After adding permissions, run:
+
+  cd infrastructure
+  ./DEPLOY.sh
+
+Or manually:
+
+  cd infrastructure/cloudformation
+  aws cloudformation create-stack \
+    --stack-name nashtto-infrastructure \
+    --template-body file://infrastructure-stack.yaml \
+    --parameters file://parameters.json \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --region us-east-1
+
+================================================================================
+CONFIGURED PARAMETERS
+================================================================================
+
+✅ Your Public IP:        49.207.205.84/32 (only this IP can SSH to EC2)
+✅ EC2 Instance:          t2.micro (smallest instance)
+✅ RDS Instance:          db.t3.micro
+✅ Cache Instance:        cache.t3.micro
+✅ Domain:                nashtto.com
+✅ SSH Key:               nastto-key (must exist in us-east-1)
+✅ Database Username:     nastto_admin
+✅ Database Password:     IjhY3HEqWGjk0deZ  ⚠️ SAVE THIS PASSWORD!
+✅ Database Name:         nastto_db
+
+================================================================================
+WHAT WILL BE CREATED
+================================================================================
+
+Network:
+  - VPC (10.0.0.0/16)
+  - 2 Public Subnets + 2 Private Subnets (2 AZs)
+  - Internet Gateway, NAT Gateway
+  - 3 Security Groups (Web, DB, Cache)
+
+Database & Cache:
+  - RDS PostgreSQL (db.t3.micro, 20GB, encrypted, 7-day backups)
+  - ElastiCache Redis (cache.t3.micro)
+
+Storage:
+  - 4 S3 Buckets (static-assets, user-uploads, backups, logs)
+  - Lifecycle policies configured
+
+Messaging:
+  - 1 Test SQS Queue + 1 Dead Letter Queue
+  - 1 Test SNS Topic
+
+Compute:
+  - EC2 Instance (t2.micro, Amazon Linux 2023)
+  - Java 21 pre-installed
+  - Elastic IP attached
+
+Domain & SSL:
+  - Route 53 Hosted Zone for nashtto.com
+  - ACM SSL Certificate (*.nashtto.com + nashtto.com)
+  - DNS A records
+
+Monitoring:
+  - 5 CloudWatch Alarms
+  - CloudWatch Log Group
+
+Total Resources: ~40 AWS resources
+
+================================================================================
+DEPLOYMENT TIME
+================================================================================
+
+Expected: 25-60 minutes
+
+Progress stages:
+  ✓ VPC & Network:        3-5 minutes
+  ✓ RDS PostgreSQL:       10-15 minutes
+  ✓ ElastiCache Redis:    5-10 minutes
+  ✓ S3 Buckets:           1-2 minutes
+  ✓ SQS & SNS:            1-2 minutes
+  ✓ EC2 Instance:         3-5 minutes
+  ✓ Route 53 & ACM:       5-30 minutes (DNS validation)
+
+================================================================================
+MONITORING DEPLOYMENT
+================================================================================
+
+Check status:
+  aws cloudformation describe-stacks \
+    --stack-name nashtto-infrastructure \
+    --query 'Stacks[0].StackStatus'
+
+Watch events:
+  aws cloudformation describe-stack-events \
+    --stack-name nashtto-infrastructure \
+    --max-items 10
+
+Wait for completion:
+  aws cloudformation wait stack-create-complete \
+    --stack-name nashtto-infrastructure
+
+================================================================================
+AFTER DEPLOYMENT
+================================================================================
+
+1. Get all resource details:
+   aws cloudformation describe-stacks \
+     --stack-name nashtto-infrastructure \
+     --query 'Stacks[0].Outputs' \
+     --output table
+
+2. Update GoDaddy Nameservers:
+   - Get nameservers from stack outputs
+   - Login to GoDaddy
+   - Update DNS to use Route 53 nameservers
+   - Wait 24-48 hours for propagation
+
+3. SSH into EC2:
+   ssh -i infrastructure/cloudformation/nastto-key.pem ec2-user@<EC2_PUBLIC_IP>
+
+4. Verify Java installation:
+   java -version
+   # Should show: Java 21 (Amazon Corretto)
+
+5. Check environment variables:
+   cat /opt/nashtto/.env
+
+6. Deploy your Spring Boot JAR:
+   scp -i nastto-key.pem your-app.jar ec2-user@<IP>:/opt/nashtto/
+   ssh ec2-user@<IP>
+   java -jar /opt/nashtto/your-app.jar
+
+================================================================================
+ESTIMATED MONTHLY COST
+================================================================================
+
+With AWS Free Tier (first 12 months):
+  EC2 (t2.micro):           $0 (750 hrs/month free)
+  RDS (db.t3.micro):        $0 (750 hrs/month free)
+  ElastiCache:              $12
+  NAT Gateway:              $32
+  S3 & Data Transfer:       $1-2
+  Route 53:                 $0.50
+  --------------------------------
+  TOTAL:                    ~$45-47/month
+
+Without Free Tier:
+  EC2:                      $7.50
+  RDS:                      $15
+  ElastiCache:              $12
+  NAT Gateway:              $32
+  S3 & Data Transfer:       $1-2
+  Route 53:                 $0.50
+  --------------------------------
+  TOTAL:                    ~$68-70/month
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+If deployment fails:
+
+1. Check IAM permissions:
+   - User must have AdministratorAccess
+
+2. Check SSH key pair:
+   - Must exist in us-east-1: nastto-key
+
+3. Check CloudFormation events:
+   aws cloudformation describe-stack-events \
+     --stack-name nashtto-infrastructure \
+     --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`]'
+
+4. Common errors:
+   - Key pair not found → Create it first
+   - Invalid CIDR → Check IP format (x.x.x.x/32)
+   - Weak password → Min 8 alphanumeric chars
+   - Permission denied → Add AdministratorAccess to IAM user
+
+================================================================================
+CLEANUP (DELETE EVERYTHING)
+================================================================================
+
+To delete all resources:
+
+1. Empty S3 buckets:
+   cd infrastructure/scripts
+   ./empty-s3-buckets.sh nashtto-infrastructure
+
+2. Delete stack:
+   aws cloudformation delete-stack --stack-name nashtto-infrastructure
+
+3. Wait for deletion:
+   aws cloudformation wait stack-delete-complete --stack-name nashtto-infrastructure
+
+================================================================================
+IMPORTANT FILES
+================================================================================
+
+✅ infrastructure/DEPLOY.sh                    - Deployment script
+✅ infrastructure/cloudformation/               - CloudFormation files
+   ├── infrastructure-stack.yaml               - Main template
+   ├── parameters.json                         - Your configuration
+   └── nastto-key.pem                          - SSH private key (if created)
+✅ infrastructure/scripts/empty-s3-buckets.sh  - S3 cleanup script
+✅ infrastructure/DEPLOYMENT-INFO.txt          - This file
+
+================================================================================
+
+🔐 SAVE THIS PASSWORD: IjhY3HEqWGjk0deZ
+
+Ready to deploy? Run: ./infrastructure/DEPLOY.sh
+
+================================================================================
+
+

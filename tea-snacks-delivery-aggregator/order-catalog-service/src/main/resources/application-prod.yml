@@ -15,7 +15,7 @@ spring:
       - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/nastto_db
+    url: jdbc:postgresql://nashtto-postgres.c2z440siod1m.us-east-1.rds.amazonaws.com:5432/nastto_db
     username: nastto_admin
     password: IjhY3HEqWGjk0deZ
     driver-class-name: org.postgresql.Driver
@@ -31,7 +31,7 @@ spring:
   
   data:
     redis:
-      host: localhost
+      host: nas-re-1oknf2h1dludd.qoapqv.0001.use1.cache.amazonaws.com
       port: 6379
       timeout: 2000ms
   
@@ -48,7 +48,7 @@ spring:
 # Feature flags
 features:
   kafka:
-    enabled: false  # Set to true when Kafka is available
+    enabled: false  # Kafka disabled for now
 
 management:
   endpoints:
@@ -92,6 +92,8 @@ logging:
     com.teadelivery: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+  file:
+    name: /opt/nashtto/logs/application.log
 
 # Order timeout configuration
 order:
@@ -99,3 +101,4 @@ order:
     restaurant-acceptance: 2m  # 2 minutes
     payment-processing: 5m     # 5 minutes
     rider-assignment: 5m       # 5 minutes
+
