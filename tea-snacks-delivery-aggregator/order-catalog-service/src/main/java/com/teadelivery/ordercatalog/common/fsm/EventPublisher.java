@@ -4,6 +4,8 @@ import com.teadelivery.ordercatalog.delivery.fsm.events.DeliveryStateChangedEven
 import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
 import com.teadelivery.ordercatalog.delivery.fsm.events.RiderAssignmentRequestEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -15,21 +17,22 @@ import java.util.UUID;
 /**
  * Event Publisher
  * Publishes FSM state change events to Kafka using proper event schemas
+ * Falls back to no-op when Kafka is disabled
  */
 @Service
 @Slf4j
 public class EventPublisher {
     
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    @Value("${features.kafka.enabled:false}")
+    private boolean kafkaEnabled;
+    
+    @Autowired(required = false)
+    private KafkaTemplate<String, Object> kafkaTemplate;
     
     // Topic names as per BE-003-14
     private static final String ORDER_EVENTS_TOPIC = "order-events";
     private static final String DELIVERY_EVENTS_TOPIC = "delivery-events";
     private static final String ASSIGNMENT_REQUESTS_TOPIC = "assignment-requests";
-    
-    public EventPublisher(KafkaTemplate<String, Object> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
     
     /**
      * Publish order state change event
@@ -44,6 +47,10 @@ public class EventPublisher {
         UUID restaurantId,
         Map<String, Object> metadata
     ) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping order state change event: orderId={}", orderId);
+            return;
+        }
         try {
             OrderStateChangedEvent event = OrderStateChangedEvent.builder()
                 .orderId(orderId)
@@ -80,6 +87,10 @@ public class EventPublisher {
         UUID riderId,
         Map<String, Object> metadata
     ) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping delivery state change event: deliveryId={}", deliveryId);
+            return;
+        }
         try {
             DeliveryStateChangedEvent event = DeliveryStateChangedEvent.builder()
                 .deliveryId(deliveryId)
@@ -106,6 +117,10 @@ public class EventPublisher {
      * Publish rider assignment request
      */
     public void publishRiderAssignmentRequest(RiderAssignmentRequestEvent event) {
+        if (!kafkaEnabled || kafkaTemplate == null) {
+            log.debug("Kafka disabled, skipping rider assignment request: orderId={}", event.getOrderId());
+            return;
+        }
         try {
             kafkaTemplate.send(ASSIGNMENT_REQUESTS_TOPIC, event.getOrderId().toString(), event);
             

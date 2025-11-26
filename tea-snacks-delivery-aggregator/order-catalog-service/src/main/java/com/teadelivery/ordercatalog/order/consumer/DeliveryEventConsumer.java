@@ -7,6 +7,7 @@ import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
@@ -15,10 +16,12 @@ import org.springframework.stereotype.Service;
  * Delivery Event Consumer
  * Listens to delivery-events topic and triggers order FSM transitions
  * As per BE-004-26
+ * Only active when features.kafka.enabled=true
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "features.kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class DeliveryEventConsumer {
     
     private final OrderFSM orderFSM;
