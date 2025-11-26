@@ -1,0 +1,51 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "production"
+  },
+  {
+    "ParameterKey": "ProjectName",
+    "ParameterValue": "nashtto"
+  },
+  {
+    "ParameterKey": "KeyPairName",
+    "ParameterValue": "nastto-key"
+  },
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "nashtto.com"
+  },
+  {
+    "ParameterKey": "SSHAccessIP",
+    "ParameterValue": "49.207.201.136/32"
+  },
+  {
+    "ParameterKey": "DBMasterUsername",
+    "ParameterValue": "nastto_admin"
+  },
+  {
+    "ParameterKey": "DBMasterPassword",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "nastto_db"
+  },
+  {
+    "ParameterKey": "EC2InstanceType",
+    "ParameterValue": "t3.micro"
+  },
+  {
+    "ParameterKey": "RDSInstanceType",
+    "ParameterValue": "db.t3.micro"
+  },
+  {
+    "ParameterKey": "CacheNodeType",
+    "ParameterValue": "cache.t3.micro"
+  },
+  {
+    "ParameterKey": "AlarmEmail",
+    "ParameterValue": ""
+  }
+]
+

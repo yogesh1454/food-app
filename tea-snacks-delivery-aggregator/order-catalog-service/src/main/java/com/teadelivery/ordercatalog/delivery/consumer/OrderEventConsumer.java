@@ -4,6 +4,7 @@ import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
 import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
@@ -14,9 +15,11 @@ import java.math.BigDecimal;
  * Order Event Consumer
  * Listens to order-events topic and triggers delivery creation
  * As per BE-004-26
+ * Only active when features.kafka.enabled=true
  */
 @Service
 @Slf4j
+@ConditionalOnProperty(name = "features.kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class OrderEventConsumer {
     
     private final DeliveryService deliveryService;
