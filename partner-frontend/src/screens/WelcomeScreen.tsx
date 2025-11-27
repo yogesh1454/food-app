@@ -33,7 +33,7 @@ export default function WelcomeScreen() {
           padding="xxl"
           style={styles.logoContainer}
         >
-          <Ionicons name="restaurant" size={48} color="#16a34a" />
+          <Ionicons name="restaurant" size={48} color={colors.primary} />
         </Box>
 
         {/* Title */}
@@ -71,12 +71,12 @@ export default function WelcomeScreen() {
         >
           <Typography
             variant="button"
-            color="#16a34a"
+            color="primary"
             style={styles.buttonText}
           >
             Get Started
           </Typography>
-          <Ionicons name="arrow-forward" size={20} color="#16a34a" />
+          <Ionicons name="arrow-forward" size={20} color={colors.primary} />
         </TouchableOpacity>
 
         {/* Bottom Text */}
