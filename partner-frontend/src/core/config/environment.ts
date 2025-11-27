@@ -17,14 +17,26 @@ export interface EnvironmentConfig {
   documentUploadUrl: string;
 }
 
-const config: EnvironmentConfig = {
-  apiUrl: API_URL,
-  apiTimeout: parseInt(API_TIMEOUT, 10) || 30000,
-  enableLogging: ENABLE_LOGGING === 'true',
-  enableMockData: ENABLE_MOCK_DATA === 'true',
-  imageUploadUrl: IMAGE_UPLOAD_URL,
-  documentUploadUrl: DOCUMENT_UPLOAD_URL,
-};
+const config: EnvironmentConfig = (() => {
+  if (!API_URL) {
+    throw new Error('Missing required environment variable: API_URL');
+  }
+  if (!IMAGE_UPLOAD_URL) {
+    throw new Error('Missing required environment variable: IMAGE_UPLOAD_URL');
+  }
+  if (!DOCUMENT_UPLOAD_URL) {
+    throw new Error('Missing required environment variable: DOCUMENT_UPLOAD_URL');
+  }
+
+  return {
+    apiUrl: API_URL,
+    apiTimeout: parseInt(API_TIMEOUT, 10) || 30000,
+    enableLogging: ENABLE_LOGGING === 'true',
+    enableMockData: ENABLE_MOCK_DATA === 'true',
+    imageUploadUrl: IMAGE_UPLOAD_URL,
+    documentUploadUrl: DOCUMENT_UPLOAD_URL,
+  };
+})();
 
 export { config };
 export default config;
