@@ -12,6 +12,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { Box } from '../core/components/Box';
 import { Typography } from '../core/components/Typography';
 import { Gradient } from '../core/components/Gradient';
+import { colors } from '@/core/constants/colors';
 
 type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
 
@@ -19,7 +20,7 @@ export default function WelcomeScreen() {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    // <SafeAreaView style={{ flex: 1 }}>
       <Box flex={1}>
       <Gradient
         variant="primary"
