@@ -19,7 +19,8 @@ export default function WelcomeScreen() {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
 
   return (
-    <Box flex={1}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <Box flex={1}>
       <Gradient
         variant="primary"
         start={{ x: 0, y: 0 }}
