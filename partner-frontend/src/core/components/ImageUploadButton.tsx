@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FileUploadService } from '../services/fileUploadService';
+
 import ImagePickerModal from './ImagePickerModal';
 
 interface ImageUploadButtonProps {
@@ -36,7 +36,7 @@ export default function ImageUploadButton({
 
   const handleImageSelected = async (uri: string) => {
     setUploading(true);
-    
+
     try {
       onImageUploaded(uri);
     } catch (error: any) {
@@ -73,7 +73,7 @@ export default function ImageUploadButton({
           )}
         </View>
       </TouchableOpacity>
-      
+
       <ImagePickerModal
         visible={modalVisible}
         onClose={handleCloseModal}

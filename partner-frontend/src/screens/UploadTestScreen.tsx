@@ -14,10 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
 import ImageUploadButton from '../core/components/ImageUploadButton';
-import fileUploadService from '../core/api/fileUploadService';
+import MediaHelper from '../core/helpers/mediaHelper';
+import FileUploadApi from '../core/api/fileUploadApi';
 
 interface UploadedFile {
-  storageKey: string;
   fileName: string;
   uri: string;
   timestamp: number;
@@ -34,39 +34,38 @@ export default function UploadTestScreen() {
     setTestResults(prev => [...prev, `${new Date().toLocaleTimeString()}: ${result}`]);
   };
 
-  const handleImageUpload = async (localStorageKey: string) => {
+  const handleImageUpload = async (uri: string) => {
     try {
-      const fileData = await fileUploadService.getFromLocalStorage(localStorageKey);
-      if (fileData) {
-        const uploadedFile: UploadedFile = {
-          storageKey: localStorageKey,
-          fileName: fileData.fileName,
-          uri: fileData.uri,
-          timestamp: fileData.timestamp,
-        };
-        setUploadedImages(prev => [uploadedFile, ...prev]);
-        addTestResult(`✅ Image uploaded: ${fileData.fileName}`);
-      }
+      // In a real app, we would upload here. For the test screen, we just display it.
+      // If we wanted to test the API:
+      // await FileUploadApi.uploadProfilePicture('test-user-id', uri);
+
+      const fileName = uri.split('/').pop() || 'image.jpg';
+      const uploadedFile: UploadedFile = {
+        fileName,
+        uri,
+        timestamp: Date.now(),
+      };
+      setUploadedImages(prev => [uploadedFile, ...prev]);
+      addTestResult(`✅ Image selected: ${fileName}`);
     } catch (error: any) {
-      addTestResult(`❌ Image upload failed: ${error.message}`);
+      addTestResult(`❌ Image selection failed: ${error.message}`);
     }
   };
 
-  const handleDocumentUpload = async (localStorageKey: string, fileName: string) => {
+  const handleDocumentUpload = async (uri: string, fileName: string) => {
     try {
-      const fileData = await fileUploadService.getFromLocalStorage(localStorageKey);
-      if (fileData) {
-        const uploadedFile: UploadedFile = {
-          storageKey: localStorageKey,
-          fileName: fileData.fileName,
-          uri: fileData.uri,
-          timestamp: fileData.timestamp,
-        };
-        setUploadedDocuments(prev => [uploadedFile, ...prev]);
-        addTestResult(`✅ Document uploaded: ${fileData.fileName}`);
-      }
+      // await FileUploadApi.uploadDocument('test-user-id', uri, 'DOC');
+
+      const uploadedFile: UploadedFile = {
+        fileName,
+        uri,
+        timestamp: Date.now(),
+      };
+      setUploadedDocuments(prev => [uploadedFile, ...prev]);
+      addTestResult(`✅ Document selected: ${fileName}`);
     } catch (error: any) {
-      addTestResult(`❌ Document upload failed: ${error.message}`);
+      addTestResult(`❌ Document selection failed: ${error.message}`);
     }
   };
 
@@ -77,27 +76,27 @@ export default function UploadTestScreen() {
     try {
       // Test camera permission
       addTestResult('📱 Testing camera permission...');
-      const cameraResult = await fileUploadService.takePhoto();
-      if (cameraResult.success) {
-        addTestResult('✅ Camera permission granted');
+      const cameraResult = await MediaHelper.takePhoto();
+      if (cameraResult.success || cameraResult.error?.includes('cancelled')) {
+        addTestResult('✅ Camera permission granted (or cancelled)');
       } else {
         addTestResult(`⚠️ Camera permission: ${cameraResult.error}`);
       }
 
       // Test gallery permission
       addTestResult('🖼️ Testing gallery permission...');
-      const galleryResult = await fileUploadService.pickImageFromLibrary();
-      if (galleryResult.success) {
-        addTestResult('✅ Gallery permission granted');
+      const galleryResult = await MediaHelper.pickImageFromLibrary();
+      if (galleryResult.success || galleryResult.error?.includes('cancelled')) {
+        addTestResult('✅ Gallery permission granted (or cancelled)');
       } else {
         addTestResult(`⚠️ Gallery permission: ${galleryResult.error}`);
       }
 
       // Test document picker
       addTestResult('📄 Testing document picker...');
-      const documentResult = await fileUploadService.pickDocument();
-      if (documentResult.success) {
-        addTestResult('✅ Document picker working');
+      const documentResult = await MediaHelper.pickDocument();
+      if (documentResult.success || documentResult.error?.includes('cancelled')) {
+        addTestResult('✅ Document picker working (or cancelled)');
       } else {
         addTestResult(`⚠️ Document picker: ${documentResult.error}`);
       }
@@ -123,30 +122,12 @@ export default function UploadTestScreen() {
 
     try {
       // Mock image upload
-      const mockImageResult = {
-        success: true,
-        uri: 'mock://test-image.jpg',
-        fileName: 'test_image.jpg',
-        fileType: 'image/jpeg',
-      };
-      const localUri = await fileUploadService.saveToLocalStorage(
-        mockImageResult.uri,
-        mockImageResult.fileName
-      );
-      await handleImageUpload(localUri);
+      const mockImageUri = 'mock://test-image.jpg';
+      await handleImageUpload(mockImageUri);
 
       // Mock document upload
-      const mockDocResult = {
-        success: true,
-        uri: 'mock://test-document.pdf',
-        fileName: 'test_document.pdf',
-        fileType: 'application/pdf',
-      };
-      const docLocalUri = await fileUploadService.saveToLocalStorage(
-        mockDocResult.uri,
-        mockDocResult.fileName
-      );
-      await handleDocumentUpload(docLocalUri, mockDocResult.fileName);
+      const mockDocUri = 'mock://test-document.pdf';
+      await handleDocumentUpload(mockDocUri, 'test_document.pdf');
 
       addTestResult('✅ Mock upload test completed');
     } catch (error: any) {
@@ -167,7 +148,7 @@ export default function UploadTestScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Test Controls</Text>
-        
+
         <View style={styles.controlRow}>
           <Text style={styles.controlLabel}>Auto Test Mode</Text>
           <Switch

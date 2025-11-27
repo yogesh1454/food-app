@@ -1,59 +1,81 @@
 import { useState } from 'react';
-import { FileUploadService } from '../services/fileUploadService';
+import MediaHelper from '../helpers/mediaHelper';
+import FileUploadApi from '../api/fileUploadApi';
 
 interface UseFileUploadReturn {
   uploading: boolean;
-  uploadImage: () => Promise<string | null>;
-  uploadDocument: () => Promise<string | null>;
-  takePhoto: () => Promise<string | null>;
-  pickFromGallery: () => Promise<string | null>;
+  uploadImage: (userId: string) => Promise<string | null>;
+  uploadDocument: (userId: string, docType: string) => Promise<string | null>;
+  takePhoto: (userId: string) => Promise<string | null>;
+  pickFromGallery: (userId: string) => Promise<string | null>;
+  error: string | null;
 }
 
 export const useFileUpload = (): UseFileUploadReturn => {
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const uploadImage = async (): Promise<string | null> => {
+  const handleUpload = async (
+    pickFn: () => Promise<any>,
+    uploadFn: (uri: string) => Promise<any>
+  ): Promise<string | null> => {
     setUploading(true);
+    setError(null);
     try {
-      const result = await FileUploadService.pickImage();
-      return result ? result.uri : null;
+      const pickResult = await pickFn();
+
+      if (!pickResult.success || !pickResult.uri) {
+        if (pickResult.error) setError(pickResult.error);
+        return null;
+      }
+
+      const uploadResult = await uploadFn(pickResult.uri);
+
+      if (uploadResult.success) {
+        return uploadResult.url || uploadResult.documentId || 'success';
+      } else {
+        setError(uploadResult.error || 'Upload failed');
+        return null;
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred');
+      return null;
     } finally {
       setUploading(false);
     }
   };
 
-  const uploadDocument = async (): Promise<string | null> => {
-    setUploading(true);
-    try {
-      const result = await FileUploadService.pickDocument();
-      return result ? result.uri : null;
-    } finally {
-      setUploading(false);
-    }
+  const uploadImage = async (userId: string): Promise<string | null> => {
+    return handleUpload(
+      () => MediaHelper.pickImageFromLibrary(),
+      (uri) => FileUploadApi.uploadProfilePicture(userId, uri)
+    );
   };
 
-  const takePhoto = async (): Promise<string | null> => {
-    setUploading(true);
-    try {
-      const result = await FileUploadService.pickImage();
-      return result ? result.uri : null;
-    } finally {
-      setUploading(false);
-    }
+  const takePhoto = async (userId: string): Promise<string | null> => {
+    return handleUpload(
+      () => MediaHelper.takePhoto(),
+      (uri) => FileUploadApi.uploadProfilePicture(userId, uri)
+    );
   };
 
-  const pickFromGallery = async (): Promise<string | null> => {
-    setUploading(true);
-    try {
-      const result = await FileUploadService.pickImage();
-      return result ? result.uri : null;
-    } finally {
-      setUploading(false);
-    }
+  const pickFromGallery = async (userId: string): Promise<string | null> => {
+    return handleUpload(
+      () => MediaHelper.pickImageFromLibrary(),
+      (uri) => FileUploadApi.uploadProfilePicture(userId, uri)
+    );
+  };
+
+  const uploadDocument = async (userId: string, docType: string): Promise<string | null> => {
+    return handleUpload(
+      () => MediaHelper.pickDocument(),
+      (uri) => FileUploadApi.uploadDocument(userId, uri, docType)
+    );
   };
 
   return {
     uploading,
+    error,
     uploadImage,
     uploadDocument,
     takePhoto,
