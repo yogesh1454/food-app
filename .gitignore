@@ -93,4 +93,5 @@ dist/
 *~
 
 # Keep
-!gradle/wrapper/gradle-wrapper.jar 
+!gradle/wrapper/gradle-wrapper.jar
+nastto-key.pem

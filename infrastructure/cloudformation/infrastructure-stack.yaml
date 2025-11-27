@@ -1,0 +1,1237 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Complete AWS Infrastructure Stack for Nashtto Food Delivery App - Production Ready'
+
+# ============================================================================
+# PARAMETERS
+# ============================================================================
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    Description: Environment name that will be prefixed to resource names
+    AllowedValues:
+      - development
+      - staging
+      - production
+
+  ProjectName:
+    Type: String
+    Default: nashtto
+    Description: Project name for resource naming and tagging
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: nastto-key
+    Description: Name of an existing EC2 KeyPair to enable SSH access
+
+  DomainName:
+    Type: String
+    Default: nashtto.com
+    Description: Domain name for the application (purchased from GoDaddy)
+
+  SSHAccessIP:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: IP address range that can SSH to EC2 instances (format CIDR x.x.x.x/32)
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+
+  DBMasterUsername:
+    Type: String
+    Default: nastto_admin
+    Description: Master username for RDS PostgreSQL database
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_]*'
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    Description: Master password for RDS PostgreSQL database (min 8 characters)
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '[a-zA-Z0-9]*'
+
+  DBName:
+    Type: String
+    Default: nastto_db
+    Description: Database name for the application
+
+  EC2InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+
+  RDSInstanceType:
+    Type: String
+    Default: db.t3.micro
+    Description: RDS instance type
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+
+  CacheNodeType:
+    Type: String
+    Default: cache.t3.micro
+    Description: ElastiCache node type
+    AllowedValues:
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+
+  AlarmEmail:
+    Type: String
+    Default: ''
+    Description: Email address for CloudWatch alarms (optional)
+
+# ============================================================================
+# MAPPINGS
+# ============================================================================
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0453ec754f44f9a4a  # Amazon Linux 2023
+    us-west-2:
+      AMI: ami-0f1a5f5ada0e7da53  # Amazon Linux 2023
+
+# ============================================================================
+# CONDITIONS
+# ============================================================================
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
+
+# ============================================================================
+# RESOURCES - PHASE 2: NETWORK INFRASTRUCTURE
+# ============================================================================
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-vpc
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-igw
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-subnet-1
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: Public
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-subnet-2
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: Public
+
+  # Private Subnets
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-private-subnet-1
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: Private
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-private-subnet-2
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Type
+          Value: Private
+
+  # NAT Gateway
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-nat-eip
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-nat-gateway
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-rt
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-private-rt
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Groups
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-web-sg
+      GroupDescription: Security group for web servers
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTP from anywhere
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: Allow HTTPS from anywhere
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+          Description: Allow application port from anywhere
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAccessIP
+          Description: Allow SSH from specific IP
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-web-sg
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-db-sg
+      GroupDescription: Security group for RDS PostgreSQL
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+          Description: Allow PostgreSQL from web servers
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-db-sg
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${ProjectName}-cache-sg
+      GroupDescription: Security group for ElastiCache Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+          Description: Allow Redis from web servers
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-cache-sg
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+# ============================================================================
+# RESOURCES - PHASE 3: RDS POSTGRESQL
+# ============================================================================
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub ${ProjectName}-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for RDS PostgreSQL
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-db-subnet-group
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub ${ProjectName}-postgres
+      DBName: !Ref DBName
+      Engine: postgres
+      EngineVersion: '15.15'
+      DBInstanceClass: !Ref RDSInstanceType
+      AllocatedStorage: 20
+      StorageType: gp3
+      StorageEncrypted: true
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 1
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      MultiAZ: false
+      AutoMinorVersionUpgrade: true
+      EnableCloudwatchLogsExports:
+        - postgresql
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-postgres
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  # Placeholder for future DB initialization
+  # After RDS is created, you can run init-database.sh script to:
+  # - Create tables
+  # - Insert seed data
+  # - Set up users and permissions
+
+# ============================================================================
+# RESOURCES - PHASE 4: ELASTICACHE REDIS
+# ============================================================================
+
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub ${ProjectName}-cache-subnet-group
+      Description: Subnet group for ElastiCache Redis
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-cache-subnet-group
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      Engine: redis
+      EngineVersion: '7.0'
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      PreferredMaintenanceWindow: 'sun:05:00-sun:06:00'
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-redis
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+# ============================================================================
+# RESOURCES - PHASE 5: S3 BUCKETS
+# ============================================================================
+
+  StaticAssetsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-static-assets-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-static-assets
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  StaticAssetsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticAssetsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub ${StaticAssetsBucket.Arn}/public/*
+
+  UserUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-user-uploads-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+              - POST
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-user-uploads
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  BackupsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-backups-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveOldBackupsToGlacier
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: GLACIER
+            ExpirationInDays: 365
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-backups
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-logs-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveLogsToIA
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+              - TransitionInDays: 90
+                StorageClass: GLACIER
+            ExpirationInDays: 365
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-logs
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+# ============================================================================
+# RESOURCES - PHASE 6: SQS + SNS (Test Queue/Topic Only)
+# ============================================================================
+# Note: Only 1 test queue and 1 test topic created.
+# Add more queues/topics later based on your project requirements.
+# ============================================================================
+
+  # Dead Letter Queue (for failed messages)
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-dead-letter-queue
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-dead-letter-queue
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Test Queue (single queue for testing)
+  TestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-test-queue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-test-queue
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Test SNS Topic (single topic for testing)
+  TestTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-test-topic
+      DisplayName: Test Topic
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-test-topic
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Optional: Subscribe email to test topic
+  TestTopicEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      Protocol: email
+      TopicArn: !Ref TestTopic
+      Endpoint: !Ref AlarmEmail
+
+  # SNS to SQS Subscription (Test Queue)
+  TestQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref TestQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: SQS:SendMessage
+            Resource: !GetAtt TestQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref TestTopic
+
+  TestTopicToTestQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref TestTopic
+      Endpoint: !GetAtt TestQueue.Arn
+
+# ============================================================================
+# RESOURCES - PHASE 7: EC2 INSTANCE
+# ============================================================================
+
+  # IAM Role for EC2
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ApplicationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt StaticAssetsBucket.Arn
+                  - !Sub ${StaticAssetsBucket.Arn}/*
+                  - !GetAtt UserUploadsBucket.Arn
+                  - !Sub ${UserUploadsBucket.Arn}/*
+                  - !GetAtt BackupsBucket.Arn
+                  - !Sub ${BackupsBucket.Arn}/*
+                  - !GetAtt LogsBucket.Arn
+                  - !Sub ${LogsBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                Resource:
+                  - !GetAtt TestQueue.Arn
+                  - !GetAtt DeadLetterQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref TestTopic
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-ec2-profile
+      Roles:
+        - !Ref EC2Role
+
+  # Elastic IP for EC2
+  EC2ElasticIP:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-ec2-eip
+
+  # EC2 Instance
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - RDSInstance
+      - RedisCluster
+    Properties:
+      InstanceType: !Ref EC2InstanceType
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref WebSecurityGroup
+          SubnetId: !Ref PublicSubnet1
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+            Encrypted: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          
+          # Update system
+          dnf update -y
+          
+          # Install Java 21 (for Spring Boot JAR deployment)
+          dnf install -y java-21-amazon-corretto-devel
+          
+          # Install Git (for code deployment)
+          dnf install -y git
+          
+          # Install PostgreSQL client (for database management)
+          dnf install -y postgresql15
+          
+          # Install Redis CLI (for cache management)
+          dnf install -y redis6
+          
+          # Install AWS CLI v2 (already included in Amazon Linux 2023)
+          
+          # Install htop for monitoring (optional)
+          dnf install -y htop
+          
+          # Install CloudWatch Agent
+          wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+          rpm -U ./amazon-cloudwatch-agent.rpm
+          
+          # Create application directory
+          mkdir -p /opt/${ProjectName}
+          chown ec2-user:ec2-user /opt/${ProjectName}
+          
+          # Create environment file with AWS resource information
+          cat > /opt/${ProjectName}/.env << 'EOF'
+          # Database Configuration
+          DB_HOST=${RDSInstance.Endpoint.Address}
+          DB_PORT=${RDSInstance.Endpoint.Port}
+          DB_NAME=${DBName}
+          DB_USERNAME=${DBMasterUsername}
+          DB_PASSWORD=${DBMasterPassword}
+          
+          # Redis Configuration
+          REDIS_HOST=${RedisCluster.RedisEndpoint.Address}
+          REDIS_PORT=${RedisCluster.RedisEndpoint.Port}
+          
+          # S3 Buckets
+          S3_STATIC_BUCKET=${StaticAssetsBucket}
+          S3_UPLOADS_BUCKET=${UserUploadsBucket}
+          S3_BACKUPS_BUCKET=${BackupsBucket}
+          S3_LOGS_BUCKET=${LogsBucket}
+          
+          # SQS Queues (add more as needed)
+          SQS_TEST_QUEUE_URL=${TestQueue}
+          SQS_DLQ_URL=${DeadLetterQueue}
+          
+          # SNS Topics (add more as needed)
+          SNS_TEST_TOPIC_ARN=${TestTopic}
+          
+          # Application Configuration
+          ENVIRONMENT=${EnvironmentName}
+          DOMAIN=${DomainName}
+          SERVER_PORT=8080
+          EOF
+          
+          chown ec2-user:ec2-user /opt/${ProjectName}/.env
+          chmod 600 /opt/${ProjectName}/.env
+          
+          # Create CloudWatch Agent configuration
+          mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
+          cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
+          {
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/opt/${ProjectName}/logs/*.log",
+                      "log_group_name": "/aws/ec2/${ProjectName}-app",
+                      "log_stream_name": "{instance_id}",
+                      "retention_in_days": 7
+                    }
+                  ]
+                }
+              }
+            },
+            "metrics": {
+              "namespace": "${ProjectName}/EC2",
+              "metrics_collected": {
+                "mem": {
+                  "measurement": [
+                    {
+                      "name": "mem_used_percent",
+                      "rename": "MemoryUtilization",
+                      "unit": "Percent"
+                    }
+                  ],
+                  "metrics_collection_interval": 60
+                },
+                "disk": {
+                  "measurement": [
+                    {
+                      "name": "used_percent",
+                      "rename": "DiskUtilization",
+                      "unit": "Percent"
+                    }
+                  ],
+                  "metrics_collection_interval": 60,
+                  "resources": [
+                    "/"
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+          
+          # Start CloudWatch Agent
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+            -a fetch-config \
+            -m ec2 \
+            -s \
+            -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+          
+          # Create a welcome message
+          cat > /home/ec2-user/README.txt << 'EOF'
+          Welcome to ${ProjectName} Application Server
+          
+          Application directory: /opt/${ProjectName}
+          Environment variables: /opt/${ProjectName}/.env
+          
+          Installed software:
+          - Java 21 (Amazon Corretto) - for running Spring Boot JARs
+          - Git - for code deployment
+          - PostgreSQL 15 client - for database management
+          - Redis CLI - for cache management
+          - AWS CLI v2 - for AWS resource management
+          - CloudWatch Agent - for monitoring and logging
+          - htop - for system monitoring
+          
+          To deploy your application JAR:
+          1. Upload JAR: scp -i key.pem your-app.jar ec2-user@<ip>:/opt/${ProjectName}/
+          2. Run JAR: java -jar /opt/${ProjectName}/your-app.jar
+          
+          To test database connection:
+          psql -h ${RDSInstance.Endpoint.Address} -U ${DBMasterUsername} -d ${DBName}
+          
+          To test Redis connection:
+          redis-cli -h ${RedisCluster.RedisEndpoint.Address} -p ${RedisCluster.RedisEndpoint.Port}
+          
+          To verify Java installation:
+          java -version
+          
+          For more information, see /opt/${ProjectName}/.env
+          EOF
+          
+          chown ec2-user:ec2-user /home/ec2-user/README.txt
+          
+          echo "EC2 initialization complete!"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-app-server
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  EC2EIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref EC2ElasticIP
+
+# ============================================================================
+# RESOURCES - PHASE 9: ROUTE 53 & ACM
+# ============================================================================
+
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub Hosted zone for ${DomainName}
+      Tags:
+        - Key: Name
+          Value: !Ref DomainName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  DNSRecordRoot:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref DomainName
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - !Ref EC2ElasticIP
+
+  DNSRecordWWW:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub www.${DomainName}
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - !Ref EC2ElasticIP
+
+  # SSL Certificate - REMOVED
+  # Note: SSL Certificate validation takes too long and causes stack timeout
+  # You can add SSL later using a separate stack or manually via ACM console
+  # For now, application works fine over HTTP on port 8080
+
+# ============================================================================
+# RESOURCES - PHASE 10: CLOUDWATCH MONITORING
+# ============================================================================
+
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/ec2/${ProjectName}-app
+      RetentionInDays: 7
+
+  # CloudWatch Alarms
+  EC2HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-ec2-high-cpu
+      AlarmDescription: Alert when EC2 CPU exceeds 80%
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref EC2Instance
+      AlarmActions:
+        - !Ref TestTopic
+      TreatMissingData: notBreaching
+
+  RDSHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-rds-high-cpu
+      AlarmDescription: Alert when RDS CPU exceeds 75%
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 75
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
+      AlarmActions:
+        - !Ref TestTopic
+      TreatMissingData: notBreaching
+
+  RDSLowStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-rds-low-storage
+      AlarmDescription: Alert when RDS free storage is below 2GB
+      MetricName: FreeStorageSpace
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2000000000  # 2GB in bytes
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
+      AlarmActions:
+        - !Ref TestTopic
+      TreatMissingData: notBreaching
+
+  RDSHighConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-rds-high-connections
+      AlarmDescription: Alert when RDS connections exceed 80
+      MetricName: DatabaseConnections
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
+      AlarmActions:
+        - !Ref TestTopic
+      TreatMissingData: notBreaching
+
+  RedisHighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-redis-high-memory
+      AlarmDescription: Alert when Redis memory utilization exceeds 80%
+      MetricName: DatabaseMemoryUsagePercentage
+      Namespace: AWS/ElastiCache
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: CacheClusterId
+          Value: !Ref RedisCluster
+      AlarmActions:
+        - !Ref TestTopic
+      TreatMissingData: notBreaching
+
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+Outputs:
+  # Network Outputs
+  VPCID:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC-ID
+
+  PublicSubnet1ID:
+    Description: Public Subnet 1 ID
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet1-ID
+
+  PublicSubnet2ID:
+    Description: Public Subnet 2 ID
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${AWS::StackName}-PublicSubnet2-ID
+
+  PrivateSubnet1ID:
+    Description: Private Subnet 1 ID
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnet1-ID
+
+  PrivateSubnet2ID:
+    Description: Private Subnet 2 ID
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${AWS::StackName}-PrivateSubnet2-ID
+
+  # Database Outputs
+  RDSEndpoint:
+    Description: RDS PostgreSQL endpoint address
+    Value: !GetAtt RDSInstance.Endpoint.Address
+    Export:
+      Name: !Sub ${AWS::StackName}-RDS-Endpoint
+
+  RDSPort:
+    Description: RDS PostgreSQL port
+    Value: !GetAtt RDSInstance.Endpoint.Port
+    Export:
+      Name: !Sub ${AWS::StackName}-RDS-Port
+
+  DatabaseName:
+    Description: Database name
+    Value: !Ref DBName
+
+  DatabaseConnectionString:
+    Description: Database connection string (password not included)
+    Value: !Sub postgresql://${DBMasterUsername}:****@${RDSInstance.Endpoint.Address}:${RDSInstance.Endpoint.Port}/${DBName}
+
+  # Redis Outputs
+  RedisEndpoint:
+    Description: ElastiCache Redis endpoint address
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub ${AWS::StackName}-Redis-Endpoint
+
+  RedisPort:
+    Description: ElastiCache Redis port
+    Value: !GetAtt RedisCluster.RedisEndpoint.Port
+    Export:
+      Name: !Sub ${AWS::StackName}-Redis-Port
+
+  # S3 Outputs
+  StaticAssetsBucketName:
+    Description: S3 bucket for static assets
+    Value: !Ref StaticAssetsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-StaticAssets-Bucket
+
+  UserUploadsBucketName:
+    Description: S3 bucket for user uploads
+    Value: !Ref UserUploadsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-UserUploads-Bucket
+
+  BackupsBucketName:
+    Description: S3 bucket for backups
+    Value: !Ref BackupsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-Backups-Bucket
+
+  LogsBucketName:
+    Description: S3 bucket for logs
+    Value: !Ref LogsBucket
+    Export:
+      Name: !Sub ${AWS::StackName}-Logs-Bucket
+
+  # SQS Outputs
+  TestQueueURL:
+    Description: Test queue URL (add more queues as needed)
+    Value: !Ref TestQueue
+    Export:
+      Name: !Sub ${AWS::StackName}-TestQueue-URL
+
+  DeadLetterQueueURL:
+    Description: Dead letter queue URL
+    Value: !Ref DeadLetterQueue
+    Export:
+      Name: !Sub ${AWS::StackName}-DLQ-URL
+
+  # SNS Outputs
+  TestTopicARN:
+    Description: Test topic ARN (add more topics as needed)
+    Value: !Ref TestTopic
+    Export:
+      Name: !Sub ${AWS::StackName}-TestTopic-ARN
+
+  # EC2 Outputs
+  EC2InstanceID:
+    Description: EC2 instance ID
+    Value: !Ref EC2Instance
+    Export:
+      Name: !Sub ${AWS::StackName}-EC2-InstanceID
+
+  EC2PublicIP:
+    Description: EC2 public IP address (Elastic IP)
+    Value: !Ref EC2ElasticIP
+    Export:
+      Name: !Sub ${AWS::StackName}-EC2-PublicIP
+
+  SSHCommand:
+    Description: SSH command to connect to EC2 instance
+    Value: !Sub ssh -i ${KeyPairName}.pem ec2-user@${EC2ElasticIP}
+
+  # Route 53 Outputs
+  HostedZoneID:
+    Description: Route 53 Hosted Zone ID
+    Value: !Ref HostedZone
+    Export:
+      Name: !Sub ${AWS::StackName}-HostedZone-ID
+
+  NameServers:
+    Description: Route 53 Name Servers (update these in GoDaddy)
+    Value: !Join [', ', !GetAtt HostedZone.NameServers]
+
+  # SSL Certificate ARN - REMOVED (SSL Certificate resource removed to prevent timeout)
+  # You can add SSL certificate manually later via ACM console if needed
+
+  # Application URLs
+  ApplicationURL:
+    Description: Application URL (HTTP - no SSL for now)
+    Value: !Sub http://${DomainName}:8080
+
+  # CloudWatch Outputs
+  ApplicationLogGroupName:
+    Description: CloudWatch Log Group for application logs
+    Value: !Ref ApplicationLogGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-LogGroup-Name
+
+

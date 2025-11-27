@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: 8080
 
 spring:
   application:
@@ -15,9 +15,9 @@ spring:
       - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/order_catalog_db
-    username: tea_snacks_user
-    password: tea_snacks_password
+    url: jdbc:postgresql://localhost:5432/nastto_db
+    username: nastto_admin
+    password:
     driver-class-name: org.postgresql.Driver
   
   jpa:
@@ -44,6 +44,11 @@ spring:
       group-id: order-catalog-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Feature flags
+features:
+  kafka:
+    enabled: false  # Set to true when Kafka is available
 
 management:
   endpoints:
@@ -87,3 +92,10 @@ logging:
     com.teadelivery: INFO
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+
+# Order timeout configuration
+order:
+  timeout:
+    restaurant-acceptance: 2m  # 2 minutes
+    payment-processing: 5m     # 5 minutes
+    rider-assignment: 5m       # 5 minutes

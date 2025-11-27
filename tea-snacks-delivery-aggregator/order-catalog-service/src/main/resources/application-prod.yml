@@ -1,0 +1,104 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: order-catalog-service
+  
+  flyway:
+    baseline-on-migrate: true
+  
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+  
+  datasource:
+    url: jdbc:postgresql://nashtto-postgres.c2z440siod1m.us-east-1.rds.amazonaws.com:5432/nastto_db
+    username: nastto_admin
+    password:
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  data:
+    redis:
+      host: nas-re-1oknf2h1dludd.qoapqv.0001.use1.cache.amazonaws.com
+      port: 6379
+      timeout: 2000ms
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: order-catalog-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Feature flags
+features:
+  kafka:
+    enabled: false  # Kafka disabled for now
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: db
+        liveness:
+          include: ping
+      validate-group-membership: false
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: false
+    kafka:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.teadelivery: INFO
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+  file:
+    name: /opt/nashtto/logs/application.log
+
+# Order timeout configuration
+order:
+  timeout:
+    restaurant-acceptance: 2m  # 2 minutes
+    payment-processing: 5m     # 5 minutes
+    rider-assignment: 5m       # 5 minutes
+

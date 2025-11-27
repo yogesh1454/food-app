@@ -1,6 +1,5 @@
 package com.teadelivery.ordercatalog.order.model;
 
-import com.teadelivery.ordercatalog.menu.model.MenuItem;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -26,17 +25,16 @@ import java.util.*;
 public class OrderItem {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "order_item_id")
-    private Long orderItemId;
+    private UUID orderItemId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "menu_item_id", nullable = false)
-    private MenuItem menuItem;
+    @Column(name = "menu_item_id", nullable = false)
+    private Long menuItemId;
     
     @Column(name = "item_name", nullable = false, length = 255)
     private String itemName;

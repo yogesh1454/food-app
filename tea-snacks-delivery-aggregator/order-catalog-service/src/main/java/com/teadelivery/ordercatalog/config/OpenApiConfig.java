@@ -22,20 +22,25 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("Order & Catalog Management Service API")
-                .version("1.0.0")
+                .title("Order Catalog & Delivery Management Service API")
+                .version("2.0.0")
                 .description("""
-                    REST API for managing vendors, branches, menu items, and orders in the Tea Snacks Delivery platform.
+                    REST API for managing orders, deliveries, and catalog in the Tea Snacks Delivery platform.
                     
                     ## Features
-                    - Vendor registration and management
-                    - Branch onboarding and configuration
-                    - Menu item management
-                    - Operating hours and availability management
-                    - Document upload and verification
+                    - **Order Management**: Create, track, and manage orders with FSM
+                    - **Delivery Management**: Rider assignment, tracking, and delivery lifecycle
+                    - **Vendor & Catalog**: Vendor registration, branches, menu items
+                    - **Smart Rider Assignment**: Geospatial search and ranking algorithm
+                    - **Real-time Tracking**: Live delivery tracking with PostGIS
+                    
+                    ## State Machines
+                    - **Order FSM**: 13 states (DRAFT → DELIVERED/CANCELLED)
+                    - **Delivery FSM**: 9 states (PENDING → DELIVERED/FAILED)
                     
                     ## Authentication
-                    Currently using hardcoded user IDs for development. Production will use JWT tokens.
+                    Currently using header-based IDs for development (X-Customer-Id, X-Rider-Id, X-Restaurant-Id).
+                    Production will use JWT tokens.
                     
                     ## Error Handling
                     All endpoints return consistent error responses with appropriate HTTP status codes.
