@@ -4,7 +4,7 @@ import { StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../constants/colors';
 
 export interface GradientProps extends Omit<LinearGradientProps, 'colors'> {
-    colors?: string[];
+    colors?: [string, string, ...string[]];
     variant?: 'primary' | 'secondary' | 'surface';
     style?: ViewStyle;
     children?: React.ReactNode;
