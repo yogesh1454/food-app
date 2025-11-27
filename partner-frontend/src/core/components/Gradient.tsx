@@ -39,7 +39,7 @@ export const Gradient: React.FC<GradientProps> = ({
 
     return (
         <LinearGradient
-            colors={gradientColors as [string, string, ...string[]]}
+            colors={gradientColors}
             style={[styles.container, style]}
             {...props}
         >
