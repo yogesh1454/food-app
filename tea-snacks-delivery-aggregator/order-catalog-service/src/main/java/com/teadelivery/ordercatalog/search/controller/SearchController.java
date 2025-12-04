@@ -1,6 +1,11 @@
 package com.teadelivery.ordercatalog.search.controller;
 
 import com.teadelivery.ordercatalog.search.dto.*;
+import com.teadelivery.ordercatalog.search.service.DiscoveryFeedService;
+import com.teadelivery.ordercatalog.search.service.RecommendationService;
+import com.teadelivery.ordercatalog.search.service.SearchAnalyticsService;
+import com.teadelivery.ordercatalog.search.service.UnifiedSearchService;
+import com.teadelivery.ordercatalog.search.service.VendorMenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,11 +40,12 @@ import java.util.concurrent.TimeUnit;
 @Tag(name = "Search & Discovery", description = "Search and discovery APIs with blended ranking and recommendations")
 public class SearchController {
     
-    // TODO: Inject actual implementations in Phase 2
-    // private final DiscoveryFeedService discoveryFeedService;
-    // private final UnifiedSearchService unifiedSearchService;
-    // private final VendorMenuService vendorMenuService;
-    // private final RecommendationService recommendationService;
+    // Service dependencies
+    private final DiscoveryFeedService discoveryFeedService;
+    private final UnifiedSearchService unifiedSearchService;
+    private final VendorMenuService vendorMenuService;
+    private final RecommendationService recommendationService;
+    private final SearchAnalyticsService analyticsService;
     
     /**
      * API 1: Discovery Feed
@@ -131,19 +137,24 @@ public class SearchController {
         log.info("Discovery feed request: lat={}, lon={}, radius={}, userId={}, page={}, size={}", 
                 latitude, longitude, radius, userId, page, size);
         
-        // TODO: Replace with actual implementation in Phase 2
-        DiscoveryFeedResponse response = DiscoveryFeedResponse.builder()
-                .nearbyVendors(java.util.Collections.emptyList())
-                .popularItems(java.util.Collections.emptyList())
-                .recommendedItems(java.util.Collections.emptyList())
-                .topOrderedItems(java.util.Collections.emptyList())
-                .searchSuggestions(java.util.List.of("Masala Chai", "Samosa", "Filter Coffee"))
-                .metadata(FeedMetadata.builder()
-                        .totalVendors(0)
-                        .cacheHit(false)
-                        .rankingVersion("v2-blended")
-                        .build())
-                .build();
+        long startTime = System.currentTimeMillis();
+        
+        // Call discovery feed service
+        DiscoveryFeedResponse response = discoveryFeedService.getDiscoveryFeed(
+                latitude,
+                longitude,
+                radius,
+                userId,
+                page,
+                size
+        );
+        
+        // Track analytics
+        long responseTime = System.currentTimeMillis() - startTime;
+        int totalResults = (response.getNearbyVendors() != null ? response.getNearbyVendors().size() : 0) +
+                          (response.getPopularItems() != null ? response.getPopularItems().size() : 0);
+        analyticsService.trackFeedView(userId, latitude, longitude, totalResults, responseTime, 
+                response.getMetadata() != null ? response.getMetadata().getCacheHit() : false);
         
         // Cache-Control: 10 minutes, stale-while-revalidate=30 minutes
         CacheControl cacheControl = CacheControl.maxAge(10, TimeUnit.MINUTES)
@@ -237,28 +248,27 @@ public class SearchController {
         log.info("Search request: query={}, type={}, lat={}, lon={}, page={}, size={}", 
                 q, type, latitude, longitude, page, size);
         
-        // TODO: Replace with actual implementation in Phase 2
-        SearchResponse response = SearchResponse.builder()
+        long startTime = System.currentTimeMillis();
+        
+        // Build search request
+        SearchRequest searchRequest = SearchRequest.builder()
                 .query(q)
                 .type(type)
-                .results(SearchResults.builder()
-                        .vendors(java.util.Collections.emptyList())
-                        .items(java.util.Collections.emptyList())
-                        .build())
-                .suggestions(java.util.List.of("chai latte", "masala chai"))
-                .pagination(PaginationInfo.builder()
-                        .currentPage(page)
-                        .totalResults(0L)
-                        .hasMore(false)
-                        .pageSize(size)
-                        .build())
-                .metadata(SearchMetadata.builder()
-                        .searchTime(45L)
-                        .cacheHit(false)
-                        .rankingStrategy("blended-v2")
-                        .queryType("hybrid-fts-fuzzy")
-                        .build())
+                .latitude(latitude)
+                .longitude(longitude)
+                .page(page)
+                .size(size)
+                .city(city)
+                .radiusKm(radiusKm)
                 .build();
+        
+        // Call unified search service
+        SearchResponse response = unifiedSearchService.search(searchRequest);
+        
+        // Track analytics (async)
+        long responseTime = System.currentTimeMillis() - startTime;
+        analyticsService.trackSearch(searchRequest, response, responseTime, 
+                response.getMetadata() != null ? response.getMetadata().getCacheHit() : false);
         
         return ResponseEntity.ok(response);
     }
@@ -304,13 +314,17 @@ public class SearchController {
     ) {
         log.info("Vendor menu request: branchId={}, userId={}", branchId, userId);
         
-        // TODO: Replace with actual implementation in Phase 2
-        VendorMenuResponse response = VendorMenuResponse.builder()
-                .vendor(null)
-                .categories(java.util.Collections.emptyList())
-                .recommendations(java.util.Collections.emptyList())
-                .popularItems(java.util.Collections.emptyList())
-                .build();
+        // Call vendor menu service
+        VendorMenuResponse response = vendorMenuService.getVendorMenu(
+                branchId,
+                userId,
+                latitude,
+                longitude
+        );
+        
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
         
         // Cache-Control: 5 minutes
         CacheControl cacheControl = CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic();
@@ -363,14 +377,13 @@ public class SearchController {
         log.info("Recommendations request: userId={}, lat={}, lon={}, radiusKm={}", 
                 userId, latitude, longitude, radiusKm);
         
-        // TODO: Replace with actual implementation in Phase 2
-        RecommendationResponse response = RecommendationResponse.builder()
-                .recommendedVendors(java.util.Collections.emptyList())
-                .recommendedItems(java.util.Collections.emptyList())
-                .frequentlyOrdered(java.util.Collections.emptyList())
-                .timeBasedRecommendations(java.util.Collections.emptyList())
-                .recommendationContext("Based on your order history and time of day")
-                .build();
+        // Call recommendation service
+        RecommendationResponse response = recommendationService.getRecommendations(
+                userId,
+                latitude,
+                longitude,
+                radiusKm
+        );
         
         // Cache-Control: 15 minutes (personalized, so private cache)
         CacheControl cacheControl = CacheControl.maxAge(15, TimeUnit.MINUTES).cachePrivate();

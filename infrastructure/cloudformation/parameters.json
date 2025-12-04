@@ -17,7 +17,7 @@
   },
   {
     "ParameterKey": "SSHAccessIP",
-    "ParameterValue": "49.207.201.136/32"
+    "ParameterValue": "0.0.0.0/0"
   },
   {
     "ParameterKey": "DBMasterUsername",
@@ -25,7 +25,7 @@
   },
   {
     "ParameterKey": "DBMasterPassword",
-    "ParameterValue": ""
+    "ParameterValue": "IjhY3HEqWGjk0deZ"
   },
   {
     "ParameterKey": "DBName",
