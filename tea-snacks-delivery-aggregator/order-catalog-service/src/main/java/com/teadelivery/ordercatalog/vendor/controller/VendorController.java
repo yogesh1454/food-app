@@ -112,8 +112,8 @@ public class VendorController {
     }
     
     @Operation(
-        summary = "Get vendor details",
-        description = "Retrieves complete vendor information by vendor ID"
+        summary = "Get vendor details with branches",
+        description = "Retrieves complete vendor information including all active branches by vendor ID"
     )
     @ApiResponses(value = {
         @ApiResponse(
