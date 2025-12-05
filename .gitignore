@@ -84,6 +84,7 @@ dist/
 .github/
 .vscode/
 
+
 # Other
 *.swp
 *.swo
@@ -95,3 +96,4 @@ dist/
 # Keep
 !gradle/wrapper/gradle-wrapper.jar
 nastto-key.pem
+*.pem
