@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Search Index Sync Infrastructure (SNS/SQS)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nashtto
+    Description: Project name prefix for resources
+  
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+
+  EC2RoleName:
+    Type: String
+    Default: nashtto-ec2-role
+    Description: Name of the existing EC2 IAM role to attach permissions
+
+Resources:
+  # ============ SNS Topic ============
+  SearchIndexEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-search-index-events
+      DisplayName: Search Index Sync Events
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============ SQS Queue ============
+  SearchIndexQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-search-index-queue
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SearchIndexDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ Dead Letter Queue ============
+  SearchIndexDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-search-index-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ SNS -> SQS Subscription ============
+  SearchIndexSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref SearchIndexEventsTopic
+      Endpoint: !GetAtt SearchIndexQueue.Arn
+      RawMessageDelivery: true
+
+  # ============ SQS Queue Policy (for SNS) ============
+  SearchIndexQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SearchIndexQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt SearchIndexQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref SearchIndexEventsTopic
+
+  # ============ IAM Policy for EC2 Role ============
+  SearchSyncEC2Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-search-sync-policy
+      Roles:
+        - !Ref EC2RoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # SNS Publish permissions
+          - Effect: Allow
+            Action:
+              - sns:Publish
+              - sns:GetTopicAttributes
+            Resource: !Ref SearchIndexEventsTopic
+          # SQS permissions for consuming
+          - Effect: Allow
+            Action:
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:ChangeMessageVisibility
+            Resource:
+              - !GetAtt SearchIndexQueue.Arn
+              - !GetAtt SearchIndexDLQ.Arn
+
+Outputs:
+  TopicArn:
+    Description: SNS Topic ARN for search index events
+    Value: !Ref SearchIndexEventsTopic
+    Export:
+      Name: !Sub ${ProjectName}-search-index-topic-arn
+  
+  QueueUrl:
+    Description: SQS Queue URL for search index consumer
+    Value: !Ref SearchIndexQueue
+    Export:
+      Name: !Sub ${ProjectName}-search-index-queue-url
+  
+  QueueArn:
+    Description: SQS Queue ARN
+    Value: !GetAtt SearchIndexQueue.Arn
+    Export:
+      Name: !Sub ${ProjectName}-search-index-queue-arn
+  
+  DLQUrl:
+    Description: Dead Letter Queue URL
+    Value: !Ref SearchIndexDLQ
+    Export:
+      Name: !Sub ${ProjectName}-search-index-dlq-url
+
+  DLQArn:
+    Description: Dead Letter Queue ARN
+    Value: !GetAtt SearchIndexDLQ.Arn
+    Export:
+      Name: !Sub ${ProjectName}-search-index-dlq-arn
