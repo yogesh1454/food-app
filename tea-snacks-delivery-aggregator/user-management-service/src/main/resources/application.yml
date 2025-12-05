@@ -55,7 +55,7 @@ spring:
     table: flyway_schema_history
     baseline-version: 0
     baseline-description: "Initial baseline"
-  
+
   # data:
   #   redis:
   #     host: localhost

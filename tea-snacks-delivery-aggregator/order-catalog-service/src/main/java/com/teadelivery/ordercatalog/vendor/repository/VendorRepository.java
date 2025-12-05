@@ -2,6 +2,8 @@ package com.teadelivery.ordercatalog.vendor.repository;
 
 import com.teadelivery.ordercatalog.vendor.model.Vendor;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +15,8 @@ public interface VendorRepository extends JpaRepository<Vendor, Long> {
     Optional<Vendor> findByUserId(UUID userId);
     List<Vendor> findByCompanyNameContainingIgnoreCase(String companyName);
     Optional<Vendor> findByCompanyEmail(String companyEmail);
+
+    // Fetch vendor with active branches in a single query using LEFT JOIN FETCH
+    @Query("SELECT v FROM Vendor v LEFT JOIN FETCH v.branches b WHERE v.vendorId = :vendorId AND (b IS NULL OR b.isActive = true)")
+    Optional<Vendor> findByIdWithActiveBranches(@Param("vendorId") Long vendorId);
 }

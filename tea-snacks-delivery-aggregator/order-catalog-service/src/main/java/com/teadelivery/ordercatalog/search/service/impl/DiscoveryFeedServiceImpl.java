@@ -42,6 +42,9 @@ public class DiscoveryFeedServiceImpl implements DiscoveryFeedService {
     
     @Value("${search.cache.ttl.feed-cache:600}")
     private Integer feedCacheTtl;
+
+    @Value("${features.search.bypass-geospatial:false}")
+    private Boolean bypassGeospatial;
     
     @Override
     public DiscoveryFeedResponse getDiscoveryFeed(
@@ -52,11 +55,14 @@ public class DiscoveryFeedServiceImpl implements DiscoveryFeedService {
             Integer page,
             Integer size
     ) {
-        log.info("Getting discovery feed for location: ({}, {}), radius: {}km, userId: {}", 
-                latitude, longitude, radiusKm, userId);
+        log.info("Getting discovery feed for location: ({}, {}), radius: {}km, userId: {}, bypassGeo={}", 
+                latitude, longitude, radiusKm, userId, bypassGeospatial);
         
-        // Calculate radius in meters for PostGIS
-        int radiusMeters = (radiusKm != null ? radiusKm : defaultRadiusKm) * 1000;
+        // Calculate radius in meters for PostGIS - use very large radius if bypassing geospatial
+        int radiusMeters = Boolean.TRUE.equals(bypassGeospatial)
+                                ? 10_000_000 // ~10,000km - effectively worldwide
+                                : (radiusKm != null ? radiusKm : defaultRadiusKm) * 1000;
+        log.info("Radius in meters: {}", radiusMeters);
         
         // Section 1: Nearby Vendors (with blended ranking)
         List<SearchVendor> nearbyVendors = vendorRepository.findNearbyVendors(

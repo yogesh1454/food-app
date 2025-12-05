@@ -66,6 +66,15 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-actuator-autoconfigure'
     
+    // AWS SDK v2 for SNS/SQS (version must match spring-cloud-aws transitive deps)
+    implementation platform('software.amazon.awssdk:bom:2.21.12')
+    implementation 'software.amazon.awssdk:sns'
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:protocol-core'
+    
+    // Spring Cloud AWS for SQS listener
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-sqs:3.0.3'
+    
     // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
     
