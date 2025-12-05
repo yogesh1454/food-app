@@ -14,6 +14,11 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS postgis;
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TABLE IF EXISTS search_popular_queries CASCADE;
+DROP TABLE IF EXISTS search_analytics CASCADE;
+DROP TABLE IF EXISTS search_menu_items CASCADE;
+DROP TABLE IF EXISTS search_vendors CASCADE;
 
 -- =====================================================
 -- Table 1: search_vendors
@@ -31,7 +36,7 @@ CREATE TABLE search_vendors (
     display_name VARCHAR(255) NOT NULL,
     
     -- Location (PostGIS for geospatial queries)
-    location GEOGRAPHY(Point, 4326) NOT NULL,
+    location GEOMETRY(Point, 4326) NOT NULL,
     latitude DECIMAL(10, 8) NOT NULL,
     longitude DECIMAL(11, 8) NOT NULL,
     city VARCHAR(100) NOT NULL,
@@ -95,7 +100,7 @@ CREATE INDEX idx_search_vendors_trgm_display_name ON search_vendors
     USING GIN(display_name gin_trgm_ops);
 
 -- 3. Geospatial Index (CRITICAL for filter-first strategy)
-CREATE INDEX idx_search_vendors_location ON search_vendors USING GIST((location::geometry));
+CREATE INDEX idx_search_vendors_location ON search_vendors USING GIST(location);
 CREATE INDEX idx_search_vendors_city_location ON search_vendors(city, location) 
     WHERE is_active = true;
 
@@ -138,7 +143,7 @@ CREATE TABLE search_menu_items (
     vendor_name VARCHAR(255) NOT NULL,
     
     -- Location (for proximity filtering)
-    branch_location GEOGRAPHY(Point, 4326) NOT NULL,
+    branch_location GEOMETRY(Point, 4326) NOT NULL,
     branch_latitude DECIMAL(10, 8),
     branch_longitude DECIMAL(11, 8),
     city VARCHAR(100) NOT NULL,
@@ -194,7 +199,7 @@ CREATE TABLE search_menu_items (
 CREATE INDEX idx_search_items_fts ON search_menu_items USING GIN(search_vector);
 
 -- 2. Geospatial
-CREATE INDEX idx_search_items_location ON search_menu_items USING GIST((branch_location::geometry));
+CREATE INDEX idx_search_items_location ON search_menu_items USING GIST(branch_location);
 
 -- 3. Trigram indexes for fuzzy search
 CREATE INDEX idx_search_items_trgm_name ON search_menu_items 
@@ -303,13 +308,11 @@ CREATE TABLE search_popular_queries (
     suggestion_order INTEGER,
     
     -- Timestamp
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    
-    CONSTRAINT unique_popular_query 
-        UNIQUE(query_text, period, COALESCE(city, ''))
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for search_popular_queries
+CREATE UNIQUE INDEX idx_popular_query_unique ON search_popular_queries(query_text, period, city);
 CREATE INDEX idx_popular_period ON search_popular_queries(period, city);
 CREATE INDEX idx_popular_count ON search_popular_queries(search_count DESC);
 

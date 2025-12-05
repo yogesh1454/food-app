@@ -292,13 +292,11 @@ CREATE TABLE search_popular_queries (
     suggestion_order INTEGER,
 
     -- Timestamp
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT unique_popular_query
-        UNIQUE(query_text, period, COALESCE(city, ''))
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for search_popular_queries
+CREATE UNIQUE INDEX idx_popular_query_unique ON search_popular_queries(query_text, period, city);
 CREATE INDEX idx_popular_period ON search_popular_queries(period, city);
 CREATE INDEX idx_popular_count ON search_popular_queries(search_count DESC);
 

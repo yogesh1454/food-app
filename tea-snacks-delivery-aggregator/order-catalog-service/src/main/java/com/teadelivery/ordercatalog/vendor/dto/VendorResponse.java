@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -13,7 +14,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class VendorResponse {
-    
+
     private Long vendorId;
     private String companyName;
     private String brandName;
@@ -25,6 +26,7 @@ public class VendorResponse {
     private Map<String, Object> images;
     private Map<String, Object> metadata;
     private String[] tags;
+    private List<BranchResponse> branches;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
