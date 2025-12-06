@@ -1,6 +1,7 @@
-package com.teadelivery.ordercatalog.order.checkout.dto;
+package com.teadelivery.ordercatalog.order.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
 import com.teadelivery.ordercatalog.order.model.DeliveryAddress;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,8 +15,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Unified Response DTO for checkout operations
- * Works for both /calculate (pre-order) and /commit (post-order)
+ * Unified Response DTO for order operations across checkout and order domains
+ * Works for /calculate (pre-order), /commit (post-order), and /orders (order
+ * retrieval)
  * Uses @JsonInclude to exclude null fields for cleaner responses
  */
 @Data
@@ -23,11 +25,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class CheckoutResponse {
+public class OrderDetailsResponse {
 
     // ========== Session Info (always present) ==========
     private String checkoutSessionId;
-    private CheckoutStatus status;
+    private CheckoutSessionStatus status;
     private String statusDisplayName;
     private LocalDateTime expiresAt;
 
@@ -62,27 +64,6 @@ public class CheckoutResponse {
 
     // ========== Errors (only when validation fails) ==========
     private List<CheckoutError> errors;
-
-    /**
-     * Checkout status
-     */
-    public enum CheckoutStatus {
-        READY_FOR_COMMIT("Ready to Place Order"),
-        IN_PROGRESS("Processing"),
-        VALIDATION_FAILED("Validation Failed"),
-        COMMITTED("Order Placed"),
-        EXPIRED("Session Expired");
-
-        private final String displayName;
-
-        CheckoutStatus(String displayName) {
-            this.displayName = displayName;
-        }
-
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 
     /**
      * Vendor information

@@ -1,7 +1,7 @@
 package com.teadelivery.ordercatalog.order.checkout.controller;
 
 import com.teadelivery.ordercatalog.order.checkout.dto.CheckoutRequest;
-import com.teadelivery.ordercatalog.order.checkout.dto.CheckoutResponse;
+import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
 import com.teadelivery.ordercatalog.order.checkout.service.CheckoutService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,7 +31,7 @@ public class CheckoutController {
     @PostMapping("/calculate")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Calculate checkout", description = "Validates cart items, calculates pricing, and creates a checkout session. This is an idempotent operation.")
-    public CheckoutResponse calculateCheckout(
+    public OrderDetailsResponse calculateCheckout(
             @Valid @RequestBody CheckoutRequest request,
             @RequestHeader(value = "X-User-Id", required = false) @Parameter(description = "User ID from JWT token") String userId) {
         log.info("Checkout calculation request received for user: {}, vendor branch: {}",
@@ -39,7 +39,7 @@ public class CheckoutController {
 
         // TODO: Validate userId from JWT matches request.userId
 
-        CheckoutResponse response = checkoutService.calculateCheckout(request);
+        OrderDetailsResponse response = checkoutService.calculateCheckout(request);
 
         log.info("Checkout session created: {}, total: {}",
                 response.getCheckoutSessionId(),
@@ -55,11 +55,11 @@ public class CheckoutController {
     @GetMapping("/session/{sessionId}")
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Get checkout session", description = "Retrieve an existing checkout session by ID")
-    public CheckoutResponse getCheckoutSession(
+    public OrderDetailsResponse getCheckoutSession(
             @PathVariable @Parameter(description = "Checkout session ID") String sessionId) {
         log.info("Retrieving checkout session: {}", sessionId);
 
-        CheckoutResponse response = checkoutService.getCheckoutSession(sessionId);
+        OrderDetailsResponse response = checkoutService.getCheckoutSession(sessionId);
 
         log.info("Checkout session retrieved: {}, status: {}", sessionId, response.getStatus());
 
@@ -72,12 +72,12 @@ public class CheckoutController {
      */
     @PostMapping("/commit")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Commit checkout", description = "Commit a checkout session to create an order. Returns the same CheckoutResponse structure with order fields populated.")
-    public CheckoutResponse commitCheckout(
+    @Operation(summary = "Commit checkout", description = "Commit a checkout session to create an order. Returns the same OrderDetailsResponse structure with order fields populated.")
+    public OrderDetailsResponse commitCheckout(
             @Valid @RequestBody com.teadelivery.ordercatalog.order.checkout.dto.CommitCheckoutRequest request) {
         log.info("Commit checkout request received for session: {}", request.getCheckoutSessionId());
 
-        CheckoutResponse response = checkoutService.commitCheckout(request);
+        OrderDetailsResponse response = checkoutService.commitCheckout(request);
 
         log.info("Order created successfully: {}, Session: {}",
                 response.getOrderId(), request.getCheckoutSessionId());

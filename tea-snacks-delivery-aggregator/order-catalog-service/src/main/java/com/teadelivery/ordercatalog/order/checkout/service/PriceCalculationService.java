@@ -1,6 +1,6 @@
 package com.teadelivery.ordercatalog.order.checkout.service;
 
-import com.teadelivery.ordercatalog.order.checkout.dto.CheckoutResponse;
+import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,10 +25,10 @@ public class PriceCalculationService {
     /**
      * Calculate complete pricing breakdown
      */
-    public CheckoutResponse.PricingDetails calculatePricing(
-            List<CheckoutResponse.CheckoutItem> items,
-            CheckoutResponse.DiscountDetails discountDetails,
-            CheckoutResponse.DeliveryChargeDetails deliveryDetails) {
+    public OrderDetailsResponse.PricingDetails calculatePricing(
+            List<OrderDetailsResponse.CheckoutItem> items,
+            OrderDetailsResponse.DiscountDetails discountDetails,
+            OrderDetailsResponse.DeliveryChargeDetails deliveryDetails) {
         log.debug("Calculating pricing for {} items", items.size());
 
         // Step 1: Calculate item total
@@ -51,7 +51,7 @@ public class PriceCalculationService {
                 .add(deliveryCharges)
                 .add(platformFee);
         BigDecimal gst = calculateGst(taxableAmount);
-        CheckoutResponse.GstDetails gstDetails = buildGstDetails(gst);
+        OrderDetailsResponse.GstDetails gstDetails = buildGstDetails(gst);
 
         // Step 6: Calculate total
         BigDecimal totalAmount = taxableAmount.add(gst);
@@ -59,7 +59,7 @@ public class PriceCalculationService {
         log.info("Pricing calculated - Item: {}, Discount: {}, Delivery: {}, Platform: {}, GST: {}, Total: {}",
                 itemTotal, discount, deliveryCharges, platformFee, gst, totalAmount);
 
-        return CheckoutResponse.PricingDetails.builder()
+        return OrderDetailsResponse.PricingDetails.builder()
                 .itemTotal(itemTotal)
                 .discount(discount)
                 .discountDetails(discountDetails)
@@ -77,9 +77,9 @@ public class PriceCalculationService {
     /**
      * Calculate item total
      */
-    public BigDecimal calculateItemTotal(List<CheckoutResponse.CheckoutItem> items) {
+    public BigDecimal calculateItemTotal(List<OrderDetailsResponse.CheckoutItem> items) {
         return items.stream()
-                .map(CheckoutResponse.CheckoutItem::getSubtotal)
+                .map(OrderDetailsResponse.CheckoutItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(2, RoundingMode.HALF_UP);
     }
@@ -117,7 +117,7 @@ public class PriceCalculationService {
     /**
      * Calculate delivery fee based on distance
      */
-    public CheckoutResponse.DeliveryChargeDetails calculateDeliveryFee(
+    public OrderDetailsResponse.DeliveryChargeDetails calculateDeliveryFee(
             Double distance,
             String deliveryZone) {
         BigDecimal baseFee = BASE_DELIVERY_FEE;
@@ -125,7 +125,7 @@ public class PriceCalculationService {
                 .multiply(PER_KM_FEE)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        return CheckoutResponse.DeliveryChargeDetails.builder()
+        return OrderDetailsResponse.DeliveryChargeDetails.builder()
                 .distance(distance)
                 .distanceUnit("km")
                 .deliveryZone(deliveryZone != null ? deliveryZone : "ZONE_1")
@@ -156,12 +156,12 @@ public class PriceCalculationService {
     /**
      * Build GST details (split into CGST and SGST)
      */
-    private CheckoutResponse.GstDetails buildGstDetails(BigDecimal gst) {
+    private OrderDetailsResponse.GstDetails buildGstDetails(BigDecimal gst) {
         BigDecimal half = new BigDecimal("2");
         BigDecimal cgst = gst.divide(half, 2, RoundingMode.HALF_UP);
         BigDecimal sgst = gst.divide(half, 2, RoundingMode.HALF_UP);
 
-        return CheckoutResponse.GstDetails.builder()
+        return OrderDetailsResponse.GstDetails.builder()
                 .cgst(cgst)
                 .sgst(sgst)
                 .gstRate(5)

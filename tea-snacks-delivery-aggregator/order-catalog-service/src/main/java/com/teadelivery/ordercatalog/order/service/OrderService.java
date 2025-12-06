@@ -1,5 +1,6 @@
 package com.teadelivery.ordercatalog.order.service;
 
+import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
 import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
@@ -12,6 +13,7 @@ import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
+import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -618,5 +620,158 @@ public class OrderService {
                 triggeredByRole);
 
         auditRepository.save(audit);
+    }
+
+    /**
+     * Convert Order to unified OrderDetailsResponse
+     * This ensures consistent response format across /commit and /orders endpoints
+     */
+    public com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse toCheckoutResponse(
+            Order order,
+            String vendorName,
+            String branchName) {
+
+        // Convert order items
+        List<com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.CheckoutItem> items = order
+                .getOrderItems().stream()
+                .map(item -> com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.CheckoutItem.builder()
+                        .orderItemId(item.getOrderItemId())
+                        .menuItemId(item.getMenuItemId())
+                        .name(item.getItemName())
+                        .description(item.getItemDescription())
+                        .imageUrl(item.getImageUrl())
+                        .categoryName(item.getCategoryName())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getPriceAtOrder())
+                        .subtotal(item.getSubtotal())
+                        .specialInstructions(item.getNotes())
+                        .customizations(item.getCustomizations())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+
+        int totalItems = items.stream().mapToInt(
+                com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.CheckoutItem::getQuantity).sum();
+        int prepTime = order.getEstimatedPrepTimeMinutes() != null ? order.getEstimatedPrepTimeMinutes() : 25;
+        int deliveryDuration = 20;
+        int totalTime = prepTime + deliveryDuration;
+
+        // Determine status based on order state
+        CheckoutSessionStatus status;
+        String message;
+        if (order.getState() == OrderState.CANCELLED || order.getState() == OrderState.REJECTED) {
+            status = CheckoutSessionStatus.VALIDATION_FAILED;
+            message = "Order " + order.getState().name().toLowerCase();
+        } else {
+            status = CheckoutSessionStatus.COMMITTED;
+            message = getOrderStateMessage(order.getState());
+        }
+
+        return com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.builder()
+                // Session info
+                .checkoutSessionId(order.getCheckoutSessionId())
+                .status(status)
+                .statusDisplayName(status.getDisplayName())
+                // Order info
+                .orderId(order.getOrderId())
+                .orderNumber("ORD-" + order.getOrderId().toString().substring(0, 8).toUpperCase())
+                .orderPlacedAt(order.getCreatedAt())
+                .isSuccess(order.getState() != OrderState.CANCELLED && order.getState() != OrderState.REJECTED)
+                .message(message)
+                // Customer
+                .customerId(order.getCustomerId())
+                // Vendor
+                .vendor(com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.VendorInfo.builder()
+                        .vendorId(order.getVendorId())
+                        .vendorName(vendorName)
+                        .vendorBranchId(order.getVendorBranchId())
+                        .branchName(branchName)
+                        .estimatedPrepTime(prepTime)
+                        .build())
+                // Items
+                .items(items)
+                .totalItemCount(totalItems)
+                // Pricing
+                .pricing(com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.PricingDetails.builder()
+                        .itemTotal(order.getItemTotal())
+                        .deliveryCharges(order.getDeliveryCharges())
+                        .platformFee(order.getPlatformFee())
+                        .gst(order.getGst())
+                        .discount(order.getDiscount())
+                        .totalAmount(order.getTotalAmount())
+                        .currency("INR")
+                        .itemTotalLabel("Item Total")
+                        .deliveryLabel("Delivery Charges")
+                        .taxesLabel("Taxes & Fees")
+                        .discountLabel("Discount")
+                        .totalLabel("Total Amount")
+                        .build())
+                // Delivery info
+                .delivery(com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.DeliveryInfo.builder()
+                        .address(order.getDeliveryAddress())
+                        .latitude(order.getDeliveryLatitude())
+                        .longitude(order.getDeliveryLongitude())
+                        .specialInstructions(order.getSpecialInstructions())
+                        .estimatedDeliveryTime(order.getEstimatedDeliveryTime())
+                        .estimatedPrepTime(prepTime)
+                        .estimatedDeliveryDuration(deliveryDuration)
+                        .totalEstimatedTime(totalTime)
+                        .deliveryTimeRange(totalTime + "-" + (totalTime + 15) + " mins")
+                        .build())
+                // Payment info
+                .payment(com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.PaymentInfo.builder()
+                        .status(order.getPaymentStatus().name())
+                        .statusDisplayName(getPaymentStatusDisplayName(order.getPaymentStatus()))
+                        .method(order.getPaymentMethod())
+                        .methodDisplayName(getPaymentMethodDisplayName(order.getPaymentMethod()))
+                        .transactionId(order.getPaymentTransactionId())
+                        .amountPaid(order.getTotalAmount())
+                        .paidAt(order.getPaymentConfirmedAt())
+                        .build())
+                .build();
+    }
+
+    private String getOrderStateMessage(OrderState state) {
+        return switch (state) {
+            case CREATED -> "Order placed successfully!";
+            case VALIDATED -> "Order validated";
+            case PAYMENT_CONFIRMED -> "Payment confirmed";
+            case PENDING_ACCEPTANCE -> "Waiting for restaurant to accept";
+            case ACCEPTED -> "Restaurant accepted your order";
+            case PREPARING -> "Your order is being prepared";
+            case READY_FOR_PICKUP -> "Order is ready for pickup";
+            case ASSIGNED_TO_RIDER -> "Rider assigned";
+            case PICKED_UP -> "Order picked up - on the way!";
+            case DELIVERED -> "Order delivered";
+            case CANCELLED -> "Order cancelled";
+            case REJECTED -> "Order rejected by restaurant";
+            default -> "Order " + state.name().toLowerCase().replace('_', ' ');
+        };
+    }
+
+    public String getPaymentStatusDisplayName(PaymentStatus status) {
+        if (status == null)
+            return "Unknown";
+        return switch (status) {
+            case PENDING -> "Pending";
+            case AUTHORIZED -> "Authorized";
+            case CAPTURED -> "Paid";
+            case FAILED -> "Failed";
+            case REFUNDED -> "Refunded";
+            case PARTIALLY_REFUNDED -> "Partially Refunded";
+            default -> status.name();
+        };
+    }
+
+    public String getPaymentMethodDisplayName(String method) {
+        if (method == null)
+            return "Unknown";
+        return switch (method.toUpperCase()) {
+            case "UPI" -> "UPI";
+            case "CARD" -> "Credit/Debit Card";
+            case "WALLET" -> "Wallet";
+            case "COD" -> "Cash on Delivery";
+            case "NETBANKING" -> "Net Banking";
+            default -> method;
+        };
     }
 }
