@@ -19,19 +19,27 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemRequest {
-    
+
     @NotNull(message = "Menu item ID is required")
     private Long menuItemId;
-    
+
+    private String itemName; // Menu item name for order display
+
+    private String itemDescription; // Short description of the item
+
+    private String imageUrl; // Item image URL for display
+
+    private String categoryName; // Category name (e.g., "Beverages", "Snacks")
+
     @NotNull(message = "Quantity is required")
     @Min(value = 1, message = "Quantity must be at least 1")
     private Integer quantity;
-    
+
     @NotNull(message = "Unit price is required")
     @Min(value = 0, message = "Unit price must be positive")
     private BigDecimal unitPrice;
-    
+
     private Map<String, Object> customizations;
-    
+
     private String specialInstructions;
 }
