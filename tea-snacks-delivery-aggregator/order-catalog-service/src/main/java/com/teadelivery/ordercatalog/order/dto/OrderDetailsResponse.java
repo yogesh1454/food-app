@@ -36,6 +36,8 @@ public class OrderDetailsResponse {
     // ========== Order Info (only after commit) ==========
     private UUID orderId;
     private String orderNumber; // Human-readable order number like "ORD-0E5709AE"
+    private String orderState; // FSM state: PENDING_ACCEPTANCE, ACCEPTED, PREPARING, etc.
+    private String orderStateDisplayName; // Human-readable: "Waiting for Restaurant"
     private LocalDateTime orderPlacedAt;
     private Boolean isSuccess;
     private String message;

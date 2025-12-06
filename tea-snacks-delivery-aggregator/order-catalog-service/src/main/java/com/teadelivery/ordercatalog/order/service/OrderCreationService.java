@@ -8,7 +8,8 @@ import com.teadelivery.ordercatalog.order.dto.CreateOrderFromCheckoutRequest;
 import com.teadelivery.ordercatalog.order.event.OrderPlacedEvent;
 import com.teadelivery.ordercatalog.order.event.PaymentCompletedEvent;
 import com.teadelivery.ordercatalog.order.exception.*;
-import com.teadelivery.ordercatalog.order.fsm.OrderFSM;
+import com.teadelivery.ordercatalog.order.fsm.OrderStateMachine;
+import com.teadelivery.ordercatalog.order.fsm.OrderStateMachineFactory;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;
 import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
@@ -53,7 +54,7 @@ public class OrderCreationService {
     private final PaymentService paymentService;
     private final OrderRepository orderRepository;
     private final VendorBranchRepository vendorBranchRepository;
-    private final OrderFSM orderFSM;
+    private final OrderStateMachineFactory fsmFactory;
     private final OrderService orderService;
     private final OrderEventPublisher orderEventPublisher;
     private final com.teadelivery.ordercatalog.menu.service.MenuService menuService;
@@ -270,23 +271,23 @@ public class OrderCreationService {
             }
         });
 
-        // Save order
+        // Save order (initial save with CREATED state)
         Order savedOrder = orderRepository.save(order);
 
-        // Create audit record
-        orderService.createAuditRecord(
-                savedOrder,
-                null,
-                OrderState.CREATED,
-                "ORDER_CREATED",
-                session.getUserId(),
-                "CUSTOMER");
-
-        // Trigger FSM transitions
+        // Create FSM for this order and run state transitions
+        // FSM handles: state change, persistence, audit records, event publishing
         try {
-            orderFSM.validateOrder(savedOrder);
-            orderFSM.confirmPayment(savedOrder);
-            // Order is now in PENDING_ACCEPTANCE state
+            OrderStateMachine fsm = fsmFactory.create(savedOrder)
+                    .withActor(session.getUserId(), "SYSTEM");
+
+            // CREATED → VALIDATED (validates order, reserves inventory)
+            savedOrder = fsm.validate();
+
+            // VALIDATED → PAYMENT_CONFIRMED (verifies payment)
+            savedOrder = fsm.confirmPayment();
+
+            // PAYMENT_CONFIRMED → PENDING_ACCEPTANCE (notifies vendor)
+            savedOrder = fsm.submitToVendor();
 
             log.info("Order FSM transitions completed: orderId={}, state={}",
                     savedOrder.getOrderId(), savedOrder.getState());

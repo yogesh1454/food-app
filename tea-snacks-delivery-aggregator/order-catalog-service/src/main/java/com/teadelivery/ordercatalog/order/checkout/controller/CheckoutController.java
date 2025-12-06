@@ -67,23 +67,15 @@ public class CheckoutController {
     }
 
     /**
-     * Commit checkout session to create order
-     * POST /api/v1/checkout/commit
+     * @deprecated Use POST /api/v1/orders instead to commit checkout and create
+     *             order
+     *             The /commit endpoint was incomplete - missing payment processing,
+     *             session locking,
+     *             validation, and event publishing. POST /api/v1/orders provides
+     *             the complete
+     *             6-step atomic order creation process as documented in
+     *             CREATE_ORDER_API_REQUIREMENTS.md
      */
-    @PostMapping("/commit")
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Commit checkout", description = "Commit a checkout session to create an order. Returns the same OrderDetailsResponse structure with order fields populated.")
-    public OrderDetailsResponse commitCheckout(
-            @Valid @RequestBody com.teadelivery.ordercatalog.order.checkout.dto.CommitCheckoutRequest request) {
-        log.info("Commit checkout request received for session: {}", request.getCheckoutSessionId());
-
-        OrderDetailsResponse response = checkoutService.commitCheckout(request);
-
-        log.info("Order created successfully: {}, Session: {}",
-                response.getOrderId(), request.getCheckoutSessionId());
-
-        return response;
-    }
 
     /**
      * Health check endpoint

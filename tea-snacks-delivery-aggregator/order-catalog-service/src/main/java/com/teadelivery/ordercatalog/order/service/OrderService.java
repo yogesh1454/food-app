@@ -4,7 +4,7 @@ import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
 import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
-import com.teadelivery.ordercatalog.order.fsm.OrderFSM;
+import com.teadelivery.ordercatalog.order.fsm.OrderStateMachineFactory;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;
 import com.teadelivery.ordercatalog.order.fsm.PaymentStatus;
@@ -35,8 +35,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final SubOrderRepository subOrderRepository;
     private final OrderStateAuditRepository auditRepository;
-    private final OrderFSM orderFSM;
-    private final OrderTimeoutService timeoutService;
+    private final OrderStateMachineFactory fsmFactory;
 
     // ========== Order Creation ==========
 
@@ -215,13 +214,10 @@ public class OrderService {
         validateOrderItems(order);
         validateDeliveryAddress(order);
 
-        // Transition state
-        orderFSM.validateOrder(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.CREATED, OrderState.VALIDATED,
-                "VALIDATE_ORDER", null, "SYSTEM");
+        // Use FSM to transition - handles persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(null, "SYSTEM")
+                .validate();
 
         log.info("Order validated successfully: {}", orderId);
         return savedOrder;
@@ -275,13 +271,10 @@ public class OrderService {
         metadata.put("paymentConfirmedAt", LocalDateTime.now().toString());
         order.setMetadata(metadata);
 
-        // Transition state
-        orderFSM.confirmPayment(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.VALIDATED, OrderState.PAYMENT_CONFIRMED,
-                "CONFIRM_PAYMENT", null, "PAYMENT_GATEWAY");
+        // Use FSM to transition - handles persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(null, "PAYMENT_GATEWAY")
+                .confirmPayment();
 
         log.info("Payment confirmed for order: {}", orderId);
         return savedOrder;
@@ -300,18 +293,11 @@ public class OrderService {
             throw new IllegalStateException("Order must be in PAYMENT_CONFIRMED state to submit to vendor");
         }
 
-        // Transition state
-        orderFSM.submitToVendor(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PAYMENT_CONFIRMED, OrderState.PENDING_ACCEPTANCE,
-                "NOTIFY_RESTAURANT", null, "SYSTEM");
-
-        // Schedule restaurant acceptance timeout (2 minutes)
-        timeoutService.scheduleRestaurantAcceptanceTimeout(orderId);
-
-        // TODO: Send notification to vendor
+        // Use FSM to transition - handles persistence, auditing, events, and timeout
+        // scheduling
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(null, "SYSTEM")
+                .submitToVendor();
 
         log.info("Order submitted to vendor: {}", orderId);
         return savedOrder;
@@ -332,16 +318,11 @@ public class OrderService {
             throw new IllegalStateException("Order must be in PENDING_ACCEPTANCE state to accept");
         }
 
-        // Cancel timeout since restaurant accepted
-        timeoutService.cancelRestaurantAcceptanceTimeout(orderId);
-
-        // Transition state
-        orderFSM.acceptOrder(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PENDING_ACCEPTANCE, OrderState.ACCEPTED,
-                "ACCEPT_ORDER", vendorId, "VENDOR");
+        // Use FSM to transition - handles timeout cancellation, persistence, auditing,
+        // and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(vendorId, "VENDOR")
+                .accept();
 
         log.info("Order accepted by vendor: {}", orderId);
         return savedOrder;
@@ -360,18 +341,11 @@ public class OrderService {
             throw new IllegalStateException("Order must be in PENDING_ACCEPTANCE state to reject");
         }
 
-        // Cancel timeout since restaurant rejected
-        timeoutService.cancelRestaurantAcceptanceTimeout(orderId);
-
-        // Transition state
-        orderFSM.rejectOrder(order, reason);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PENDING_ACCEPTANCE, OrderState.REJECTED,
-                "REJECT_ORDER", vendorId, "VENDOR");
-
-        // TODO: Initiate refund process
+        // Use FSM to transition - handles timeout cancellation, refund, persistence,
+        // auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(vendorId, "VENDOR")
+                .reject(reason);
 
         log.info("Order rejected by vendor: {}", orderId);
         return savedOrder;
@@ -391,16 +365,10 @@ public class OrderService {
             return order;
         }
 
-        // Transition state
-        orderFSM.handleTimeout(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PENDING_ACCEPTANCE, OrderState.REJECTED,
-                "TIMEOUT_ACCEPTANCE", null, "SYSTEM");
-
-        // TODO: Initiate refund process
-        // TODO: Send notification to customer
+        // Use FSM to transition - handles refund, persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(null, "SYSTEM")
+                .timeout();
 
         log.info("Order timeout handled: {}", orderId);
         return savedOrder;
@@ -419,13 +387,10 @@ public class OrderService {
             throw new IllegalStateException("Order must be in ACCEPTED state to start preparing");
         }
 
-        // Transition state
-        orderFSM.startPreparing(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.ACCEPTED, OrderState.PREPARING,
-                "START_PREPARATION", vendorId, "VENDOR");
+        // Use FSM to transition - handles persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(vendorId, "VENDOR")
+                .startPreparing();
 
         log.info("Order preparation started: {}", orderId);
         return savedOrder;
@@ -444,15 +409,11 @@ public class OrderService {
             throw new IllegalStateException("Order must be in PREPARING state to mark ready");
         }
 
-        // Transition state
-        orderFSM.markReady(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PREPARING, OrderState.READY_FOR_PICKUP,
-                "MARK_READY", vendorId, "VENDOR");
-
-        // TODO: Notify delivery system to assign rider
+        // Use FSM to transition - handles persistence, auditing, events, and rider
+        // assignment
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(vendorId, "VENDOR")
+                .markReady();
 
         log.info("Order marked ready for pickup: {}", orderId);
         return savedOrder;
@@ -473,13 +434,10 @@ public class OrderService {
             throw new IllegalStateException("Order must be in READY_FOR_PICKUP state to assign rider");
         }
 
-        // Transition state
-        orderFSM.assignRider(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.READY_FOR_PICKUP, OrderState.ASSIGNED_TO_RIDER,
-                "ASSIGN_RIDER", riderId, "SYSTEM");
+        // Use FSM to transition - handles persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(riderId, "SYSTEM")
+                .assignRider();
 
         log.info("Rider assigned to order: {}", orderId);
         return savedOrder;
@@ -498,13 +456,10 @@ public class OrderService {
             throw new IllegalStateException("Order must be in ASSIGNED_TO_RIDER state to pickup");
         }
 
-        // Transition state
-        orderFSM.pickupOrder(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.ASSIGNED_TO_RIDER, OrderState.PICKED_UP,
-                "RIDER_PICKUP", riderId, "RIDER");
+        // Use FSM to transition - handles persistence, auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(riderId, "RIDER")
+                .pickup();
 
         log.info("Order picked up by rider: {}", orderId);
         return savedOrder;
@@ -523,13 +478,11 @@ public class OrderService {
             throw new IllegalStateException("Order must be in PICKED_UP state to deliver");
         }
 
-        // Transition state
-        orderFSM.deliverOrder(order);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, OrderState.PICKED_UP, OrderState.DELIVERED,
-                "DELIVER_ORDER", riderId, "RIDER");
+        // Use FSM to transition - handles persistence, auditing, payment settlement,
+        // and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(riderId, "RIDER")
+                .deliver();
 
         log.info("Order delivered successfully: {}", orderId);
         return savedOrder;
@@ -550,20 +503,53 @@ public class OrderService {
             throw new IllegalStateException("Order cannot be cancelled in state: " + order.getState());
         }
 
-        OrderState previousState = order.getState();
-
-        // Transition state
-        orderFSM.cancelOrder(order, cancelledBy, reason);
-
-        // Save and audit
-        Order savedOrder = orderRepository.save(order);
-        createAuditRecord(savedOrder, previousState, OrderState.CANCELLED,
-                "CANCEL_ORDER", userId, cancelledBy);
-
-        // TODO: Handle refund based on cancellation stage
+        // Use FSM to transition - handles inventory release, refund, persistence,
+        // auditing, and events
+        Order savedOrder = fsmFactory.create(order)
+                .withActor(userId, cancelledBy)
+                .cancel(cancelledBy, reason);
 
         log.info("Order cancelled: {}", orderId);
         return savedOrder;
+    }
+
+    /**
+     * Transition order to target state (for testing/admin)
+     * Maps target state to appropriate FSM method
+     */
+    @Transactional
+    public Order transitionToState(UUID orderId, OrderState targetState, UUID actorId, String actorType,
+            String reason) {
+        log.info("Transitioning order {} to state: {}", orderId, targetState);
+
+        Order order = getOrderById(orderId);
+        OrderState currentState = order.getState();
+
+        log.info("Current state: {}, Target state: {}", currentState, targetState);
+
+        // Create FSM instance with actor info
+        var fsm = fsmFactory.create(order).withActor(actorId, actorType);
+
+        // Map target state to appropriate FSM transition method
+        Order result = switch (targetState) {
+            case VALIDATED -> fsm.validate();
+            case PAYMENT_CONFIRMED -> fsm.confirmPayment();
+            case PENDING_ACCEPTANCE -> fsm.submitToVendor();
+            case ACCEPTED -> fsm.accept();
+            case PREPARING -> fsm.startPreparing();
+            case READY_FOR_PICKUP -> fsm.markReady();
+            case ASSIGNED_TO_RIDER -> fsm.assignRider();
+            case PICKED_UP -> fsm.pickup();
+            case DELIVERED -> fsm.deliver();
+            case REJECTED -> fsm.reject(reason != null ? reason : "Rejected via transition API");
+            case CANCELLED -> fsm.cancel(actorType, reason != null ? reason : "Cancelled via transition API");
+            default -> throw new IllegalArgumentException(
+                    "Cannot transition directly to state: " + targetState +
+                            ". Use the specific endpoint for this transition.");
+        };
+
+        log.info("Order {} transitioned from {} to {}", orderId, currentState, result.getState());
+        return result;
     }
 
     // ========== Query Methods ==========
@@ -656,26 +642,41 @@ public class OrderService {
         int totalTime = prepTime + deliveryDuration;
 
         // Determine status based on order state
-        CheckoutSessionStatus status;
+        // After order creation, show the actual Order State, not CheckoutSessionStatus
+        String statusValue;
+        String statusDisplayName;
         String message;
-        if (order.getState() == OrderState.CANCELLED || order.getState() == OrderState.REJECTED) {
-            status = CheckoutSessionStatus.VALIDATION_FAILED;
-            message = "Order " + order.getState().name().toLowerCase();
+        boolean isSuccess;
+
+        if (order.getState() == OrderState.CANCELLED) {
+            statusValue = "CANCELLED";
+            statusDisplayName = "Order Cancelled";
+            message = order.getCancellationReason() != null ? order.getCancellationReason() : "Order was cancelled";
+            isSuccess = false;
+        } else if (order.getState() == OrderState.REJECTED) {
+            statusValue = "REJECTED";
+            statusDisplayName = "Order Rejected";
+            message = order.getCancellationReason() != null ? order.getCancellationReason() : "Order was rejected";
+            isSuccess = false;
         } else {
-            status = CheckoutSessionStatus.COMMITTED;
+            statusValue = order.getState().name();
+            statusDisplayName = getOrderStateDisplayName(order.getState());
             message = getOrderStateMessage(order.getState());
+            isSuccess = true;
         }
 
         return com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.builder()
                 // Session info
                 .checkoutSessionId(order.getCheckoutSessionId())
-                .status(status)
-                .statusDisplayName(status.getDisplayName())
+                .status(CheckoutSessionStatus.COMMITTED) // Keep for backward compatibility
+                .statusDisplayName(statusDisplayName) // Now shows order state display name
                 // Order info
                 .orderId(order.getOrderId())
                 .orderNumber("ORD-" + order.getOrderId().toString().substring(0, 8).toUpperCase())
+                .orderState(statusValue) // Actual FSM state
+                .orderStateDisplayName(statusDisplayName) // Human-readable state
                 .orderPlacedAt(order.getCreatedAt())
-                .isSuccess(order.getState() != OrderState.CANCELLED && order.getState() != OrderState.REJECTED)
+                .isSuccess(isSuccess)
                 .message(message)
                 // Customer
                 .customerId(order.getCustomerId())
@@ -745,6 +746,25 @@ public class OrderService {
             case CANCELLED -> "Order cancelled";
             case REJECTED -> "Order rejected by restaurant";
             default -> "Order " + state.name().toLowerCase().replace('_', ' ');
+        };
+    }
+
+    private String getOrderStateDisplayName(OrderState state) {
+        return switch (state) {
+            case CREATED -> "Order Created";
+            case VALIDATED -> "Validated";
+            case PAYMENT_CONFIRMED -> "Payment Confirmed";
+            case PENDING_ACCEPTANCE -> "Waiting for Restaurant";
+            case ACCEPTED -> "Order Accepted";
+            case PREPARING -> "Preparing";
+            case READY_FOR_PICKUP -> "Ready for Pickup";
+            case ASSIGNED_TO_RIDER -> "Rider Assigned";
+            case PICKED_UP -> "On the Way";
+            case DELIVERED -> "Delivered";
+            case CANCELLED -> "Cancelled";
+            case REJECTED -> "Rejected";
+            case CLOSED -> "Completed";
+            default -> state.name().replace('_', ' ');
         };
     }
 
