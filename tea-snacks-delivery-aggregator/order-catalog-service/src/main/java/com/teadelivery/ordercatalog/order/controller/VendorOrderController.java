@@ -16,9 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Vendor Order Controller
@@ -32,35 +30,6 @@ import java.util.stream.Collectors;
 public class VendorOrderController {
 
         private final OrderService orderService;
-
-        /**
-         * List pending orders for vendor
-         */
-        @GetMapping
-        @Operation(summary = "List pending orders", description = "List orders pending acceptance for the vendor")
-        @ApiResponses({
-                        @ApiResponse(responseCode = "200", description = "Orders retrieved successfully")
-        })
-        public ResponseEntity<List<OrderDetailsResponse>> listPendingOrders(
-                        @RequestHeader(value = "X-Vendor-Id", required = false) String vendorIdHeader) {
-                log.info("Listing pending orders for vendor: {}", vendorIdHeader);
-
-                // Get orders in PENDING_ACCEPTANCE state
-                List<Order> orders = orderService.getOrdersByState(OrderState.PENDING_ACCEPTANCE);
-
-                // In production, filter by vendor ID
-                // Note: Vendor filtering would require additional logic to map menu items to
-                // vendors
-                if (vendorIdHeader != null) {
-                        // TODO: Implement vendor filtering based on menu item ownership
-                }
-
-                List<OrderDetailsResponse> response = orders.stream()
-                                .map(order -> orderService.toCheckoutResponse(order, null, null))
-                                .collect(Collectors.toList());
-
-                return ResponseEntity.ok(response);
-        }
 
         /**
          * Accept order
