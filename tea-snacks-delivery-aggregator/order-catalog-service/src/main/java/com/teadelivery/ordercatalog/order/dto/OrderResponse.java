@@ -24,55 +24,73 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderResponse {
-    
+
     private UUID orderId;
+    private String checkoutSessionId;
     private UUID customerId;
     private OrderType orderType;
     private OrderState state;
     private PaymentStatus paymentStatus;
-    
+
+    // Vendor info
+    private Long vendorId;
+    private Long vendorBranchId;
+
+    // Payment info
+    private String paymentMethod;
+    private String paymentTransactionId;
+
     private List<OrderItemResponse> items;
-    
+
     private BigDecimal itemTotal;
     private BigDecimal deliveryCharges;
     private BigDecimal platformFee;
     private BigDecimal gst;
     private BigDecimal discount;
     private BigDecimal totalAmount;
-    
+
     private DeliveryAddress deliveryAddress;
+    private BigDecimal deliveryLatitude;
+    private BigDecimal deliveryLongitude;
     private String specialInstructions;
-    
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime acceptedAt;
     private LocalDateTime deliveredAt;
-    
+
     /**
      * Convert Order entity to OrderResponse DTO
      */
     public static OrderResponse from(Order order) {
         return OrderResponse.builder()
-            .orderId(order.getOrderId())
-            .customerId(order.getCustomerId())
-            .orderType(order.getOrderType())
-            .state(order.getState())
-            .paymentStatus(order.getPaymentStatus())
-            .items(order.getOrderItems().stream()
-                .map(OrderItemResponse::from)
-                .collect(Collectors.toList()))
-            .itemTotal(order.getItemTotal())
-            .deliveryCharges(order.getDeliveryCharges())
-            .platformFee(order.getPlatformFee())
-            .gst(order.getGst())
-            .discount(order.getDiscount())
-            .totalAmount(order.getTotalAmount())
-            .deliveryAddress(order.getDeliveryAddress())
-            .specialInstructions(order.getSpecialInstructions())
-            .createdAt(order.getCreatedAt())
-            .updatedAt(order.getUpdatedAt())
-            .acceptedAt(order.getAcceptedAt())
-            .deliveredAt(order.getDeliveredAt())
-            .build();
+                .orderId(order.getOrderId())
+                .checkoutSessionId(order.getCheckoutSessionId())
+                .customerId(order.getCustomerId())
+                .orderType(order.getOrderType())
+                .state(order.getState())
+                .paymentStatus(order.getPaymentStatus())
+                .vendorId(order.getVendorId())
+                .vendorBranchId(order.getVendorBranchId())
+                .paymentMethod(order.getPaymentMethod())
+                .paymentTransactionId(order.getPaymentTransactionId())
+                .items(order.getOrderItems().stream()
+                        .map(OrderItemResponse::from)
+                        .collect(Collectors.toList()))
+                .itemTotal(order.getItemTotal())
+                .deliveryCharges(order.getDeliveryCharges())
+                .platformFee(order.getPlatformFee())
+                .gst(order.getGst())
+                .discount(order.getDiscount())
+                .totalAmount(order.getTotalAmount())
+                .deliveryAddress(order.getDeliveryAddress())
+                .deliveryLatitude(order.getDeliveryLatitude())
+                .deliveryLongitude(order.getDeliveryLongitude())
+                .specialInstructions(order.getSpecialInstructions())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .acceptedAt(order.getAcceptedAt())
+                .deliveredAt(order.getDeliveredAt())
+                .build();
     }
 }
