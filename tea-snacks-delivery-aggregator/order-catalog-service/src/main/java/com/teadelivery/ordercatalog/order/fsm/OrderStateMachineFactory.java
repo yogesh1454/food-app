@@ -11,6 +11,7 @@ import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
 import com.teadelivery.ordercatalog.order.service.OrderTimeoutService;
 import com.teadelivery.ordercatalog.order.service.OrderValidationService;
 import com.teadelivery.ordercatalog.payment.service.PaymentService;
+import com.teadelivery.ordercatalog.vendor.repository.VendorBranchRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,7 @@ public class OrderStateMachineFactory {
     private final PaymentService paymentService;
     private final OrderValidationService validationService;
     private final MenuService menuService;
+    private final VendorBranchRepository vendorBranchRepository;
 
     /**
      * Create a new FSM for an order
@@ -60,7 +62,8 @@ public class OrderStateMachineFactory {
                 deliveryService,
                 paymentService,
                 validationService,
-                menuService);
+                menuService,
+                vendorBranchRepository);
     }
 
     /**

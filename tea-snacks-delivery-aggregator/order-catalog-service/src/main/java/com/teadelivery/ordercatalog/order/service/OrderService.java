@@ -1,5 +1,6 @@
 package com.teadelivery.ordercatalog.order.service;
 
+import com.teadelivery.ordercatalog.common.util.GeometryUtils;
 import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderRequest;
 import com.teadelivery.ordercatalog.order.model.OrderStateAudit;
@@ -13,7 +14,6 @@ import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
 import com.teadelivery.ordercatalog.order.repository.SubOrderRepository;
-import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,10 +75,11 @@ public class OrderService {
         // Set delivery address (embedded object)
         order.setDeliveryAddress(buildDeliveryAddress(request.getDeliveryAddress()));
 
-        // Set delivery location
+        // Set delivery location as PostGIS Point
         if (request.getDeliveryLocation() != null) {
-            order.setDeliveryLatitude(BigDecimal.valueOf(request.getDeliveryLocation().getLatitude()));
-            order.setDeliveryLongitude(BigDecimal.valueOf(request.getDeliveryLocation().getLongitude()));
+            order.setDeliveryLocation(GeometryUtils.createPoint(
+                    request.getDeliveryLocation().getLatitude(),
+                    request.getDeliveryLocation().getLongitude()));
         }
 
         // Set pricing fields
@@ -709,8 +710,8 @@ public class OrderService {
                 // Delivery info
                 .delivery(com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse.DeliveryInfo.builder()
                         .address(order.getDeliveryAddress())
-                        .latitude(order.getDeliveryLatitude())
-                        .longitude(order.getDeliveryLongitude())
+                        .latitude(GeometryUtils.getLatitude(order.getDeliveryLocation()))
+                        .longitude(GeometryUtils.getLongitude(order.getDeliveryLocation()))
                         .specialInstructions(order.getSpecialInstructions())
                         .estimatedDeliveryTime(order.getEstimatedDeliveryTime())
                         .estimatedPrepTime(prepTime)

@@ -9,6 +9,7 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -26,6 +27,11 @@ public class RiderRankingService {
     
     private final RiderRepository riderRepository;
     private final GeometryFactory geometryFactory;
+
+    @Value("${features.search.bypass-geospatial:false}")
+    private Boolean bypassGeospatial;
+    @Value("${search.geospatial.default-radius-km:5}")
+    private Integer defaultRadiusKm;
     
     public RiderRankingService(RiderRepository riderRepository) {
         this.riderRepository = riderRepository;
@@ -35,9 +41,11 @@ public class RiderRankingService {
     /**
      * Find available riders within radius
      */
-    public List<Rider> findAvailableRiders(double longitude, double latitude, double radiusKm) {
+    public List<Rider> findAvailableRiders(double longitude, double latitude, Double radiusKm) {
         // Convert km to meters for PostGIS
-        double radiusMeters = radiusKm * 1000;
+        double radiusMeters = Boolean.TRUE.equals(bypassGeospatial)
+                                ? 10_000_000 // ~10,000km - effectively worldwide
+                                : (radiusKm != null ? radiusKm : defaultRadiusKm) * 1000;
         
         return riderRepository.findByLocationWithinRadius(longitude, latitude, radiusMeters);
     }

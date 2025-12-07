@@ -104,10 +104,10 @@ public class PaymentService {
             
             boolean gatewaySuccess = Math.random() > 0.1;
             
-            if (!gatewaySuccess) {
-                log.error("GPay gateway failure: token={}", paymentToken);
-                throw new PaymentGatewayException("GPay gateway returned error");
-            }
+            // if (!gatewaySuccess) {
+            //     log.error("GPay gateway failure: token={}", paymentToken);
+            //     throw new PaymentGatewayException("GPay gateway returned error");
+            // }
             
             // Generate transaction ID
             String transactionId = "GPAY_" + UUID.randomUUID().toString();

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Search Index Sync Infrastructure (SNS/SQS)
+Description: Event-Driven Architecture Infrastructure (SNS/SQS) for Search Sync, Order Events, and Delivery Events
 
 Parameters:
   ProjectName:
@@ -18,6 +18,10 @@ Parameters:
     Description: Name of the existing EC2 IAM role to attach permissions
 
 Resources:
+  # ============================================================
+  #                    SEARCH INDEX EVENTS
+  # ============================================================
+  
   # ============ SNS Topic ============
   SearchIndexEventsTopic:
     Type: AWS::SNS::Topic
@@ -81,23 +85,168 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !Ref SearchIndexEventsTopic
 
+  # ============================================================
+  #                    ORDER EVENTS (NEW)
+  # ============================================================
+  
+  # ============ SNS Topic for Order Events ============
+  OrderEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-order-events
+      DisplayName: Order State Change Events
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============ SQS Queue for Delivery Service to consume Order Events ============
+  OrderEventsForDeliveryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-order-events-for-delivery
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt OrderEventsDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ Dead Letter Queue for Order Events ============
+  OrderEventsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-order-events-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ SNS -> SQS Subscription (Order → Delivery) ============
+  OrderEventsForDeliverySubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref OrderEventsTopic
+      Endpoint: !GetAtt OrderEventsForDeliveryQueue.Arn
+      RawMessageDelivery: true
+      # Optional: Filter only READY_FOR_PICKUP events
+      # FilterPolicy:
+      #   toState:
+      #     - READY_FOR_PICKUP
+
+  # ============ SQS Queue Policy for Order Events ============
+  OrderEventsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref OrderEventsForDeliveryQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt OrderEventsForDeliveryQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref OrderEventsTopic
+
+  # ============================================================
+  #                    DELIVERY EVENTS (NEW)
+  # ============================================================
+
+  # ============ SNS Topic for Delivery Events ============
+  DeliveryEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-delivery-events
+      DisplayName: Delivery State Change Events
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============ SQS Queue for Order Service to consume Delivery Events ============
+  DeliveryEventsForOrderQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-delivery-events-for-order
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeliveryEventsDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ Dead Letter Queue for Delivery Events ============
+  DeliveryEventsDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-delivery-events-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ SNS -> SQS Subscription (Delivery → Order) ============
+  DeliveryEventsForOrderSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref DeliveryEventsTopic
+      Endpoint: !GetAtt DeliveryEventsForOrderQueue.Arn
+      RawMessageDelivery: true
+
+  # ============ SQS Queue Policy for Delivery Events ============
+  DeliveryEventsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref DeliveryEventsForOrderQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt DeliveryEventsForOrderQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref DeliveryEventsTopic
+
+  # ============================================================
+  #                    IAM POLICY FOR EC2
+  # ============================================================
+
   # ============ IAM Policy for EC2 Role ============
-  SearchSyncEC2Policy:
+  EventDrivenEC2Policy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: !Sub ${ProjectName}-search-sync-policy
+      PolicyName: !Sub ${ProjectName}-event-driven-policy
       Roles:
         - !Ref EC2RoleName
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          # SNS Publish permissions
+          # SNS Publish permissions for all topics
           - Effect: Allow
             Action:
               - sns:Publish
               - sns:GetTopicAttributes
-            Resource: !Ref SearchIndexEventsTopic
-          # SQS permissions for consuming
+            Resource:
+              - !Ref SearchIndexEventsTopic
+              - !Ref OrderEventsTopic
+              - !Ref DeliveryEventsTopic
+          # SQS permissions for consuming from all queues
           - Effect: Allow
             Action:
               - sqs:SendMessage
@@ -109,34 +258,87 @@ Resources:
             Resource:
               - !GetAtt SearchIndexQueue.Arn
               - !GetAtt SearchIndexDLQ.Arn
+              - !GetAtt OrderEventsForDeliveryQueue.Arn
+              - !GetAtt OrderEventsDLQ.Arn
+              - !GetAtt DeliveryEventsForOrderQueue.Arn
+              - !GetAtt DeliveryEventsDLQ.Arn
+
+# ============================================================
+#                         OUTPUTS
+# ============================================================
 
 Outputs:
-  TopicArn:
+  # -------- Search Index --------
+  SearchIndexTopicArn:
     Description: SNS Topic ARN for search index events
     Value: !Ref SearchIndexEventsTopic
     Export:
       Name: !Sub ${ProjectName}-search-index-topic-arn
   
-  QueueUrl:
+  SearchIndexQueueUrl:
     Description: SQS Queue URL for search index consumer
     Value: !Ref SearchIndexQueue
     Export:
       Name: !Sub ${ProjectName}-search-index-queue-url
   
-  QueueArn:
+  SearchIndexQueueArn:
     Description: SQS Queue ARN
     Value: !GetAtt SearchIndexQueue.Arn
     Export:
       Name: !Sub ${ProjectName}-search-index-queue-arn
   
-  DLQUrl:
+  SearchIndexDLQUrl:
     Description: Dead Letter Queue URL
     Value: !Ref SearchIndexDLQ
     Export:
       Name: !Sub ${ProjectName}-search-index-dlq-url
 
-  DLQArn:
-    Description: Dead Letter Queue ARN
-    Value: !GetAtt SearchIndexDLQ.Arn
+  # -------- Order Events --------
+  OrderEventsTopicArn:
+    Description: SNS Topic ARN for order events
+    Value: !Ref OrderEventsTopic
     Export:
-      Name: !Sub ${ProjectName}-search-index-dlq-arn
+      Name: !Sub ${ProjectName}-order-events-topic-arn
+
+  OrderEventsForDeliveryQueueUrl:
+    Description: SQS Queue URL for delivery service to consume order events
+    Value: !Ref OrderEventsForDeliveryQueue
+    Export:
+      Name: !Sub ${ProjectName}-order-events-for-delivery-queue-url
+
+  OrderEventsForDeliveryQueueArn:
+    Description: SQS Queue ARN
+    Value: !GetAtt OrderEventsForDeliveryQueue.Arn
+    Export:
+      Name: !Sub ${ProjectName}-order-events-for-delivery-queue-arn
+
+  OrderEventsDLQUrl:
+    Description: Order Events Dead Letter Queue URL
+    Value: !Ref OrderEventsDLQ
+    Export:
+      Name: !Sub ${ProjectName}-order-events-dlq-url
+
+  # -------- Delivery Events --------
+  DeliveryEventsTopicArn:
+    Description: SNS Topic ARN for delivery events
+    Value: !Ref DeliveryEventsTopic
+    Export:
+      Name: !Sub ${ProjectName}-delivery-events-topic-arn
+
+  DeliveryEventsForOrderQueueUrl:
+    Description: SQS Queue URL for order service to consume delivery events
+    Value: !Ref DeliveryEventsForOrderQueue
+    Export:
+      Name: !Sub ${ProjectName}-delivery-events-for-order-queue-url
+
+  DeliveryEventsForOrderQueueArn:
+    Description: SQS Queue ARN
+    Value: !GetAtt DeliveryEventsForOrderQueue.Arn
+    Export:
+      Name: !Sub ${ProjectName}-delivery-events-for-order-queue-arn
+
+  DeliveryEventsDLQUrl:
+    Description: Delivery Events Dead Letter Queue URL
+    Value: !Ref DeliveryEventsDLQ
+    Export:
+      Name: !Sub ${ProjectName}-delivery-events-dlq-url

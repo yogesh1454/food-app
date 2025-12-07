@@ -1,18 +1,15 @@
 package com.teadelivery.ordercatalog.order.service;
 
-import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
+import com.teadelivery.ordercatalog.common.util.GeometryUtils;
 import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSession;
 import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
 import com.teadelivery.ordercatalog.order.checkout.service.SessionManagementService;
 import com.teadelivery.ordercatalog.order.dto.CreateOrderFromCheckoutRequest;
-import com.teadelivery.ordercatalog.order.event.OrderPlacedEvent;
-import com.teadelivery.ordercatalog.order.event.PaymentCompletedEvent;
 import com.teadelivery.ordercatalog.order.exception.*;
 import com.teadelivery.ordercatalog.order.fsm.OrderStateMachine;
 import com.teadelivery.ordercatalog.order.fsm.OrderStateMachineFactory;
 import com.teadelivery.ordercatalog.order.fsm.OrderState;
 import com.teadelivery.ordercatalog.order.fsm.OrderType;
-import com.teadelivery.ordercatalog.order.fsm.events.OrderStateChangedEvent;
 import com.teadelivery.ordercatalog.order.model.Order;
 import com.teadelivery.ordercatalog.order.model.OrderItem;
 import com.teadelivery.ordercatalog.order.repository.OrderRepository;
@@ -25,20 +22,13 @@ import com.teadelivery.ordercatalog.vendor.model.VendorBranch;
 import com.teadelivery.ordercatalog.vendor.repository.VendorBranchRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Order Creation Service
@@ -229,10 +219,24 @@ public class OrderCreationService {
         // Set delivery address
         order.setDeliveryAddress(session.getDeliveryAddress());
 
-        // Set delivery location
+        // Set delivery location (customer) as PostGIS Point
         if (session.getDeliveryLocation() != null) {
-            order.setDeliveryLatitude(session.getDeliveryLocation().getLatitude());
-            order.setDeliveryLongitude(session.getDeliveryLocation().getLongitude());
+            order.setDeliveryLocation(GeometryUtils.createPoint(
+                    session.getDeliveryLocation().getLatitude(),
+                    session.getDeliveryLocation().getLongitude()));
+        }
+
+        // Set pickup location (vendor branch) as PostGIS Point - captured at order
+        // creation time
+        if (vendorBranch.getLatitude() != null && vendorBranch.getLongitude() != null) {
+            order.setPickupLocation(GeometryUtils.createPoint(
+                    vendorBranch.getLatitude(),
+                    vendorBranch.getLongitude()));
+            log.debug("Set pickup location from vendor branch: lat={}, lng={}",
+                    vendorBranch.getLatitude(), vendorBranch.getLongitude());
+        } else {
+            log.warn("Vendor branch {} missing coordinates, pickup location not set",
+                    vendorBranch.getBranchId());
         }
 
         // Set pricing
