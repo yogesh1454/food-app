@@ -1,8 +1,0 @@
-[environments.dev]
-url = "jdbc:postgresql://localhost:5432/nastto_db"
-user = "nastto_admin"
-password = "IjhY3HEqWGjk0deZ"
-
-[flyway]
-environment = "dev"
-locations = [ "filesystem:migration" ] # Or wherever your SQL scripts are
