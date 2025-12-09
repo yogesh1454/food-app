@@ -6,10 +6,10 @@ import com.teadelivery.ordercatalog.delivery.dto.UpdateDeliveryStatusRequestDTO;
 import com.teadelivery.ordercatalog.delivery.model.Delivery;
 import com.teadelivery.ordercatalog.delivery.repository.DeliveryRepository;
 import com.teadelivery.ordercatalog.delivery.fsm.DeliveryState;
-import com.teadelivery.ordercatalog.delivery.fsm.DeliveryTrigger;
-import com.teadelivery.ordercatalog.delivery.fsm.DeliveryFSM;
+import com.teadelivery.ordercatalog.delivery.fsm.DeliveryStateMachineFactory;
 import com.teadelivery.ordercatalog.delivery.model.Rider;
 import com.teadelivery.ordercatalog.delivery.repository.RiderRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,181 +25,254 @@ import java.util.stream.Collectors;
 /**
  * Delivery Service
  * Main service for delivery operations
- * As per BE-003-22
+ * 
+ * Updated to use DeliveryStateMachineFactory (Instance-per-Delivery pattern)
+ * as per BE-003-22
  */
 @Service
 @Slf4j
 @Transactional
+@RequiredArgsConstructor
 public class DeliveryService {
-    
+
     private final DeliveryRepository deliveryRepository;
-    private final DeliveryFSM deliveryFSM;
+    private final DeliveryStateMachineFactory fsmFactory;
     private final RiderAssignmentService riderAssignmentService;
     private final RiderRepository riderRepository;
-    
-    public DeliveryService(
-        DeliveryRepository deliveryRepository,
-        DeliveryFSM deliveryFSM,
-        RiderAssignmentService riderAssignmentService,
-        RiderRepository riderRepository
-    ) {
-        this.deliveryRepository = deliveryRepository;
-        this.deliveryFSM = deliveryFSM;
-        this.riderAssignmentService = riderAssignmentService;
-        this.riderRepository = riderRepository;
-    }
-    
+
+    // ========== Delivery Creation ==========
+
     /**
      * Create delivery for an order
      */
     public Delivery createDelivery(
-        UUID orderId,
-        String pickupLocation,
-        String deliveryLocation,
-        BigDecimal deliveryFee
-    ) {
+            UUID orderId,
+            String pickupLocation,
+            String deliveryLocation,
+            BigDecimal deliveryFee) {
         Delivery delivery = Delivery.builder()
-            .orderId(orderId)
-            .state(DeliveryState.PENDING)
-            .pickupLocation(pickupLocation)
-            .deliveryLocation(deliveryLocation)
-            .deliveryFee(deliveryFee)
-            .searchRadiusKm(2.0)
-            .retryCount(0)
-            .build();
-        
+                .orderId(orderId)
+                .state(DeliveryState.PENDING)
+                .pickupLocation(pickupLocation)
+                .deliveryLocation(deliveryLocation)
+                .deliveryFee(deliveryFee)
+                .searchRadiusKm(2.0)
+                .retryCount(0)
+                .build();
+
         delivery = deliveryRepository.save(delivery);
-        
-        log.info("Created delivery: deliveryId={}, orderId={}", 
-                 delivery.getDeliveryId(), orderId);
-        
+
+        log.info("Created delivery: deliveryId={}, orderId={}",
+                delivery.getDeliveryId(), orderId);
+
         return delivery;
     }
-    
-    /**
-     * Start rider search for delivery
-     */
-    public void startRiderSearch(UUID deliveryId) {
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.FIND_RIDERS);
-        riderAssignmentService.findAndAssignRider(deliveryId);
-    }
-    
-    /**
-     * Start rider search by order ID
-     */
-    public void startRiderSearchByOrderId(UUID orderId) {
-        Delivery delivery = deliveryRepository.findByOrderId(orderId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Delivery not found for order: " + orderId));
-        startRiderSearch(delivery.getDeliveryId());
-    }
-    
+
     /**
      * Check if delivery exists for order (idempotency check)
      */
     public boolean deliveryExistsForOrder(UUID orderId) {
         return deliveryRepository.findByOrderId(orderId).isPresent();
     }
-    
+
+    // ========== Rider Search & Assignment ==========
+
+    /**
+     * Start rider search for delivery
+     * Uses FSM to transition PENDING → SEARCHING_RIDER
+     */
+    public Delivery startRiderSearch(UUID deliveryId) {
+        log.info("Starting rider search for delivery: {}", deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        // Use FSM to transition
+        Delivery saved = fsmFactory.create(delivery)
+                .withActor(null, "SYSTEM")
+                .findRiders();
+
+        // Trigger async rider assignment
+        riderAssignmentService.findAndAssignRider(deliveryId);
+
+        return saved;
+    }
+
+    /**
+     * Start rider search by order ID
+     */
+    public Delivery startRiderSearchByOrderId(UUID orderId) {
+        Delivery delivery = deliveryRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Delivery not found for order: " + orderId));
+        return startRiderSearch(delivery.getDeliveryId());
+    }
+
+    /**
+     * Assign rider to delivery
+     * SEARCHING_RIDER → RIDER_ASSIGNED
+     */
+    public Delivery assignRider(UUID deliveryId, UUID riderId) {
+        log.info("Assigning rider {} to delivery {}", riderId, deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        return fsmFactory.create(delivery)
+                .withActor(null, "SYSTEM")
+                .assignRider(riderId);
+    }
+
+    // ========== Rider Actions ==========
+
     /**
      * Rider accepts delivery
+     * RIDER_ASSIGNED → RIDER_ACCEPTED
      */
-    public void riderAcceptDelivery(UUID deliveryId, UUID riderId) {
-        Delivery delivery = deliveryRepository.findById(deliveryId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Delivery not found: " + deliveryId));
-        
-        delivery.setRiderId(riderId);
-        deliveryRepository.save(delivery);
-        
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.RIDER_ACCEPT);
-        
-        log.info("Rider accepted delivery: deliveryId={}, riderId={}", 
-                 deliveryId, riderId);
+    public Delivery riderAcceptDelivery(UUID deliveryId, UUID riderId) {
+        log.info("Rider {} accepting delivery {}", riderId, deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        // Verify rider is assigned to this delivery
+        if (!riderId.equals(delivery.getRiderId())) {
+            throw new IllegalArgumentException("Rider not assigned to this delivery");
+        }
+
+        return fsmFactory.create(delivery)
+                .withActor(riderId, "RIDER")
+                .riderAccept();
     }
-    
+
     /**
      * Rider rejects delivery
+     * RIDER_ASSIGNED → SEARCHING_RIDER
      */
-    public void riderRejectDelivery(UUID deliveryId, UUID riderId, String reason) {
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.RIDER_REJECT);
-        
+    public Delivery riderRejectDelivery(UUID deliveryId, UUID riderId, String reason) {
+        log.info("Rider {} rejecting delivery {}: {}", riderId, deliveryId, reason);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        Delivery saved = fsmFactory.create(delivery)
+                .withActor(riderId, "RIDER")
+                .riderReject(reason);
+
         // Reassign to another rider
         riderAssignmentService.findAndAssignRider(deliveryId);
-        
-        log.info("Rider rejected delivery: deliveryId={}, riderId={}, reason={}", 
-                 deliveryId, riderId, reason);
+
+        return saved;
     }
-    
+
     /**
      * Rider reached restaurant
+     * RIDER_ACCEPTED → AT_RESTAURANT
      */
-    public void riderReachedRestaurant(UUID deliveryId) {
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.REACH_RESTAURANT);
-        log.info("Rider reached restaurant: deliveryId={}", deliveryId);
+    public Delivery riderReachedRestaurant(UUID deliveryId, UUID riderId) {
+        log.info("Rider reached restaurant for delivery {}", deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+        verifyRiderOwnsDelivery(delivery, riderId);
+
+        return fsmFactory.create(delivery)
+                .withActor(riderId, "RIDER")
+                .reachRestaurant();
     }
-    
+
     /**
      * Rider picked up order
+     * AT_RESTAURANT → PICKED_UP → OUT_FOR_DELIVERY
      */
-    public void riderPickedUpOrder(UUID deliveryId) {
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.PICKUP_ORDER);
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.START_DELIVERY);
-        log.info("Rider picked up order: deliveryId={}", deliveryId);
+    public Delivery riderPickedUpOrder(UUID deliveryId, UUID riderId) {
+        log.info("Rider picked up order for delivery {}", deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+        verifyRiderOwnsDelivery(delivery, riderId);
+
+        // Pickup
+        Delivery saved = fsmFactory.create(delivery)
+                .withActor(riderId, "RIDER")
+                .pickup();
+
+        // Immediately start delivery
+        saved = fsmFactory.create(saved)
+                .withActor(riderId, "RIDER")
+                .startDelivery();
+
+        return saved;
     }
-    
+
     /**
      * Rider delivered order
+     * OUT_FOR_DELIVERY → DELIVERED
      */
-    public void riderDeliveredOrder(UUID deliveryId) {
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.DELIVER_ORDER);
-        log.info("Rider delivered order: deliveryId={}", deliveryId);
+    public Delivery riderDeliveredOrder(UUID deliveryId, UUID riderId) {
+        log.info("Rider delivered order for delivery {}", deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+        verifyRiderOwnsDelivery(delivery, riderId);
+
+        return fsmFactory.create(delivery)
+                .withActor(riderId, "RIDER")
+                .deliver();
     }
-    
+
+    // ========== Failure Handling ==========
+
+    /**
+     * No riders available
+     * SEARCHING_RIDER → FAILED
+     */
+    public Delivery noRidersAvailable(UUID deliveryId) {
+        log.warn("No riders available for delivery {}", deliveryId);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        return fsmFactory.create(delivery)
+                .withActor(null, "SYSTEM")
+                .noRidersAvailable();
+    }
+
     /**
      * Fail delivery
+     * Any state → FAILED
      */
-    public void failDelivery(UUID deliveryId, String reason) {
-        Delivery delivery = deliveryRepository.findById(deliveryId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Delivery not found: " + deliveryId));
-        
-        delivery.setFailureReason(reason);
-        deliveryRepository.save(delivery);
-        
-        deliveryFSM.fire(deliveryId, DeliveryTrigger.FAIL_DELIVERY);
-        
-        log.error("Delivery failed: deliveryId={}, reason={}", deliveryId, reason);
+    public Delivery failDelivery(UUID deliveryId, String reason) {
+        log.error("Failing delivery {}: {}", deliveryId, reason);
+
+        Delivery delivery = getDelivery(deliveryId);
+
+        return fsmFactory.create(delivery)
+                .withActor(null, "SYSTEM")
+                .fail(reason);
     }
-    
+
+    // ========== Query Methods ==========
+
     /**
      * Get delivery by ID
      */
     public Delivery getDelivery(UUID deliveryId) {
         return deliveryRepository.findById(deliveryId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Delivery not found: " + deliveryId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Delivery not found: " + deliveryId));
     }
-    
+
     /**
      * Get delivery by order ID
      */
     public Delivery getDeliveryByOrderId(UUID orderId) {
         return deliveryRepository.findByOrderId(orderId)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Delivery not found for order: " + orderId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Delivery not found for order: " + orderId));
     }
-    
+
     /**
      * Get deliveries for rider with pagination
      */
     public Page<DeliveryResponseDTO> getDeliveriesForRider(
-        UUID riderId, 
-        String status, 
-        Pageable pageable
-    ) {
-        List<Delivery> deliveries;
-        
+            UUID riderId,
+            String status,
+            Pageable pageable) {
+        List<Delivery> deliveries = new ArrayList<>();
+
         switch (status.toUpperCase()) {
             case "AVAILABLE":
                 // Get deliveries in RIDER_ASSIGNED state (not yet accepted)
@@ -206,128 +280,119 @@ public class DeliveryService {
                 break;
             case "CURRENT":
                 // Get active deliveries for this rider
-                deliveries = deliveryRepository.findByStateAndRiderId(
-                    DeliveryState.RIDER_ACCEPTED, riderId);
                 deliveries.addAll(deliveryRepository.findByStateAndRiderId(
-                    DeliveryState.AT_RESTAURANT, riderId));
+                        DeliveryState.RIDER_ACCEPTED, riderId));
                 deliveries.addAll(deliveryRepository.findByStateAndRiderId(
-                    DeliveryState.PICKED_UP, riderId));
+                        DeliveryState.AT_RESTAURANT, riderId));
                 deliveries.addAll(deliveryRepository.findByStateAndRiderId(
-                    DeliveryState.OUT_FOR_DELIVERY, riderId));
+                        DeliveryState.PICKED_UP, riderId));
+                deliveries.addAll(deliveryRepository.findByStateAndRiderId(
+                        DeliveryState.OUT_FOR_DELIVERY, riderId));
                 break;
             case "COMPLETED":
                 // Get completed deliveries for this rider
                 deliveries = deliveryRepository.findByStateAndRiderId(
-                    DeliveryState.DELIVERED, riderId);
+                        DeliveryState.DELIVERED, riderId);
                 break;
             default:
                 // Get all deliveries for this rider
                 deliveries = deliveryRepository.findByRiderId(riderId);
         }
-        
+
         // Convert to Page (simplified - in production use proper pagination)
         List<DeliveryResponseDTO> dtos = deliveries.stream()
-            .map(this::toDTO)
-            .collect(Collectors.toList());
-        
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
         return Page.empty(pageable); // TODO: Implement proper pagination
     }
-    
+
     /**
-     * Update delivery status
+     * Update delivery status (for rider app)
      */
     public DeliveryResponseDTO updateDeliveryStatus(
-        UUID riderId,
-        UUID deliveryId,
-        UpdateDeliveryStatusRequestDTO request
-    ) {
+            UUID riderId,
+            UUID deliveryId,
+            UpdateDeliveryStatusRequestDTO request) {
         Delivery delivery = getDelivery(deliveryId);
-        
-        // Verify rider owns this delivery
-        if (!riderId.equals(delivery.getRiderId())) {
-            throw new IllegalArgumentException(
-                "Rider not assigned to this delivery");
-        }
-        
-        // Map status to trigger and fire FSM
-        switch (request.getStatus()) {
-            case "REACHED_RESTAURANT":
-                riderReachedRestaurant(deliveryId);
-                break;
-            case "PICKED_UP":
-                riderPickedUpOrder(deliveryId);
-                break;
-            case "OUT_FOR_DELIVERY":
-                // Already handled in pickup
-                break;
-            case "DELIVERED":
-                riderDeliveredOrder(deliveryId);
-                break;
-        }
-        
-        return getDeliveryDTO(deliveryId);
+        verifyRiderOwnsDelivery(delivery, riderId);
+
+        // Map status to FSM action
+        Delivery saved = switch (request.getStatus().toUpperCase()) {
+            case "REACHED_RESTAURANT" -> riderReachedRestaurant(deliveryId, riderId);
+            case "PICKED_UP" -> riderPickedUpOrder(deliveryId, riderId);
+            case "DELIVERED" -> riderDeliveredOrder(deliveryId, riderId);
+            default -> throw new IllegalArgumentException("Unknown status: " + request.getStatus());
+        };
+
+        return toDTO(saved);
     }
-    
+
+    // ========== DTO Methods ==========
+
     /**
      * Get delivery as DTO
      */
     public DeliveryResponseDTO getDeliveryDTO(UUID deliveryId) {
-        Delivery delivery = getDelivery(deliveryId);
-        return toDTO(delivery);
+        return toDTO(getDelivery(deliveryId));
     }
-    
+
     /**
      * Get delivery by order ID as DTO
      */
     public DeliveryResponseDTO getDeliveryByOrderIdDTO(UUID orderId) {
-        Delivery delivery = getDeliveryByOrderId(orderId);
-        return toDTO(delivery);
+        return toDTO(getDeliveryByOrderId(orderId));
     }
-    
+
     /**
      * Get rider location for delivery
      */
     public LocationDTO getRiderLocationForDelivery(UUID deliveryId) {
         Delivery delivery = getDelivery(deliveryId);
-        
+
         if (delivery.getRiderId() == null) {
             throw new IllegalArgumentException("No rider assigned to this delivery");
         }
-        
+
         Rider rider = riderRepository.findById(delivery.getRiderId())
-            .orElseThrow(() -> new IllegalArgumentException("Rider not found"));
-        
+                .orElseThrow(() -> new IllegalArgumentException("Rider not found"));
+
         if (rider.getCurrentLocation() == null) {
             throw new IllegalArgumentException("Rider location not available");
         }
-        
+
         return LocationDTO.builder()
-            .latitude(rider.getCurrentLocation().getY())
-            .longitude(rider.getCurrentLocation().getX())
-            .build();
+                .latitude(rider.getCurrentLocation().getY())
+                .longitude(rider.getCurrentLocation().getX())
+                .build();
     }
-    
-    /**
-     * Helper: Convert Delivery to DTO
-     */
+
+    // ========== Helper Methods ==========
+
+    private void verifyRiderOwnsDelivery(Delivery delivery, UUID riderId) {
+        if (riderId != null && !riderId.equals(delivery.getRiderId())) {
+            throw new IllegalArgumentException("Rider not assigned to this delivery");
+        }
+    }
+
     private DeliveryResponseDTO toDTO(Delivery delivery) {
         return DeliveryResponseDTO.builder()
-            .deliveryId(delivery.getDeliveryId())
-            .orderId(delivery.getOrderId())
-            .riderId(delivery.getRiderId())
-            .state(delivery.getState())
-            .deliveryFee(delivery.getDeliveryFee())
-            .riderAssignedAt(delivery.getRiderAssignedAt())
-            .riderAcceptedAt(delivery.getRiderAcceptedAt())
-            .reachedRestaurantAt(delivery.getReachedRestaurantAt())
-            .pickedUpAt(delivery.getPickedUpAt())
-            .deliveredAt(delivery.getDeliveredAt())
-            .failedAt(delivery.getFailedAt())
-            .failureReason(delivery.getFailureReason())
-            .restaurantWaitTimeMinutes(delivery.getRestaurantWaitTimeMinutes())
-            .totalDeliveryTimeMinutes(delivery.getTotalDeliveryTimeMinutes())
-            .createdAt(delivery.getCreatedAt())
-            .updatedAt(delivery.getUpdatedAt())
-            .build();
+                .deliveryId(delivery.getDeliveryId())
+                .orderId(delivery.getOrderId())
+                .riderId(delivery.getRiderId())
+                .state(delivery.getState())
+                .deliveryFee(delivery.getDeliveryFee())
+                .riderAssignedAt(delivery.getRiderAssignedAt())
+                .riderAcceptedAt(delivery.getRiderAcceptedAt())
+                .reachedRestaurantAt(delivery.getReachedRestaurantAt())
+                .pickedUpAt(delivery.getPickedUpAt())
+                .deliveredAt(delivery.getDeliveredAt())
+                .failedAt(delivery.getFailedAt())
+                .failureReason(delivery.getFailureReason())
+                .restaurantWaitTimeMinutes(delivery.getRestaurantWaitTimeMinutes())
+                .totalDeliveryTimeMinutes(delivery.getTotalDeliveryTimeMinutes())
+                .createdAt(delivery.getCreatedAt())
+                .updatedAt(delivery.getUpdatedAt())
+                .build();
     }
 }

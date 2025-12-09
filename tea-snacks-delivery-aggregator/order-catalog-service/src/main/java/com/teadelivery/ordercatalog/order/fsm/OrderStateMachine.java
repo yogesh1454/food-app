@@ -3,6 +3,7 @@ package com.teadelivery.ordercatalog.order.fsm;
 import com.github.oxo42.stateless4j.StateMachine;
 import com.github.oxo42.stateless4j.StateMachineConfig;
 import com.teadelivery.ordercatalog.common.fsm.EventPublisher;
+import com.teadelivery.ordercatalog.common.util.GeometryUtils;
 import com.teadelivery.ordercatalog.delivery.service.DeliveryService;
 import com.teadelivery.ordercatalog.menu.service.MenuService;
 import com.teadelivery.ordercatalog.notification.service.NotificationService;
@@ -15,6 +16,7 @@ import com.teadelivery.ordercatalog.order.repository.OrderStateAuditRepository;
 import com.teadelivery.ordercatalog.order.service.OrderTimeoutService;
 import com.teadelivery.ordercatalog.order.service.OrderValidationService;
 import com.teadelivery.ordercatalog.payment.service.PaymentService;
+import com.teadelivery.ordercatalog.vendor.repository.VendorBranchRepository;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -59,6 +61,7 @@ public class OrderStateMachine {
     private final PaymentService paymentService;
     private final OrderValidationService validationService;
     private final MenuService menuService;
+    private final VendorBranchRepository vendorBranchRepository;
 
     // Track previous state for audit
     private OrderState previousState;
@@ -83,7 +86,8 @@ public class OrderStateMachine {
             DeliveryService deliveryService,
             PaymentService paymentService,
             OrderValidationService validationService,
-            MenuService menuService) {
+            MenuService menuService,
+            VendorBranchRepository vendorBranchRepository) {
         this.order = order;
         this.orderRepository = orderRepository;
         this.auditRepository = auditRepository;
@@ -95,6 +99,7 @@ public class OrderStateMachine {
         this.paymentService = paymentService;
         this.validationService = validationService;
         this.menuService = menuService;
+        this.vendorBranchRepository = vendorBranchRepository;
 
         // Initialize FSM with order's current state
         this.sm = new StateMachine<>(order.getState(), createConfig());
@@ -259,12 +264,9 @@ public class OrderStateMachine {
                 order.getOrderId(),
                 "Your food is ready! Finding a delivery partner...");
 
-        // Trigger delivery assignment
-        try {
-            deliveryService.startRiderSearchByOrderId(order.getOrderId());
-        } catch (Exception e) {
-            log.error("Failed to start rider search for order: {}", order.getOrderId(), e);
-        }
+        // NOTE: Delivery creation and rider search are triggered asynchronously
+        // via the OrderEventSqsConsumer when this state change event is published.
+        // Do NOT call deliveryService here to avoid race conditions.
 
         order.updateStateTimestamp(OrderState.READY_FOR_PICKUP);
     }
@@ -581,13 +583,12 @@ public class OrderStateMachine {
         try {
             // Use the static factory method from OrderStateAudit
             OrderStateAudit audit = OrderStateAudit.create(
-                order.getOrderId(),
-                fromState != null ? fromState.name() : null,
-                toState.name(),
-                action,  // triggerName
-                actorId != null ? actorId : order.getCustomerId(),
-                actorType != null ? actorType : "SYSTEM"
-            );
+                    order.getOrderId(),
+                    fromState != null ? fromState.name() : null,
+                    toState.name(),
+                    action, // triggerName
+                    actorId != null ? actorId : order.getCustomerId(),
+                    actorType != null ? actorType : "SYSTEM");
 
             auditRepository.save(audit);
         } catch (Exception e) {
@@ -597,6 +598,36 @@ public class OrderStateMachine {
 
     private void publishStateChange(OrderState fromState, OrderState toState) {
         try {
+            // Build enhanced metadata with location info for delivery creation
+            Map<String, Object> enrichedMetadata = new HashMap<>();
+            if (order.getMetadata() != null) {
+                enrichedMetadata.putAll(order.getMetadata());
+            }
+
+            // For READY_FOR_PICKUP state, add pickup and delivery location data
+            if (toState == OrderState.READY_FOR_PICKUP) {
+                // Get pickup location from Order's PostGIS Point geometry
+                if (order.getPickupLocation() != null) {
+                    String pickupLocationJson = GeometryUtils.toJson(order.getPickupLocation());
+                    enrichedMetadata.put("pickupLocation", pickupLocationJson);
+                    log.debug("Added pickup location for order {}: {}", order.getOrderId(), pickupLocationJson);
+                } else {
+                    log.warn("Order {} missing pickup location", order.getOrderId());
+                }
+
+                // Get delivery location from Order's PostGIS Point geometry
+                if (order.getDeliveryLocation() != null) {
+                    String deliveryLocationJson = GeometryUtils.toJson(order.getDeliveryLocation());
+                    enrichedMetadata.put("deliveryLocation", deliveryLocationJson);
+                    log.debug("Added delivery location for order {}: {}", order.getOrderId(), deliveryLocationJson);
+                } else {
+                    log.warn("Order {} missing delivery location", order.getOrderId());
+                }
+
+                // Add delivery fee
+                enrichedMetadata.put("deliveryFee", order.getDeliveryCharges());
+            }
+
             eventPublisher.publishOrderStateChange(
                     order.getOrderId(),
                     fromState != null ? fromState.name() : null,
@@ -604,7 +635,7 @@ public class OrderStateMachine {
                     null,
                     order.getCustomerId(),
                     null,
-                    order.getMetadata());
+                    enrichedMetadata);
         } catch (Exception e) {
             log.error("Failed to publish state change for order: {}", order.getOrderId(), e);
         }

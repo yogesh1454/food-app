@@ -151,7 +151,6 @@ public class BranchOnboardingService {
         if (request.getOperatingHours() != null) {
             branch.setOperatingHours(request.getOperatingHours());
         }
-
         VendorBranch updatedBranch = branchRepository.save(branch);
 
         // Publish search index event
@@ -161,6 +160,62 @@ public class BranchOnboardingService {
 
         log.info("Branch updated: {}", branchId);
         return BranchMapper.toResponse(updatedBranch);
+    }
+
+    /**
+     * Activate a branch to make it visible in search results for customers.
+     * This allows customers to browse and place orders from this branch.
+     */
+    @Transactional
+    public BranchResponse activateBranch(Long branchId, UUID requestingUserId) {
+        log.info("Activating branch: {}", branchId);
+
+        VendorBranch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
+        if (!branch.getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to activate this branch");
+        }
+
+        branch.setIsActive(true);
+        branch.setIsOpen(true);
+        branchRepository.save(branch);
+
+        // Publish search index event to add branch to search results
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorUpdated(branch);
+        }
+
+        log.info("Branch activated: {}", branchId);
+        return BranchMapper.toResponse(branch);
+    }
+
+    /**
+     * Deactivate a branch to remove it from search results.
+     * Customers will no longer see this branch while browsing.
+     */
+    @Transactional
+    public BranchResponse deactivateBranch(Long branchId, UUID requestingUserId) {
+        log.info("Deactivating branch: {}", branchId);
+
+        VendorBranch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
+        if (!branch.getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to deactivate this branch");
+        }
+
+        branch.setIsActive(false);
+        branch.setIsOpen(false); // Also close the branch when deactivating
+        branchRepository.save(branch);
+
+        // Publish search index event to remove branch from search results
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorUpdated(branch);
+        }
+
+        log.info("Branch deactivated: {}", branchId);
+        return BranchMapper.toResponse(branch);
     }
 
     @Transactional

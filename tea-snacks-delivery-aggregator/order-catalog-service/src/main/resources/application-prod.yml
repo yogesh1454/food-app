@@ -53,13 +53,17 @@ spring:
 # Feature flags
 features:
   kafka:
-    enabled: false  # Kafka disabled for now
+    enabled: false  # Kafka disabled - using AWS SNS/SQS instead
   sns:
     search-sync:
       enabled: true   # Enable SNS publishing for search sync
+    order-delivery-events:
+      enabled: true   # Enable SNS publishing for Order/Delivery events
   sqs:
     search-sync:
       enabled: true   # Enable SQS consuming for search sync
+    order-delivery-events:
+      enabled: true   # Enable SQS consuming for Order/Delivery events
   search:
     bypass-geospatial: true  # DEVELOPMENT ONLY: Skip radius filtering
 
@@ -69,9 +73,13 @@ aws:
   sns:
     topics:
       search-index-events: arn:aws:sns:us-east-1:017654360674:nashtto-search-index-events
+      order-events: arn:aws:sns:us-east-1:017654360674:nashtto-order-events
+      delivery-events: arn:aws:sns:us-east-1:017654360674:nashtto-delivery-events
   sqs:
     queues:
       search-index: nashtto-search-index-queue
+      order-events-for-delivery: nashtto-order-events-for-delivery
+      delivery-events-for-order: nashtto-delivery-events-for-order
 
 management:
   endpoints:
@@ -113,8 +121,8 @@ springdoc:
 logging:
   level:
     com.teadelivery: INFO
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
   file:
     name: /opt/nashtto/logs/application.log
 

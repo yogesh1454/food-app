@@ -45,28 +45,37 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-# Feature flags
+# Feature flags (LOCAL DEVELOPMENT)
 features:
   kafka:
-    enabled: false  # Set to true when Kafka is available
+    enabled: false  # Kafka disabled - using AWS SNS/SQS
   sns:
     search-sync:
-      enabled: true   # Enable SNS publishing for search sync
+      enabled: true  # Disable SNS for local development (no AWS access)
+    order-delivery-events:
+      enabled: true  # Disable for local development
   sqs:
     search-sync:
-      enabled: true   # Enable SQS consuming for search sync
+      enabled: true  # Disable SQS for local development
+    order-delivery-events:
+      enabled: true  # Disable for local development
   search:
     bypass-geospatial: true  # DEVELOPMENT ONLY: Skip radius filtering
 
-# AWS Configuration (for local testing with real AWS)
+# AWS Configuration (for local testing with real AWS via SSH tunnel)
+# Set features.sns/sqs.*.enabled=true to test with real AWS
 aws:
   region: us-east-1
   sns:
     topics:
       search-index-events: arn:aws:sns:us-east-1:017654360674:nashtto-search-index-events
+      order-events: arn:aws:sns:us-east-1:017654360674:nashtto-order-events
+      delivery-events: arn:aws:sns:us-east-1:017654360674:nashtto-delivery-events
   sqs:
     queues:
       search-index: nashtto-search-index-queue
+      order-events-for-delivery: nashtto-order-events-for-delivery
+      delivery-events-for-order: nashtto-delivery-events-for-order
 
 management:
   endpoints:
@@ -108,8 +117,8 @@ springdoc:
 logging:
   level:
     com.teadelivery: INFO
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
 
 # Order timeout configuration
 order:
