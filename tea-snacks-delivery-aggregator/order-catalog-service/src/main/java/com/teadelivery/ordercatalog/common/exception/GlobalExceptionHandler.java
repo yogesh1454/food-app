@@ -1,6 +1,7 @@
 package com.teadelivery.ordercatalog.common.exception;
 
-import com.teadelivery.ordercatalog.order.checkout.dto.CheckoutResponse;
+import com.teadelivery.ordercatalog.order.checkout.model.CheckoutSessionStatus;
+import com.teadelivery.ordercatalog.order.dto.OrderDetailsResponse;
 import com.teadelivery.ordercatalog.order.checkout.exception.CheckoutSessionNotFoundException;
 import com.teadelivery.ordercatalog.order.checkout.exception.CheckoutValidationException;
 import lombok.extern.slf4j.Slf4j;
@@ -29,27 +30,27 @@ public class GlobalExceptionHandler {
      * Handle checkout validation exceptions
      */
     @ExceptionHandler(CheckoutValidationException.class)
-    public ResponseEntity<CheckoutResponse> handleCheckoutValidationException(CheckoutValidationException ex) {
+    public ResponseEntity<OrderDetailsResponse> handleCheckoutValidationException(CheckoutValidationException ex) {
         log.warn("Checkout validation failed: {}", ex.getMessage());
-        
+
         // Determine HTTP status based on error codes
         HttpStatus status = HttpStatus.BAD_REQUEST;
         if (ex.getErrors() != null && !ex.getErrors().isEmpty()) {
             String firstErrorCode = ex.getErrors().get(0).getCode();
-            if (firstErrorCode != null && (firstErrorCode.contains("NOT_FOUND") || 
-                firstErrorCode.contains("VENDOR") || firstErrorCode.contains("ITEM"))) {
+            if (firstErrorCode != null && (firstErrorCode.contains("NOT_FOUND") ||
+                    firstErrorCode.contains("VENDOR") || firstErrorCode.contains("ITEM"))) {
                 status = HttpStatus.NOT_FOUND;
             }
         }
-        
-        CheckoutResponse response = CheckoutResponse.builder()
-            .status(CheckoutResponse.CheckoutStatus.VALIDATION_FAILED)
-            .errors(ex.getErrors())
-            .build();
-            
+
+        OrderDetailsResponse response = OrderDetailsResponse.builder()
+                .status(CheckoutSessionStatus.VALIDATION_FAILED)
+                .errors(ex.getErrors())
+                .build();
+
         return ResponseEntity.status(status).body(response);
     }
-    
+
     /**
      * Handle checkout session not found exceptions
      */
@@ -58,12 +59,12 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleCheckoutSessionNotFound(CheckoutSessionNotFoundException ex, WebRequest request) {
         log.warn("Checkout session not found: {}", ex.getMessage());
         return ErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.NOT_FOUND.value())
-            .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-            .message(ex.getMessage())
-            .path(request.getDescription(false).replace("uri=", ""))
-            .build();
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
     }
 
     /**
@@ -169,7 +170,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ValidationErrorResponse handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         log.error("Validation failed: {}", ex.getMessage());
-        
+
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();

@@ -13,8 +13,10 @@ import com.teadelivery.ordercatalog.vendor.model.VendorBranch;
 import com.teadelivery.ordercatalog.vendor.repository.BranchDocumentRepository;
 import com.teadelivery.ordercatalog.vendor.repository.VendorBranchRepository;
 import com.teadelivery.ordercatalog.vendor.repository.VendorRepository;
+import com.teadelivery.ordercatalog.search.sync.SearchIndexEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,30 +27,33 @@ import java.util.*;
 @Slf4j
 @RequiredArgsConstructor
 public class BranchOnboardingService {
-    
+
     private final VendorRepository vendorRepository;
     private final VendorBranchRepository branchRepository;
     private final BranchDocumentRepository documentRepository;
-    
-    private static final String[] REQUIRED_DOCUMENTS = {"FSSAI", "SHOP_ACT", "GST", "ID_PROOF"};
-    
+
+    @Autowired(required = false)
+    private SearchIndexEventPublisher searchEventPublisher;
+
+    private static final String[] REQUIRED_DOCUMENTS = { "FSSAI", "SHOP_ACT", "GST", "ID_PROOF" };
+
     @Transactional
     public BranchResponse createBranch(Long vendorId, BranchCreateRequest request, UUID requestingUserId) {
         log.info("Creating branch for vendor: {}", vendorId);
-        
+
         Vendor vendor = vendorRepository.findById(vendorId)
-            .orElseThrow(() -> new VendorNotFoundException("Vendor not found"));
-        
+                .orElseThrow(() -> new VendorNotFoundException("Vendor not found"));
+
         if (!vendor.getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to create branch for this vendor");
         }
-        
+
         VendorBranch branch = new VendorBranch();
         branch.setVendor(vendor);
         branch.setBranchName(request.getBranchName());
         // Use provided branchCode or generate one
-        branch.setBranchCode(request.getBranchCode() != null ? 
-            request.getBranchCode() : generateBranchCode(vendor.getVendorId(), request.getCity()));
+        branch.setBranchCode(request.getBranchCode() != null ? request.getBranchCode()
+                : generateBranchCode(vendor.getVendorId(), request.getCity()));
         branch.setDisplayName(request.getDisplayName());
         branch.setAddress(request.getAddress());
         branch.setLatitude(request.getLatitude());
@@ -61,44 +66,51 @@ public class BranchOnboardingService {
         branch.setOnboardingStatus("PENDING");
         branch.setIsActive(false);
         branch.setIsOpen(false);
-        
+
         // Set preferences and operating hours from request or use defaults
         branch.setPreferences(request.getPreferences() != null ? request.getPreferences() : getDefaultPreferences());
-        branch.setOperatingHours(request.getOperatingHours() != null ? request.getOperatingHours() : getDefaultOperatingHours());
+        branch.setOperatingHours(
+                request.getOperatingHours() != null ? request.getOperatingHours() : getDefaultOperatingHours());
         branch.setImages(new HashMap<>());
         branch.setMetadata(new HashMap<>());
-        
+
         VendorBranch savedBranch = branchRepository.save(branch);
-        
+
+        // Publish search index event
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorCreated(savedBranch);
+        }
+
         log.info("Branch created: {}", savedBranch.getBranchId());
         return BranchMapper.toResponse(savedBranch);
     }
-    
+
     @Transactional(readOnly = true)
     public BranchResponse getBranch(Long branchId) {
         log.info("Fetching branch: {}", branchId);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         return BranchMapper.toResponse(branch);
     }
-    
+
     @Transactional
-    public BranchResponse updateBranch(Long vendorId, Long branchId, BranchCreateRequest request, UUID requestingUserId) {
+    public BranchResponse updateBranch(Long vendorId, Long branchId, BranchCreateRequest request,
+            UUID requestingUserId) {
         log.info("Updating branch: vendorId={}, branchId={}", vendorId, branchId);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getVendorId().equals(vendorId)) {
             throw new UnauthorizedException("Branch does not belong to this vendor");
         }
-        
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to update this branch");
         }
-        
+
         // Update fields if provided
         if (request.getBranchName() != null) {
             branch.setBranchName(request.getBranchName());
@@ -139,26 +151,86 @@ public class BranchOnboardingService {
         if (request.getOperatingHours() != null) {
             branch.setOperatingHours(request.getOperatingHours());
         }
-        
         VendorBranch updatedBranch = branchRepository.save(branch);
-        
+
+        // Publish search index event
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorUpdated(updatedBranch);
+        }
+
         log.info("Branch updated: {}", branchId);
         return BranchMapper.toResponse(updatedBranch);
     }
-    
+
+    /**
+     * Activate a branch to make it visible in search results for customers.
+     * This allows customers to browse and place orders from this branch.
+     */
     @Transactional
-    public DocumentResponse uploadDocument(Long branchId, String documentType, String documentNumber, 
-                                          LocalDate issueDate, LocalDate expiryDate, 
-                                          String documentUrl, UUID requestingUserId) {
-        log.info("Uploading document for branch: {}", branchId);
-        
+    public BranchResponse activateBranch(Long branchId, UUID requestingUserId) {
+        log.info("Activating branch: {}", branchId);
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
+        if (!branch.getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to activate this branch");
+        }
+
+        branch.setIsActive(true);
+        branch.setIsOpen(true);
+        branchRepository.save(branch);
+
+        // Publish search index event to add branch to search results
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorUpdated(branch);
+        }
+
+        log.info("Branch activated: {}", branchId);
+        return BranchMapper.toResponse(branch);
+    }
+
+    /**
+     * Deactivate a branch to remove it from search results.
+     * Customers will no longer see this branch while browsing.
+     */
+    @Transactional
+    public BranchResponse deactivateBranch(Long branchId, UUID requestingUserId) {
+        log.info("Deactivating branch: {}", branchId);
+
+        VendorBranch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
+        if (!branch.getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to deactivate this branch");
+        }
+
+        branch.setIsActive(false);
+        branch.setIsOpen(false); // Also close the branch when deactivating
+        branchRepository.save(branch);
+
+        // Publish search index event to remove branch from search results
+        if (searchEventPublisher != null) {
+            searchEventPublisher.publishVendorUpdated(branch);
+        }
+
+        log.info("Branch deactivated: {}", branchId);
+        return BranchMapper.toResponse(branch);
+    }
+
+    @Transactional
+    public DocumentResponse uploadDocument(Long branchId, String documentType, String documentNumber,
+            LocalDate issueDate, LocalDate expiryDate,
+            String documentUrl, UUID requestingUserId) {
+        log.info("Uploading document for branch: {}", branchId);
+
+        VendorBranch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to upload documents for this branch");
         }
-        
+
         BranchDocument document = new BranchDocument();
         document.setBranch(branch);
         document.setDocumentType(documentType);
@@ -167,85 +239,84 @@ public class BranchOnboardingService {
         document.setIssueDate(issueDate);
         document.setExpiryDate(expiryDate);
         document.setVerificationStatus("PENDING");
-        
+
         BranchDocument savedDocument = documentRepository.save(document);
-        
+
         // Check if all required documents uploaded
         if (allRequiredDocumentsUploaded(branch)) {
             branch.setOnboardingStatus("DOCUMENTS_SUBMITTED");
             branchRepository.save(branch);
             log.info("All required documents uploaded for branch: {}", branchId);
         }
-        
+
         return BranchMapper.toDocumentResponse(savedDocument);
     }
-    
+
     @Transactional(readOnly = true)
     public List<DocumentResponse> getDocuments(Long branchId, UUID requestingUserId) {
         log.info("Fetching documents for branch: {}", branchId);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to view documents for this branch");
         }
-        
+
         List<BranchDocument> documents = documentRepository.findByBranch(branch);
         return documents.stream()
-            .map(BranchMapper::toDocumentResponse)
-            .toList();
+                .map(BranchMapper::toDocumentResponse)
+                .toList();
     }
-    
+
     @Transactional
     public BranchResponse updatePreferences(Long branchId, Map<String, Object> preferences, UUID requestingUserId) {
         log.info("Updating preferences for branch: {}", branchId);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to update preferences for this branch");
         }
-        
+
         branch.setPreferences(preferences);
         VendorBranch updatedBranch = branchRepository.save(branch);
-        
+
         log.info("Preferences updated for branch: {}", branchId);
         return BranchMapper.toResponse(updatedBranch);
     }
-    
+
     @Transactional(readOnly = true)
     public Map<String, Object> getOnboardingStatus(Long branchId, UUID requestingUserId) {
         log.info("Fetching onboarding status for branch: {}", branchId);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to view status for this branch");
         }
-        
+
         Map<String, Object> status = new HashMap<>();
         status.put("branchId", branch.getBranchId());
         status.put("onboardingStatus", branch.getOnboardingStatus());
         status.put("isActive", branch.getIsActive());
-        
+
         List<BranchDocument> documents = documentRepository.findByBranch(branch);
         status.put("totalDocuments", documents.size());
         status.put("approvedDocuments", documents.stream()
-            .filter(d -> "APPROVED".equals(d.getVerificationStatus()))
-            .count());
+                .filter(d -> "APPROVED".equals(d.getVerificationStatus()))
+                .count());
         status.put("documents", documents.stream()
-            .map(d -> Map.of(
-                "type", d.getDocumentType(),
-                "status", d.getVerificationStatus()
-            ))
-            .toList());
-        
+                .map(d -> Map.of(
+                        "type", d.getDocumentType(),
+                        "status", d.getVerificationStatus()))
+                .toList());
+
         return status;
     }
-    
+
     private String generateBranchCode(Long vendorId, String city) {
         // Pad vendorId to ensure minimum 4 characters for consistent branch codes
         String vendorIdStr = String.format("%04d", vendorId);
@@ -254,13 +325,13 @@ public class BranchOnboardingService {
         long timestamp = System.currentTimeMillis() % 10000;
         return vendorPrefix + "-" + cityPrefix + "-" + timestamp;
     }
-    
+
     private boolean allRequiredDocumentsUploaded(VendorBranch branch) {
         List<BranchDocument> documents = documentRepository.findByBranch(branch);
         Set<String> uploadedTypes = documents.stream()
-            .map(BranchDocument::getDocumentType)
-            .collect(java.util.stream.Collectors.toSet());
-        
+                .map(BranchDocument::getDocumentType)
+                .collect(java.util.stream.Collectors.toSet());
+
         for (String required : REQUIRED_DOCUMENTS) {
             if (!uploadedTypes.contains(required)) {
                 return false;
@@ -268,7 +339,7 @@ public class BranchOnboardingService {
         }
         return true;
     }
-    
+
     private Map<String, Object> getDefaultPreferences() {
         Map<String, Object> preferences = new HashMap<>();
         preferences.put("autoAcceptOrders", false);
@@ -281,79 +352,80 @@ public class BranchOnboardingService {
         preferences.put("commissionRate", 18.0);
         return preferences;
     }
-    
+
     private Map<String, Object> getDefaultOperatingHours() {
         Map<String, Object> hours = new HashMap<>();
         Map<String, String> dayHours = new HashMap<>();
         dayHours.put("open", "09:00");
         dayHours.put("close", "22:00");
-        
-        for (String day : new String[]{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}) {
+
+        for (String day : new String[] { "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY",
+                "SUNDAY" }) {
             hours.put(day, dayHours);
         }
         return hours;
     }
-    
+
     @Transactional
     public BranchResponse uploadBranchImage(Long branchId, String imageType, String imageUrl, UUID requestingUserId) {
         log.info("Uploading branch image: branchId={}, imageType={}", branchId, imageType);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to upload images for this branch");
         }
-        
+
         // Update images
         if (branch.getImages() == null) {
             branch.setImages(new HashMap<>());
         }
-        
+
         branch.getImages().put(imageType, imageUrl);
-        
+
         VendorBranch updatedBranch = branchRepository.save(branch);
-        
+
         log.info("Branch image uploaded: branchId={}, imageType={}", branchId, imageType);
         return BranchMapper.toResponse(updatedBranch);
     }
-    
+
     @Transactional
     public BranchResponse uploadBranchDocument(Long branchId, String documentType, String documentNumber,
-                                              String issueDate, String expiryDate, String documentUrl, UUID requestingUserId) {
+            String issueDate, String expiryDate, String documentUrl, UUID requestingUserId) {
         log.info("Uploading branch document: branchId={}, documentType={}", branchId, documentType);
-        
+
         VendorBranch branch = branchRepository.findById(branchId)
-            .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
-        
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
         if (!branch.getVendor().getUserId().equals(requestingUserId)) {
             throw new UnauthorizedException("Not authorized to upload documents for this branch");
         }
-        
+
         BranchDocument document = new BranchDocument();
         document.setBranch(branch);
         document.setDocumentType(documentType);
         document.setDocumentUrl(documentUrl);
         document.setDocumentNumber(documentNumber);
-        
+
         if (issueDate != null && !issueDate.isEmpty()) {
             document.setIssueDate(LocalDate.parse(issueDate));
         }
         if (expiryDate != null && !expiryDate.isEmpty()) {
             document.setExpiryDate(LocalDate.parse(expiryDate));
         }
-        
+
         document.setVerificationStatus("PENDING");
-        
+
         documentRepository.save(document);
-        
+
         // Check if all required documents uploaded
         if (allRequiredDocumentsUploaded(branch)) {
             branch.setOnboardingStatus("DOCUMENTS_SUBMITTED");
             branchRepository.save(branch);
             log.info("All required documents uploaded for branch: {}", branchId);
         }
-        
+
         log.info("Branch document uploaded: branchId={}, documentType={}", branchId, documentType);
         return BranchMapper.toResponse(branch);
     }

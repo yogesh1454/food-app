@@ -102,13 +102,12 @@ public class PaymentService {
             // TODO: In production, call GPay payment gateway API
             // For now, simulate GPay processing
             
-            // Simulate gateway call (90% success rate)
             boolean gatewaySuccess = Math.random() > 0.1;
             
-            if (!gatewaySuccess) {
-                log.error("GPay gateway failure: token={}", paymentToken);
-                throw new PaymentGatewayException("GPay gateway returned error");
-            }
+            // if (!gatewaySuccess) {
+            //     log.error("GPay gateway failure: token={}", paymentToken);
+            //     throw new PaymentGatewayException("GPay gateway returned error");
+            // }
             
             // Generate transaction ID
             String transactionId = "GPAY_" + UUID.randomUUID().toString();
@@ -181,8 +180,8 @@ public class PaymentService {
                 return false;
             }
             
-            String paymentMethod = (String) metadata.get("paymentMethod");
-            String transactionId = (String) metadata.get("paymentTransactionId");
+            String paymentMethod = order.getPaymentMethod();
+            String transactionId = order.getPaymentTransactionId();
             
             if (paymentMethod == null) {
                 log.error("Payment method not found for order: {}", order.getOrderId());

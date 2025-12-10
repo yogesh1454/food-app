@@ -15,13 +15,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class VendorService {
-    
+
     private final VendorRepository vendorRepository;
     
     @Transactional
@@ -55,19 +56,22 @@ public class VendorService {
         vendor.setTags(new String[]{});
         
         Vendor savedVendor = vendorRepository.save(vendor);
-        
+
         log.info("Vendor registered: {}", savedVendor.getVendorId());
-        return VendorMapper.toResponse(savedVendor);
+        return VendorMapper.toResponseWithBranches(savedVendor, List.of());
     }
     
     @Transactional(readOnly = true)
     public VendorResponse getVendor(Long vendorId) {
-        log.info("Fetching vendor: {}", vendorId);
-        
-        Vendor vendor = vendorRepository.findById(vendorId)
+        log.info("Fetching vendor with branches: {}", vendorId);
+
+        // Fetch vendor with active branches in a single query using JOIN FETCH
+        Vendor vendor = vendorRepository.findByIdWithActiveBranches(vendorId)
             .orElseThrow(() -> new VendorNotFoundException("Vendor not found"));
-        
-        return VendorMapper.toResponse(vendor);
+
+        log.debug("Vendor {} has {} active branches", vendorId, vendor.getBranches().size());
+
+        return VendorMapper.toResponseWithBranches(vendor, vendor.getBranches());
     }
     
     @Transactional
@@ -100,9 +104,13 @@ public class VendorService {
         }
         
         Vendor updatedVendor = vendorRepository.save(vendor);
-        
+
+        // Fetch vendor with active branches in a single query
+        Vendor vendorWithBranches = vendorRepository.findByIdWithActiveBranches(vendorId)
+            .orElse(updatedVendor); // Fallback to saved vendor if no branches
+
         log.info("Vendor updated: {}", vendorId);
-        return VendorMapper.toResponse(updatedVendor);
+        return VendorMapper.toResponseWithBranches(vendorWithBranches, vendorWithBranches.getBranches());
     }
     
     @Transactional
@@ -125,8 +133,12 @@ public class VendorService {
         vendor.getImages().put(imageType, imageUrl);
         
         Vendor updatedVendor = vendorRepository.save(vendor);
-        
+
+        // Fetch vendor with active branches in a single query
+        Vendor vendorWithBranches = vendorRepository.findByIdWithActiveBranches(vendorId)
+            .orElse(updatedVendor); // Fallback to saved vendor if no branches
+
         log.info("Vendor image uploaded: vendorId={}, imageType={}", vendorId, imageType);
-        return VendorMapper.toResponse(updatedVendor);
+        return VendorMapper.toResponseWithBranches(vendorWithBranches, vendorWithBranches.getBranches());
     }
 }

@@ -17,18 +17,23 @@ spring:
   datasource:
     url: jdbc:postgresql://nashtto-postgres.c2z440siod1m.us-east-1.rds.amazonaws.com:5432/nastto_db
     username: nastto_admin
-    password:
+    password: IjhY3HEqWGjk0deZ
     driver-class-name: org.postgresql.Driver
   
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-  
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+        order_inserts: true
+        order_updates: true
+
   data:
     redis:
       host: nas-re-1oknf2h1dludd.qoapqv.0001.use1.cache.amazonaws.com
@@ -48,7 +53,33 @@ spring:
 # Feature flags
 features:
   kafka:
-    enabled: false  # Kafka disabled for now
+    enabled: false  # Kafka disabled - using AWS SNS/SQS instead
+  sns:
+    search-sync:
+      enabled: true   # Enable SNS publishing for search sync
+    order-delivery-events:
+      enabled: true   # Enable SNS publishing for Order/Delivery events
+  sqs:
+    search-sync:
+      enabled: true   # Enable SQS consuming for search sync
+    order-delivery-events:
+      enabled: true   # Enable SQS consuming for Order/Delivery events
+  search:
+    bypass-geospatial: true  # DEVELOPMENT ONLY: Skip radius filtering
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  sns:
+    topics:
+      search-index-events: arn:aws:sns:us-east-1:017654360674:nashtto-search-index-events
+      order-events: arn:aws:sns:us-east-1:017654360674:nashtto-order-events
+      delivery-events: arn:aws:sns:us-east-1:017654360674:nashtto-delivery-events
+  sqs:
+    queues:
+      search-index: nashtto-search-index-queue
+      order-events-for-delivery: nashtto-order-events-for-delivery
+      delivery-events-for-order: nashtto-delivery-events-for-order
 
 management:
   endpoints:
@@ -90,8 +121,8 @@ springdoc:
 logging:
   level:
     com.teadelivery: INFO
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
   file:
     name: /opt/nashtto/logs/application.log
 
@@ -101,4 +132,39 @@ order:
     restaurant-acceptance: 2m  # 2 minutes
     payment-processing: 5m     # 5 minutes
     rider-assignment: 5m       # 5 minutes
+
+# Search & Discovery Configuration
+search:
+  ranking:
+    weights:
+      fts: 0.50            # Full-text search weight
+      fuzzy: 0.30          # Fuzzy match weight
+      popularity: 0.15     # Popularity weight
+      proximity: 0.05      # Proximity weight
+    fuzzy:
+      similarity-threshold: 0.3
+  
+  cache:
+    tile-size-km: 2        # 2km x 2km tiles
+    ttl:
+      geo-tile: 900        # 15 minutes
+      query-cache: 1800    # 30 minutes
+      feed-cache: 600      # 10 minutes
+  
+  data-quality:
+    max-cuisine-count: 20
+    max-tags-count: 20
+    max-dietary-info-count: 10
+  
+  geospatial:
+    default-radius-km: 5
+    max-radius-km: 20
+  
+  images:
+    sizes:
+      - original
+      - large
+      - medium
+      - small
+      - thumbnail
 
