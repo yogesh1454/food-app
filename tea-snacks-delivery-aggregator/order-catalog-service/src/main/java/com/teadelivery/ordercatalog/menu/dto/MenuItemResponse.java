@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class MenuItemResponse {
-    
+
     private Long menuItemId;
     private Long branchId;
     private String name;
@@ -24,7 +24,7 @@ public class MenuItemResponse {
     private String category;
     private Boolean isAvailable;
     private Integer preparationTimeMinutes;
-    private Map<String, Object> images;
+    private MenuItemImages images;
     private Map<String, Object> metadata;
     private String[] tags;
     private LocalDateTime createdAt;

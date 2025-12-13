@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service to sync menu item data to search_menu_items table.
@@ -131,6 +132,26 @@ public class MenuItemSearchIndexService {
 
         // Tags (String[])
         searchMenuItem.setTags(item.getTags());
+
+        // Images (JSONB) - Copy the map structure directly
+        // Structure: { "primary": { "thumbnail": "url", "small": "url", ... },
+        // "gallery_1": {...}, "gallery_2": {...} }
+        if (item.getImages() != null && !item.getImages().isEmpty()) {
+            // Copy the images map directly (same structure as menu_item table)
+            searchMenuItem.setImages(item.getImages());
+
+            // Set primary image URL if available (prefer medium size)
+            Object primaryImageData = item.getImages().get("primary");
+            if (primaryImageData instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> primaryMap = (Map<String, Object>) primaryImageData;
+                // New structure: direct size -> URL mapping
+                String mediumUrl = (String) primaryMap.get("medium");
+                if (mediumUrl != null) {
+                    searchMenuItem.setPrimaryImage(mediumUrl);
+                }
+            }
+        }
 
         // Sync metadata
         searchMenuItem.setLastSyncedAt(Instant.now());

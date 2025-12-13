@@ -1,0 +1,18 @@
+{
+    "name": "nashtto-image-processor",
+    "version": "1.0.0",
+    "description": "Lambda function for processing uploaded images - generates multiple variants",
+    "main": "index.js",
+    "scripts": {
+        "build": "npm install --production && zip -r function.zip .",
+        "deploy": "aws lambda update-function-code --function-name nashtto-image-processor --zip-file fileb://function.zip"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "^3.400.0",
+        "@aws-sdk/client-sqs": "^3.400.0",
+        "sharp": "^0.34.5"
+    },
+    "engines": {
+        "node": ">=20.x"
+    }
+}

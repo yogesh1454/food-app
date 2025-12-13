@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -200,6 +202,45 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+    }
+
+    /**
+     * Handle missing request header exceptions
+     */
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingRequestHeaderException(MissingRequestHeaderException ex, WebRequest request) {
+        log.error("Missing required header: {}", ex.getHeaderName());
+        String message = String.format(
+                "Required request header '%s' is missing. Please include this header in your request.",
+                ex.getHeaderName());
+        return ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(message)
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+    }
+
+    /**
+     * Handle missing request parameter exceptions
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingServletRequestParameterException(MissingServletRequestParameterException ex,
+            WebRequest request) {
+        log.error("Missing required parameter: {}", ex.getParameterName());
+        String message = String.format(
+                "Required request parameter '%s' is missing. Please include this parameter in your request.",
+                ex.getParameterName());
+        return ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(message)
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
     }

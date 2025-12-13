@@ -1,0 +1,619 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Nashtto Image Processing Infrastructure
+  S3 Buckets, CloudFront CDN, SQS Queue, Lambda Function (Phase 1)
+  Based on IMAGE_STORAGE_AND_RENDERING_SPECIFICATION_REVISED.md
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nashtto
+    Description: Project name prefix for resources
+  
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment environment
+
+  EC2RoleName:
+    Type: String
+    Default: nashtto-ec2-role
+    Description: Name of the existing EC2 IAM role to attach S3 permissions
+
+  CDNDomainName:
+    Type: String
+    Default: ""
+    Description: Custom domain for CloudFront (leave empty for default CloudFront domain)
+
+  EnableLambdaProcessing:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable Lambda image processing (Phase 2). Set to false for Phase 1.
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref CDNDomainName, ""]]
+  LambdaEnabled: !Equals [!Ref EnableLambdaProcessing, "true"]
+
+Resources:
+  # ============================================================
+  #                    S3 BUCKETS
+  # ============================================================
+
+  # ============ Media Bucket (Images) ============
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: ImageProcessingQueuePolicy
+    Properties:
+      BucketName: !Sub ${ProjectName}-media-${Environment}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3600
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Queue: !GetAtt ImageProcessingQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: originals/
+      LifecycleConfiguration:
+        Rules:
+          # Move unused originals to Glacier after 90 days
+          - Id: ArchiveOriginals
+            Status: Enabled
+            Prefix: originals/
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+          # Delete incomplete multipart uploads after 7 days
+          - Id: CleanupIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          # Delete non-current versions after 30 days
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Image Storage
+
+  # ============ Documents Bucket (Private - FSSAI, GST, etc.) ============
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${ProjectName}-documents-${Environment}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Private Documents
+
+  # ============ Media Bucket Policy (CloudFront OAC Access) ============
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Allow CloudFront OAC to read from processed/ folder
+          - Sid: AllowCloudFrontOACRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${MediaBucket.Arn}/processed/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  # ============================================================
+  #                    CLOUDFRONT CDN
+  # ============================================================
+
+  # ============ CloudFront Origin Access Control ============
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${ProjectName}-media-oac-${Environment}
+        Description: OAC for Nashtto Media S3 Bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ============ CloudFront Distribution ============
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub Nashtto CDN - ${Environment}
+        DefaultRootObject: ""
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200  # Asia, Europe, North America
+        
+        Origins:
+          - Id: S3MediaOrigin
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            OriginPath: /processed
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !Ref CloudFrontOAC
+
+        DefaultCacheBehavior:
+          TargetOriginId: S3MediaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          # Managed Cache Policy: CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Managed Origin Request Policy: CORS-S3Origin
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
+
+        # Custom error responses - cache errors briefly
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ErrorCachingMinTTL: 60
+          - ErrorCode: 404
+            ErrorCachingMinTTL: 60
+
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============================================================
+  #                    SQS QUEUE (Image Processing)
+  # ============================================================
+
+  # ============ Image Processing Queue ============
+  ImageProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-image-processing-queue-${Environment}
+      VisibilityTimeout: 120  # 2 minutes for Lambda processing
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ImageProcessingDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: Image Processing
+
+  # ============ Dead Letter Queue ============
+  ImageProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-image-processing-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============ SQS Policy (Allow S3 to send messages) ============
+  ImageProcessingQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ImageProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowS3ToSendMessage
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ImageProcessingQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:aws:s3:::${ProjectName}-media-${Environment}-${AWS::AccountId}
+
+  # ============ Image Processing Result Queue ============
+  # Lambda publishes processing results here for backend consumption
+  ImageProcessingResultQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-image-processing-results-${Environment}
+      VisibilityTimeout: 30  # 30 seconds for backend processing
+      MessageRetentionPeriod: 345600  # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ImageProcessingResultDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: Image Processing Results
+
+  # ============ Result Queue Dead Letter Queue ============
+  ImageProcessingResultDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub ${ProjectName}-image-processing-results-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ============================================================
+  #                    IAM POLICIES
+  # ============================================================
+
+  # ============ EC2 Policy for S3 Access ============
+  ImageStorageEC2Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-image-storage-policy-${Environment}
+      Roles:
+        - !Ref EC2RoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # S3 Media Bucket - Full access for backend
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !GetAtt MediaBucket.Arn
+              - !Sub ${MediaBucket.Arn}/*
+          # S3 Documents Bucket - Full access for backend
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !GetAtt DocumentsBucket.Arn
+              - !Sub ${DocumentsBucket.Arn}/*
+          # SQS - Send messages to image processing queue
+          - Effect: Allow
+            Action:
+              - sqs:SendMessage
+              - sqs:GetQueueUrl
+              - sqs:GetQueueAttributes
+            Resource:
+              - !GetAtt ImageProcessingQueue.Arn
+          # CloudFront - Create invalidations
+          - Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+            Resource:
+              - !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  # ============================================================
+  #                    LAMBDA (Phase 2 - Conditional)
+  # ============================================================
+
+  # Lambda Execution Role (only created if Lambda is enabled)
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Condition: LambdaEnabled
+    Properties:
+      RoleName: !Sub ${ProjectName}-image-processor-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ImageProcessorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # S3 Read/Write for processing
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub ${MediaBucket.Arn}/*
+              # SQS Read for consuming messages
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt ImageProcessingQueue.Arn
+              # SQS Write for publishing results
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  - !GetAtt ImageProcessingResultQueue.Arn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Note: Lambda function code will be deployed separately via SAM or manual upload
+  # This template only creates the role and queue
+
+# ============================================================
+#                  CLOUDWATCH ALARMS & MONITORING
+# ============================================================
+
+  # SNS Topic for Alert Notifications
+  AlertNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${ProjectName}-image-processing-alerts-${Environment}
+      DisplayName: "Nashtto Image Processing Alerts"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Lambda Duration Alarm - Monitors Free Tier limit (400,000 GB-seconds/month)
+  # At 512MB = 0.5GB, limit is 800,000 seconds. Alert at 80% = 640,000 seconds
+  LambdaFreeTierAlert:
+    Type: AWS::CloudWatch::Alarm
+    Condition: LambdaEnabled
+    Properties:
+      AlarmName: !Sub ${ProjectName}-lambda-free-tier-warning-${Environment}
+      AlarmDescription: >
+        Lambda execution duration approaching Free Tier limit.
+        At 80% of Free Tier GB-seconds limit (320,000 GB-seconds).
+        Action required to prevent unexpected billing.
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub ${ProjectName}-image-processor-${Environment}
+      Statistic: Sum
+      Period: 86400  # 1 day in seconds
+      EvaluationPeriods: 1
+      Threshold: 640000000  # 640,000 seconds = 80% of 800K limit (for 512MB memory)
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      OKActions:
+        - !Ref AlertNotificationTopic
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Lambda Error Alarm
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: LambdaEnabled
+    Properties:
+      AlarmName: !Sub ${ProjectName}-lambda-errors-${Environment}
+      AlarmDescription: Lambda function errors detected
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Sub ${ProjectName}-image-processor-${Environment}
+      Statistic: Sum
+      Period: 300  # 5 minutes
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Dead Letter Queue Alarm - Failed messages
+  DLQMessagesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-dlq-messages-${Environment}
+      AlarmDescription: Messages detected in Dead Letter Queue - failed image processing jobs
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ImageProcessingDLQ.QueueName
+      Statistic: Sum
+      Period: 300  # 5 minutes
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # SQS Queue Depth Alarm - Messages building up
+  QueueDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-queue-depth-${Environment}
+      AlarmDescription: Image processing queue has too many pending messages
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ImageProcessingQueue.QueueName
+      Statistic: Average
+      Period: 300  # 5 minutes
+      EvaluationPeriods: 3  # 15 minutes of high queue depth
+      Threshold: 100
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # S3 Storage Alarm - Monitor for unexpected growth
+  S3StorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${ProjectName}-s3-storage-${Environment}
+      AlarmDescription: S3 media bucket storage exceeding threshold (50GB)
+      Namespace: AWS/S3
+      MetricName: BucketSizeBytes
+      Dimensions:
+        - Name: BucketName
+          Value: !Ref MediaBucket
+        - Name: StorageType
+          Value: StandardStorage
+      Statistic: Average
+      Period: 86400  # 1 day
+      EvaluationPeriods: 1
+      Threshold: 53687091200  # 50 GB in bytes
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertNotificationTopic
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+# ============================================================
+#                         OUTPUTS
+# ============================================================
+
+Outputs:
+  # -------- S3 Buckets --------
+  MediaBucketName:
+    Description: S3 Bucket name for media (images)
+    Value: !Ref MediaBucket
+    Export:
+      Name: !Sub ${ProjectName}-media-bucket-name
+
+  MediaBucketArn:
+    Description: S3 Bucket ARN for media
+    Value: !GetAtt MediaBucket.Arn
+    Export:
+      Name: !Sub ${ProjectName}-media-bucket-arn
+
+  DocumentsBucketName:
+    Description: S3 Bucket name for private documents
+    Value: !Ref DocumentsBucket
+    Export:
+      Name: !Sub ${ProjectName}-documents-bucket-name
+
+  # -------- CloudFront --------
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub ${ProjectName}-cloudfront-distribution-id
+
+  CloudFrontDomainName:
+    Description: CloudFront Domain Name (CDN URL)
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub ${ProjectName}-cloudfront-domain
+
+  CDNBaseUrl:
+    Description: Full CDN Base URL for images
+    Value: !Sub https://${CloudFrontDistribution.DomainName}
+    Export:
+      Name: !Sub ${ProjectName}-cdn-base-url
+
+  # -------- SQS --------
+  ImageProcessingQueueUrl:
+    Description: SQS Queue URL for image processing
+    Value: !Ref ImageProcessingQueue
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-queue-url
+
+  ImageProcessingQueueArn:
+    Description: SQS Queue ARN for image processing
+    Value: !GetAtt ImageProcessingQueue.Arn
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-queue-arn
+
+  ImageProcessingDLQUrl:
+    Description: Dead Letter Queue URL for failed image processing
+    Value: !Ref ImageProcessingDLQ
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-dlq-url
+
+  ImageProcessingResultQueueUrl:
+    Description: SQS Queue URL for image processing results (Lambda publishes here)
+    Value: !Ref ImageProcessingResultQueue
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-result-queue-url
+
+  ImageProcessingResultQueueArn:
+    Description: SQS Queue ARN for image processing results
+    Value: !GetAtt ImageProcessingResultQueue.Arn
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-result-queue-arn
+
+  ImageProcessingResultQueueName:
+    Description: SQS Queue Name for image processing results (for application.yml)
+    Value: !GetAtt ImageProcessingResultQueue.QueueName
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-result-queue-name
+
+  # -------- Lambda (Conditional) --------
+  LambdaExecutionRoleArn:
+    Condition: LambdaEnabled
+    Description: Lambda Execution Role ARN
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub ${ProjectName}-image-processor-role-arn
+
+  # -------- Alerts --------
+  AlertTopicArn:
+    Description: SNS Topic ARN for image processing alerts (subscribe email addresses to receive notifications)
+    Value: !Ref AlertNotificationTopic
+    Export:
+      Name: !Sub ${ProjectName}-image-processing-alert-topic

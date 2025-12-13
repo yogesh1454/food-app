@@ -1,0 +1,28 @@
+{
+    "name": "image-processor",
+    "version": "1.0.0",
+    "description": "Efficient image variant generator using Sharp.js clone-based pipeline for Tea & Snacks Delivery platform",
+    "main": "process-image.js",
+    "type": "module",
+    "scripts": {
+        "process": "node process-image.js",
+        "demo": "node process-image.js --demo",
+        "test": "node test-processor.js"
+    },
+    "keywords": [
+        "image-processing",
+        "sharp",
+        "webp",
+        "jpeg",
+        "resize",
+        "variants"
+    ],
+    "author": "Engineering Team",
+    "license": "MIT",
+    "dependencies": {
+        "sharp": "^0.33.5"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

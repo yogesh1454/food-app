@@ -3,9 +3,11 @@ package com.teadelivery.ordercatalog.vendor.service;
 import com.teadelivery.ordercatalog.common.exception.BranchNotFoundException;
 import com.teadelivery.ordercatalog.common.exception.UnauthorizedException;
 import com.teadelivery.ordercatalog.common.exception.VendorNotFoundException;
+import com.teadelivery.ordercatalog.common.service.S3StorageService;
 import com.teadelivery.ordercatalog.vendor.dto.BranchCreateRequest;
 import com.teadelivery.ordercatalog.vendor.dto.BranchResponse;
 import com.teadelivery.ordercatalog.vendor.dto.DocumentResponse;
+import com.teadelivery.ordercatalog.vendor.dto.ImageUploadResponse;
 import com.teadelivery.ordercatalog.vendor.mapper.BranchMapper;
 import com.teadelivery.ordercatalog.vendor.model.BranchDocument;
 import com.teadelivery.ordercatalog.vendor.model.Vendor;
@@ -19,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -31,6 +34,7 @@ public class BranchOnboardingService {
     private final VendorRepository vendorRepository;
     private final VendorBranchRepository branchRepository;
     private final BranchDocumentRepository documentRepository;
+    private final S3StorageService s3StorageService;
 
     @Autowired(required = false)
     private SearchIndexEventPublisher searchEventPublisher;
@@ -428,5 +432,44 @@ public class BranchOnboardingService {
 
         log.info("Branch document uploaded: branchId={}, documentType={}", branchId, documentType);
         return BranchMapper.toResponse(branch);
+    }
+
+    /**
+     * Upload branch image to S3 (Phase 1).
+     * Stores original in S3 and updates database with PENDING status.
+     * Processing will be done asynchronously via SQS/Lambda.
+     */
+    @Transactional
+    public ImageUploadResponse uploadBranchImageToS3(Long branchId, String imageType,
+            MultipartFile file, UUID requestingUserId) {
+        log.info("Uploading branch image to S3: branchId={}, imageType={}, size={}",
+                branchId, imageType, file.getSize());
+
+        VendorBranch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new BranchNotFoundException("Branch not found"));
+
+        // Authorization
+        if (!branch.getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to update this branch");
+        }
+
+        // Upload to S3
+        String s3Key = s3StorageService.uploadBranchImage(branchId, imageType, file);
+
+        // Build image URLs map with PENDING status
+        Map<String, Object> imageData = s3StorageService.buildImageUrlsMap(
+                "vendor-branches", branchId.toString(), imageType, s3Key);
+
+        // Update branch images
+        if (branch.getImages() == null) {
+            branch.setImages(new HashMap<>());
+        }
+        branch.getImages().put(imageType, imageData);
+        branchRepository.save(branch);
+
+        log.info("Branch image uploaded to S3: branchId={}, imageType={}, s3Key={}",
+                branchId, imageType, s3Key);
+
+        return ImageUploadResponse.accepted(branchId, "branch", imageType, s3Key);
     }
 }

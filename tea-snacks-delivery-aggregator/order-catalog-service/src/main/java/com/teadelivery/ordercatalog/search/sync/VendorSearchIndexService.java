@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service to sync vendor branch data to search_vendors table.
@@ -122,6 +123,58 @@ public class VendorSearchIndexService {
         searchVendor.setIsOpen(branch.getIsOpen());
         searchVendor.setIsActive(branch.getIsActive());
         searchVendor.setOrderCount(branch.getTotalOrders());
+
+        // Images (JSONB) - Merge vendor and branch images into single Map
+        // Structure: { "logo": {...}, "cover": {...}, "storefront": {...} }
+        Map<String, Object> mergedImages = new java.util.HashMap<>();
+
+        // Add vendor images (logo, cover)
+        if (vendor != null && vendor.getImages() != null && !vendor.getImages().isEmpty()) {
+            mergedImages.putAll(vendor.getImages());
+        }
+
+        // Add branch images (storefront, interior, etc.)
+        if (branch.getImages() != null && !branch.getImages().isEmpty()) {
+            mergedImages.putAll(branch.getImages());
+        }
+
+        if (!mergedImages.isEmpty()) {
+            searchVendor.setImages(mergedImages);
+
+            // Set primary image URL (prefer vendor logo medium, fallback to branch primary
+            // medium)
+            String primaryImageUrl = null;
+            if (vendor != null && vendor.getImages() != null) {
+                Object logoData = vendor.getImages().get("logo");
+                if (logoData instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> logoMap = (Map<String, Object>) logoData;
+                    // New structure: direct size -> URL mapping
+                    String mediumUrl = (String) logoMap.get("medium");
+                    if (mediumUrl != null) {
+                        primaryImageUrl = mediumUrl;
+                    }
+                }
+            }
+
+            // Fallback to branch primary image
+            if (primaryImageUrl == null && branch.getImages() != null) {
+                Object primaryData = branch.getImages().get("primary");
+                if (primaryData instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> primaryMap = (Map<String, Object>) primaryData;
+                    String mediumUrl = (String) primaryMap.get("medium");
+                    if (mediumUrl != null) {
+                        primaryImageUrl = mediumUrl;
+                    }
+                }
+            }
+
+            if (primaryImageUrl != null) {
+                searchVendor.setPrimaryImage(primaryImageUrl);
+            }
+        }
+
         searchVendor.setLastSyncedAt(Instant.now());
 
         return searchVendor;

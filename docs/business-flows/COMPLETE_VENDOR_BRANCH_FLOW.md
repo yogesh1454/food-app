@@ -12,7 +12,6 @@
 4. [Day-to-Day Operations](#day-to-day-operations)
 5. [Testing Scenarios](#testing-scenarios)
 6. [API Endpoint Reference](#api-endpoint-reference)
-
 ---
 
 ## 🏗️ Architectural Overview

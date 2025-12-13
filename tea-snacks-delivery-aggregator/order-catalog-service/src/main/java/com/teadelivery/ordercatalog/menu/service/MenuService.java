@@ -3,12 +3,14 @@ package com.teadelivery.ordercatalog.menu.service;
 import com.teadelivery.ordercatalog.common.exception.BranchNotFoundException;
 import com.teadelivery.ordercatalog.common.exception.MenuItemNotFoundException;
 import com.teadelivery.ordercatalog.common.exception.UnauthorizedException;
+import com.teadelivery.ordercatalog.common.service.S3StorageService;
 import com.teadelivery.ordercatalog.menu.dto.MenuItemCreateRequest;
 import com.teadelivery.ordercatalog.menu.dto.MenuItemResponse;
 import com.teadelivery.ordercatalog.menu.dto.MenuItemUpdateRequest;
 import com.teadelivery.ordercatalog.menu.mapper.MenuMapper;
 import com.teadelivery.ordercatalog.menu.model.MenuItem;
 import com.teadelivery.ordercatalog.menu.repository.MenuItemRepository;
+import com.teadelivery.ordercatalog.vendor.dto.ImageUploadResponse;
 import com.teadelivery.ordercatalog.vendor.model.VendorBranch;
 import com.teadelivery.ordercatalog.vendor.repository.VendorBranchRepository;
 import com.teadelivery.ordercatalog.search.sync.SearchIndexEventPublisher;
@@ -19,9 +21,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,6 +37,7 @@ public class MenuService {
     private final MenuItemRepository menuItemRepository;
     private final VendorBranchRepository branchRepository;
     private final MenuCacheService cacheService;
+    private final S3StorageService s3StorageService;
 
     @Autowired(required = false)
     private SearchIndexEventPublisher searchEventPublisher;
@@ -283,5 +288,75 @@ public class MenuService {
         // This would increment available quantity in MenuItem model
 
         log.info("Stock released successfully for {} items", itemQuantities.size());
+    }
+
+    // ==================== Phase 1: S3 Upload ====================
+
+    /**
+     * Upload menu item image to S3 (Phase 1).
+     * Stores original in S3 and updates database with PENDING status.
+     * Processing will be done asynchronously via SQS/Lambda.
+     * 
+     * For gallery images, the index is auto-incremented based on existing gallery
+     * images.
+     */
+    @Transactional
+    public ImageUploadResponse uploadMenuItemImageToS3(Long menuItemId, String imageType,
+            MultipartFile file, UUID requestingUserId) {
+        log.info("Uploading menu item image to S3: menuItemId={}, imageType={}, size={}",
+                menuItemId, imageType, file.getSize());
+
+        MenuItem menuItem = menuItemRepository.findByMenuItemIdAndIsDeletedFalse(menuItemId)
+                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + menuItemId));
+
+        // Authorization - check if user owns the branch
+        if (!menuItem.getBranch().getVendor().getUserId().equals(requestingUserId)) {
+            throw new UnauthorizedException("Not authorized to update this menu item");
+        }
+
+        // Auto-increment gallery index if imageType is "gallery"
+        Integer galleryIndex = null;
+        if ("gallery".equals(imageType)) {
+            galleryIndex = menuItemRepository.findNextGalleryIndex(menuItemId);
+            log.info("Auto-incremented gallery index for menuItemId={}: {}", menuItemId, galleryIndex);
+        }
+
+        // Upload to S3
+        String s3Key = s3StorageService.uploadMenuItemImage(menuItemId, imageType, file, galleryIndex);
+
+        // Build image URLs map with placeholder URLs
+        // For gallery images, extract the imageType from S3 key to match processed
+        // files (gallery_1, gallery_2)
+        String placeholderImageType = imageType;
+        if ("gallery".equals(imageType) && s3Key != null) {
+            // Extract gallery_N from key like
+            // "originals/menu-items/9/gallery_1_original.webp"
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(gallery_\\d+)_original");
+            java.util.regex.Matcher matcher = pattern.matcher(s3Key);
+            if (matcher.find()) {
+                placeholderImageType = matcher.group(1); // e.g., "gallery_1"
+            }
+        }
+
+        Map<String, Object> imageData = s3StorageService.buildImageUrlsMap(
+                "menu-items", menuItemId.toString(),
+                placeholderImageType,
+                s3Key);
+
+        // Update menu item images
+        if (menuItem.getImages() == null) {
+            menuItem.setImages(new HashMap<>());
+        }
+
+        // Store images directly with their keys (gallery_1, gallery_2, primary)
+        menuItem.getImages().put(placeholderImageType, imageData);
+        log.info("Stored image with key: {}", placeholderImageType);
+
+        menuItemRepository.save(menuItem);
+
+        log.info("Menu item image uploaded to S3: menuItemId={}, imageType={}, s3Key={}",
+                menuItemId, imageType, s3Key);
+
+        return ImageUploadResponse.accepted(menuItemId, "menu-item", imageType, s3Key);
     }
 }

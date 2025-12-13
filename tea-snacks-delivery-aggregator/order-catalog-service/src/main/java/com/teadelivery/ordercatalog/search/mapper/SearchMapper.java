@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
  */
 @Component
 public class SearchMapper {
-    
+
     /**
      * Map SearchVendor entity to VendorSearchResult DTO
      */
@@ -24,7 +24,7 @@ public class SearchMapper {
         if (vendor == null) {
             return null;
         }
-        
+
         return VendorSearchResult.builder()
                 .branchId(vendor.getBranchId())
                 .vendorId(vendor.getVendorId())
@@ -42,10 +42,11 @@ public class SearchMapper {
                 .openingTime(vendor.getIsOpen() ? null : "Closed") // TODO: Add actual opening time logic
                 .images(parseImages(vendor.getImages(), vendor.getPrimaryImage()))
                 .tags(vendor.getTags() != null ? Arrays.asList(vendor.getTags()) : Collections.emptyList())
-                .rankingScore(vendor.getNormalizedPopularity() != null ? vendor.getNormalizedPopularity().doubleValue() : 0.0)
+                .rankingScore(
+                        vendor.getNormalizedPopularity() != null ? vendor.getNormalizedPopularity().doubleValue() : 0.0)
                 .build();
     }
-    
+
     /**
      * Map SearchMenuItem entity to MenuItemSearchResult DTO
      */
@@ -53,7 +54,7 @@ public class SearchMapper {
         if (item == null) {
             return null;
         }
-        
+
         return MenuItemSearchResult.builder()
                 .menuItemId(item.getMenuItemId())
                 .name(item.getItemName())
@@ -66,52 +67,62 @@ public class SearchMapper {
                 .images(parseImages(item.getImages(), item.getPrimaryImage()))
                 .rating(item.getRating())
                 .preparationTime(item.getPreparationTimeMinutes())
-                .dietaryInfo(item.getDietaryInfo() != null ? Arrays.asList(item.getDietaryInfo()) : Collections.emptyList())
+                .dietaryInfo(
+                        item.getDietaryInfo() != null ? Arrays.asList(item.getDietaryInfo()) : Collections.emptyList())
                 .nutrition(null) // TODO: Add nutrition info if available
                 .isAvailable(item.getIsAvailable())
                 .availabilityMessage(item.getIsAvailable() ? null : "Currently unavailable")
                 .distance(calculateDistance(item.getBranchLocation()))
                 .orderCount(item.getOrderCount())
-                .rankingScore(item.getNormalizedPopularity() != null ? item.getNormalizedPopularity().doubleValue() : 0.0)
+                .rankingScore(
+                        item.getNormalizedPopularity() != null ? item.getNormalizedPopularity().doubleValue() : 0.0)
                 .trendingScore(item.getTrendingScore() != null ? item.getTrendingScore().doubleValue() : 0.0)
                 .build();
     }
-    
+
     /**
-     * Parse images from JSONB to ImagesResponse
+     * Parse images from JSONB to ImagesResponse.
+     * New structure: { "primary": {...}, "gallery_1": {...}, "gallery_2": {...} }
      */
-    private ImagesResponse parseImages(List<Map<String, Object>> images, String primaryImage) {
+    private ImagesResponse parseImages(Map<String, Object> images, String primaryImage) {
         ImagesResponse.ImagesResponseBuilder builder = ImagesResponse.builder()
                 .primary(primaryImage);
-        
+
         if (images == null || images.isEmpty()) {
             return builder.build();
         }
-        
-        // Find cover and logo images
-        for (Map<String, Object> image : images) {
-            String type = (String) image.get("type");
-            @SuppressWarnings("unchecked")
-            Map<String, String> urls = (Map<String, String>) image.get("urls");
-            
-            if (type != null && urls != null) {
-                switch (type.toLowerCase()) {
+
+        // Parse primary, cover, logo, and gallery images from flat structure
+        for (Map.Entry<String, Object> entry : images.entrySet()) {
+            String key = entry.getKey();
+
+            if (entry.getValue() instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, String> urls = (Map<String, String>) entry.getValue();
+
+                switch (key.toLowerCase()) {
                     case "cover":
                         builder.cover(urls);
                         break;
                     case "logo":
                         builder.logo(urls);
                         break;
-                    case "gallery":
-                        builder.gallery(urls);
+                    case "primary":
+                        // Primary is already set from primaryImage parameter
                         break;
+                    default:
+                        // Handle gallery images (gallery_1, gallery_2, etc.)
+                        if (key.startsWith("gallery_")) {
+                            builder.gallery(urls);
+                            break;
+                        }
                 }
             }
         }
-        
+
         return builder.build();
     }
-    
+
     /**
      * Format delivery time from min/max
      */
@@ -127,15 +138,16 @@ public class SearchMapper {
         }
         return min + "-" + max + " min";
     }
-    
+
     /**
-     * Calculate distance from Point (placeholder - actual distance would come from query)
+     * Calculate distance from Point (placeholder - actual distance would come from
+     * query)
      */
     private Double calculateDistance(Point location) {
         // This is a placeholder - actual distance is calculated in SQL queries
         return 0.0;
     }
-    
+
     /**
      * Batch convert vendors
      */
@@ -147,7 +159,7 @@ public class SearchMapper {
                 .map(this::toVendorSearchResult)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Batch convert menu items
      */
@@ -160,5 +172,3 @@ public class SearchMapper {
                 .collect(Collectors.toList());
     }
 }
-
-

@@ -1,0 +1,173 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: order-catalog-service
+  
+  flyway:
+    baseline-on-migrate: true
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nastto_db
+    username: nastto_admin
+    password: IjhY3HEqWGjk0deZ
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: order-catalog-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Feature flags (LOCAL DEVELOPMENT)
+features:
+  kafka:
+    enabled: false  # Kafka disabled - using AWS SNS/SQS
+  sns:
+    search-sync:
+      enabled: true  # Disable SNS for local development (no AWS access)
+    order-delivery-events:
+      enabled: true  # Disable for local development
+  sqs:
+    search-sync:
+      enabled: true  # Disable SQS for local development
+    order-delivery-events:
+      enabled: true  # Disable for local development
+  search:
+    bypass-geospatial: true  # DEVELOPMENT ONLY: Skip radius filtering
+
+# AWS Configuration (for local testing with real AWS via SSH tunnel)
+# Set features.sns/sqs.*.enabled=true to test with real AWS
+aws:
+  region: us-east-1
+  sns:
+    topics:
+      search-index-events: arn:aws:sns:us-east-1:017654360674:nashtto-search-index-events
+      order-events: arn:aws:sns:us-east-1:017654360674:nashtto-order-events
+      delivery-events: arn:aws:sns:us-east-1:017654360674:nashtto-delivery-events
+  sqs:
+    queues:
+      search-index: nashtto-search-index-queue
+      order-events-for-delivery: nashtto-order-events-for-delivery
+      delivery-events-for-order: nashtto-delivery-events-for-order
+      image-processing: nashtto-image-processing-queue-prod
+      image-processing-results: nashtto-image-processing-results-prod
+  s3:
+    region: us-east-1
+    buckets:
+      media: nashtto-media-prod-017654360674
+      documents: nashtto-documents-prod-017654360674
+  cloudfront:
+    distribution-id: E2LV9N5WLVNT41
+    base-url: https://d2f0ukah71l1it.cloudfront.net
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: db
+        liveness:
+          include: ping
+      validate-group-membership: false
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: false
+    kafka:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.teadelivery: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+
+# Order timeout configuration
+order:
+  timeout:
+    restaurant-acceptance: 2m  # 2 minutes
+    payment-processing: 5m     # 5 minutes
+    rider-assignment: 5m       # 5 minutes
+
+# Search & Discovery Configuration
+search:
+  ranking:
+    weights:
+      fts: 0.50            # Full-text search weight
+      fuzzy: 0.30          # Fuzzy match weight
+      popularity: 0.15     # Popularity weight
+      proximity: 0.05      # Proximity weight
+    fuzzy:
+      similarity-threshold: 0.3
+  
+  cache:
+    tile-size-km: 2        # 2km x 2km tiles
+    ttl:
+      geo-tile: 900        # 15 minutes
+      query-cache: 1800    # 30 minutes
+      feed-cache: 600      # 10 minutes
+  
+  data-quality:
+    max-cuisine-count: 20
+    max-tags-count: 20
+    max-dietary-info-count: 10
+  
+  geospatial:
+    default-radius-km: 5
+    max-radius-km: 20
+  
+  images:
+    sizes:
+      - original
+      - large
+      - medium
+      - small
+      - thumbnail
