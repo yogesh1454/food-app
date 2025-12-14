@@ -19,6 +19,13 @@ spring:
     username: nastto_admin
     password: IjhY3HEqWGjk0deZ
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5          # Max 5 connections (conservative for small RDS)
+      minimum-idle: 2                # Keep 2 idle connections
+      connection-timeout: 20000      # 20 seconds
+      idle-timeout: 300000           # 5 minutes
+      max-lifetime: 1200000          # 20 minutes
+      leak-detection-threshold: 60000 # Detect leaks after 60 seconds
 
   jpa:
     hibernate:
@@ -44,6 +51,17 @@ spring:
       group-id: order-catalog-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  
+  cloud:
+    aws:
+      sqs:
+        enabled: true
+        # Don't auto-create queues - they already exist via CloudFormation
+        listener:
+          auto-startup: true
+          acknowledgement-mode: on_success
+        # Use existing queues, don't try to create them
+        endpoint: https://sqs.us-east-1.amazonaws.com
 
 # Feature flags (LOCAL DEVELOPMENT)
 features:
@@ -84,8 +102,8 @@ aws:
       media: nashtto-media-prod-017654360674
       documents: nashtto-documents-prod-017654360674
   cloudfront:
-    distribution-id: E2LV9N5WLVNT41
-    base-url: https://d2f0ukah71l1it.cloudfront.net
+    distribution-id: E1HTSXYGSVDM1O
+    base-url: https://d9caxbx3yiga8.cloudfront.net
 
 management:
   endpoints:

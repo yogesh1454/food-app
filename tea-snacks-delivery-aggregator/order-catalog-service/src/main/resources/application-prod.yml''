@@ -49,6 +49,16 @@ spring:
       group-id: order-catalog-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  
+  cloud:
+    aws:
+      region:
+        static: us-east-1
+      credentials:
+        instance-profile: true
+      sqs:
+        enabled: true
+        region: us-east-1
 
 # Feature flags
 features:
@@ -63,7 +73,7 @@ features:
     search-sync:
       enabled: true   # Enable SQS consuming for search sync
     order-delivery-events:
-      enabled: true   # Enable SQS consuming for Order/Delivery events
+      enabled: false  # DISABLED: SQS consumers disabled to prevent startup issues
   search:
     bypass-geospatial: true  # DEVELOPMENT ONLY: Skip radius filtering
 
@@ -77,9 +87,19 @@ aws:
       delivery-events: arn:aws:sns:us-east-1:017654360674:nashtto-delivery-events
   sqs:
     queues:
+      search-index: nashtto-search-index-queue
       image-processing: nashtto-image-processing-queue-prod
+      image-processing-results: nashtto-image-processing-results-prod
       order-events-for-delivery: nashtto-order-events-for-delivery
       delivery-events-for-order: nashtto-delivery-events-for-order
+  s3:
+    region: us-east-1
+    buckets:
+      media: nashtto-media-prod-017654360674
+      documents: nashtto-documents-prod-017654360674
+  cloudfront:
+    distribution-id: E1HTSXYGSVDM1O
+    base-url: https://d9caxbx3yiga8.cloudfront.net
 
 management:
   endpoints:
@@ -167,14 +187,3 @@ search:
       - medium
       - small
       - thumbnail
-
-
-  # Added by deployment script
-  s3:
-    region: us-east-1
-    buckets:
-      media: nashtto-media-prod-017654360674
-      documents: nashtto-documents-prod-017654360674
-  cloudfront:
-    distribution-id: E2LV9N5WLVNT41
-    base-url: https://d2f0ukah71l1it.cloudfront.net

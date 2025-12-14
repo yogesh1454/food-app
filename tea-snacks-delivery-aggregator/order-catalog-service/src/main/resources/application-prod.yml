@@ -57,7 +57,8 @@ spring:
       credentials:
         instance-profile: true
       sqs:
-        enabled: false  # DISABLED: Prevent queue creation attempts during startup
+        enabled: true
+        region: us-east-1
 
 # Feature flags
 features:
@@ -70,7 +71,7 @@ features:
       enabled: true   # Enable SNS publishing for Order/Delivery events
   sqs:
     search-sync:
-      enabled: false  # DISABLED: SQS consumers disabled to prevent startup issues
+      enabled: true   # Enable SQS consuming for search sync
     order-delivery-events:
       enabled: false  # DISABLED: SQS consumers disabled to prevent startup issues
   search:
@@ -97,8 +98,8 @@ aws:
       media: nashtto-media-prod-017654360674
       documents: nashtto-documents-prod-017654360674
   cloudfront:
-    distribution-id: E2LV9N5WLVNT41
-    base-url: https://d2f0ukah71l1it.cloudfront.net
+    distribution-id: E1HTSXYGSVDM1O
+    base-url: https://d9caxbx3yiga8.cloudfront.net
 
 management:
   endpoints:
