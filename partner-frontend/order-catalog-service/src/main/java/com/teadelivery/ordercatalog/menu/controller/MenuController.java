@@ -91,12 +91,17 @@ public class MenuController {
                     )
                 )
             )
-            @Valid @RequestBody MenuItemCreateRequest request) {
+            @Valid @RequestBody MenuItemCreateRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
         
         log.info("Create menu item request for branch: {}", branchId);
         
-        // For now, using a hardcoded userId. In production, this would come from authentication
-        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        // Use header userId for authentication, fallback to hardcoded for development
+        UUID requestingUserId = (userIdHeader != null && !userIdHeader.isEmpty()) 
+            ? UUID.fromString(userIdHeader)
+            : UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        log.debug("Using userId: {}", requestingUserId);
         
         return menuService.createMenuItem(branchId, request, requestingUserId);
     }
@@ -217,12 +222,17 @@ public class MenuController {
     public MenuItemResponse updateMenuItem(
             @Parameter(description = "Menu Item ID", example = "1", required = true)
             @PathVariable Long menuItemId,
-            @Valid @RequestBody MenuItemUpdateRequest request) {
+            @Valid @RequestBody MenuItemUpdateRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
         
         log.info("Update menu item request: {}", menuItemId);
         
-        // For now, using a hardcoded userId. In production, this would come from authentication
-        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        // Use header userId for authentication, fallback to hardcoded for development
+        UUID requestingUserId = (userIdHeader != null && !userIdHeader.isEmpty()) 
+            ? UUID.fromString(userIdHeader)
+            : UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        log.debug("Using userId: {}", requestingUserId);
         
         return menuService.updateMenuItem(menuItemId, request, requestingUserId);
     }
@@ -257,12 +267,17 @@ public class MenuController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteMenuItem(
             @Parameter(description = "Menu Item ID", example = "1", required = true)
-            @PathVariable Long menuItemId) {
+            @PathVariable Long menuItemId,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
         
         log.info("Delete menu item request: {}", menuItemId);
         
-        // For now, using a hardcoded userId. In production, this would come from authentication
-        UUID requestingUserId = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        // Use header userId for authentication, fallback to hardcoded for development
+        UUID requestingUserId = (userIdHeader != null && !userIdHeader.isEmpty()) 
+            ? UUID.fromString(userIdHeader)
+            : UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        
+        log.debug("Using userId: {}", requestingUserId);
         
         menuService.deleteMenuItem(menuItemId, requestingUserId);
     }

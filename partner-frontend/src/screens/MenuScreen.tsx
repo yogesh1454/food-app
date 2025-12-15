@@ -12,6 +12,7 @@ import {
   FlatList,
   SafeAreaView,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -24,7 +25,7 @@ import {
   clearError,
   setCurrentBranchId,
 } from '../store/slices/menuSlice';
-import { RootState, AppDispatch } from '../store';
+import { RootState, AppDispatch, useAppDispatch } from '../store';
 import { MenuItem, MenuItemCreateRequest } from '../core/types/api';
 import ScreenLayout, { Section, EmptyState } from '../core/components/ScreenLayout';
 import { Card, MenuItemCard } from '../core/components/Card';
@@ -288,7 +289,6 @@ export default function MenuScreen() {
     category: 'Main Course',
     isAvailable: true,
     isVegetarian: true,
-    quantity: '',
     addons: '',
     complimentaryItems: '',
     imageUrl: '',
@@ -297,22 +297,45 @@ export default function MenuScreen() {
 
   // Feature flag hooks
   const { flags, isEnabled, loading } = useFeatureFlags();
-  const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useAppDispatch();
   const menuItems = useSelector((state: RootState) => state.menu.items);
   const categories = useSelector((state: RootState) => state.menu.categories);
   const currentBranchId = useSelector((state: RootState) => state.menu.currentBranchId);
+  const restaurant = useSelector((state: RootState) => state.restaurant.restaurant);
 
   const filteredItems = selectedCategory === 'All' ? menuItems : menuItems.filter(item => item.category === selectedCategory);
 
   useEffect(() => {
-    // Initialize with default branch ID 1 since branch selection is not implemented yet
-    if (!currentBranchId) {
-      dispatch(setCurrentBranchId(1));
-      dispatch(fetchMenuItems({ branchId: 1 }));
-    } else {
-      dispatch(fetchMenuItems({ branchId: currentBranchId }));
-    }
-  }, [dispatch, currentBranchId]);
+    const initializeMenu = async () => {
+      // Get stored branchId from AsyncStorage
+      const storedBranchId = await AsyncStorage.getItem('branchId');
+      let branchIdToUse = storedBranchId ? parseInt(storedBranchId, 10) : null;
+
+      // Fallback to restaurant state branchId
+      if (!branchIdToUse && restaurant?.branchId) {
+        branchIdToUse = restaurant.branchId;
+      }
+
+      // If still no branchId, show error - don't use hardcoded fallback
+      if (!branchIdToUse) {
+        console.warn('[Menu] No branchId found - please complete onboarding first');
+        Alert.alert(
+          'Setup Required',
+          'Please complete the onboarding process to create your restaurant branch first.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      if (branchIdToUse !== currentBranchId) {
+        dispatch(setCurrentBranchId(branchIdToUse));
+      }
+
+      dispatch(fetchMenuItems({ branchId: branchIdToUse }));
+    };
+
+    initializeMenu();
+  }, [dispatch, currentBranchId, restaurant?.branchId]);
 
   const handleImageUpload = async (uri: string) => {
     setNewItem({ ...newItem, imageUrl: uri });
@@ -355,7 +378,6 @@ export default function MenuScreen() {
             isVegetarian: newItem.isVegetarian,
             isVegan: false,
             spiceLevel: 'medium',
-            quantity: newItem.quantity ? parseInt(newItem.quantity) : undefined,
             addons: addons.length > 0 ? addons : undefined,
             complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
             imageUrl: newItem.imageUrl || undefined,
@@ -375,7 +397,6 @@ export default function MenuScreen() {
           category: 'Main Course',
           isAvailable: true,
           isVegetarian: true,
-          quantity: '',
           addons: '',
           complimentaryItems: '',
           imageUrl: '',
@@ -400,7 +421,6 @@ export default function MenuScreen() {
       category: item.category,
       isAvailable: item.isAvailable,
       isVegetarian: item.metadata?.isVegetarian ?? true,
-      quantity: item.metadata?.quantity?.toString() || '',
       addons: item.metadata?.addons?.map((a: any) => a.name).join(', ') || '',
       complimentaryItems: item.metadata?.complimentaryItems?.map((c: any) => c.name).join(', ') || '',
       imageUrl: item.metadata?.imageUrl || '',
@@ -427,7 +447,6 @@ export default function MenuScreen() {
               isVegetarian: newItem.isVegetarian,
               isVegan: false,
               spiceLevel: 'medium',
-              quantity: newItem.quantity ? parseInt(newItem.quantity) : undefined,
               addons: addons.length > 0 ? addons : undefined,
               complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
               imageUrl: newItem.imageUrl || undefined,
@@ -442,7 +461,6 @@ export default function MenuScreen() {
           category: 'Main Course',
           isAvailable: true,
           isVegetarian: true,
-          quantity: '',
           addons: '',
           complimentaryItems: '',
           imageUrl: '',
@@ -555,19 +573,16 @@ export default function MenuScreen() {
                       <View style={styles.vegIndicator} />
                     )}
                     <Text style={styles.itemCategoryText}>{item.category}</Text>
-                    {item.metadata?.quantity !== undefined && (
-                      <Text style={styles.itemCategoryText}>Qty: {item.metadata.quantity}</Text>
-                    )}
                   </View>
 
                   <TouchableOpacity style={[
                     styles.availabilityBadge,
-                    (item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? styles.availableBadge : styles.unavailableBadge,
+                    item.isAvailable ? styles.availableBadge : styles.unavailableBadge,
                   ]}>
                     <Text style={[
-                      (item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? styles.availableText : styles.unavailableText,
+                      item.isAvailable ? styles.availableText : styles.unavailableText,
                     ]}>
-                      {(item.isAvailable && (item.metadata?.quantity === undefined || item.metadata.quantity > 0)) ? 'Available' : 'Out of Stock'}
+                      {item.isAvailable ? 'Available' : 'Out of Stock'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -636,15 +651,6 @@ export default function MenuScreen() {
                 value={newItem.category}
                 onChangeText={(text) => setNewItem({ ...newItem, category: text })}
                 accessibilityLabel="Item Category Input"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Quantity"
-                placeholderTextColor="#6b7280"
-                value={newItem.quantity}
-                onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
-                keyboardType="numeric"
-                accessibilityLabel="Item Quantity Input"
               />
               <TextInput
                 style={styles.input}
@@ -774,7 +780,6 @@ export default function MenuScreen() {
                   category: 'Main Course',
                   isAvailable: true,
                   isVegetarian: true,
-                  quantity: '',
                   addons: '',
                   complimentaryItems: '',
                   imageUrl: '',
@@ -811,15 +816,6 @@ export default function MenuScreen() {
                 value={newItem.category}
                 onChangeText={(text) => setNewItem({ ...newItem, category: text })}
                 accessibilityLabel="Edit Item Category Input"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Quantity"
-                placeholderTextColor="#6b7280"
-                value={newItem.quantity}
-                onChangeText={(text) => setNewItem({ ...newItem, quantity: text })}
-                keyboardType="numeric"
-                accessibilityLabel="Edit Item Quantity Input"
               />
               <TextInput
                 style={styles.input}

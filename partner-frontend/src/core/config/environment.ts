@@ -9,12 +9,12 @@ export interface EnvironmentConfig {
 }
 
 const development: EnvironmentConfig = {
-  apiUrl: 'http://localhost:8082/api/v1',
+  apiUrl: 'http://54.87.117.181:8080/api/v1',
   apiTimeout: 30000,
   enableLogging: true,
   enableMockData: false,
-  imageUploadUrl: 'http://localhost:8082/api/v1/upload/image',
-  documentUploadUrl: 'http://localhost:8082/api/v1/upload/document',
+  imageUploadUrl: 'http://54.87.117.181:8080/api/v1/upload/image',
+  documentUploadUrl: 'http://54.87.117.181:8080/api/v1/upload/document',
 };
 
 const staging: EnvironmentConfig = {
@@ -39,7 +39,7 @@ const getEnvironment = (): EnvironmentConfig => {
   // In a real app, this would be determined by build-time variables
   // For now, we'll use a simple check or default to development
   const env = process.env.NODE_ENV || 'development';
-  
+
   switch (env) {
     case 'production':
       return production;

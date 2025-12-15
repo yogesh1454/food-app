@@ -7,13 +7,23 @@ import {
   MenuItemResponse,
   PaginatedResponse
 } from '../types/api';
+import { getUserUUID } from '../utils/userUuidService';
 
 // Menu API Service - ONLY IMPLEMENTED ENDPOINTS
 export class MenuApiService {
-  
+
   // Menu Item endpoints (matching backend MenuController)
   async createMenuItem(branchId: number, menuItemData: MenuItemCreateRequest): Promise<ApiResponse<MenuItemResponse>> {
-    const response = await httpClient.post(`/menu-items/branches/${branchId}`, menuItemData);
+    console.log('[Menu] Creating menu item for branchId:', branchId);
+    const userId = await getUserUUID();
+    console.log('[Menu] Using X-User-Id:', userId);
+
+    const response = await httpClient.post(`/menu-items/branches/${branchId}`, menuItemData, {
+      headers: {
+        'X-User-Id': userId
+      }
+    });
+    console.log('[Menu] Menu item created:', response.data);
     return {
       data: response.data,
       success: true,
@@ -31,7 +41,14 @@ export class MenuApiService {
   }
 
   async updateMenuItem(menuItemId: number, menuItemData: MenuItemUpdateRequest): Promise<ApiResponse<MenuItemResponse>> {
-    const response = await httpClient.put(`/menu-items/${menuItemId}`, menuItemData);
+    console.log('[Menu] Updating menu item:', menuItemId);
+    const userId = await getUserUUID();
+
+    const response = await httpClient.put(`/menu-items/${menuItemId}`, menuItemData, {
+      headers: {
+        'X-User-Id': userId
+      }
+    });
     return {
       data: response.data,
       success: true,
@@ -40,7 +57,14 @@ export class MenuApiService {
   }
 
   async deleteMenuItem(menuItemId: number): Promise<ApiResponse<void>> {
-    const response = await httpClient.delete(`/menu-items/${menuItemId}`);
+    console.log('[Menu] Deleting menu item:', menuItemId);
+    const userId = await getUserUUID();
+
+    const response = await httpClient.delete(`/menu-items/${menuItemId}`, {
+      headers: {
+        'X-User-Id': userId
+      }
+    });
     return {
       data: undefined,
       success: true,
@@ -58,7 +82,7 @@ export class MenuApiService {
       page: page.toString(),
       size: size.toString(),
     });
-    
+
     if (category) {
       params.append('category', category);
     }

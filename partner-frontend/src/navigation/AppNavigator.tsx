@@ -14,9 +14,11 @@ import { MenuScreen } from '../features/menu';
 import { OrdersScreen } from '../features/orders';
 import { ProfileScreen } from '../features/profile';
 import PhoneLoginScreen from '../screens/PhoneLoginScreen';
+import EmailAuthScreen from '../screens/EmailAuthScreen';
 export type RootStackParamList = {
   Welcome: undefined;
-  PhoneLogin: undefined;
+  PhoneLogin: { intent: 'login' | 'signup' };
+  EmailAuth: { intent: 'login' | 'signup' };
   Onboarding: undefined;
   PostOnboarding: undefined;
   Main: undefined;
@@ -89,15 +91,16 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={isFirstTime ? "Onboarding" : "Main"}
+        initialRouteName="Welcome"
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
+        <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="PostOnboarding" component={PostOnboardingScreen} />
         <Stack.Screen name="UploadTest" component={UploadTestScreen} />
         <Stack.Screen name="Main" component={MainTabNavigator} />
-        <Stack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

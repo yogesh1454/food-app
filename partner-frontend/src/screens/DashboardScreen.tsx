@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,19 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  RefreshControl,
+  Switch,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import FeatureGate from '../core/components/FeatureGate';
 import useFeatureFlags from '../core/hooks/useFeatureFlags';
+import { useAppDispatch, useAppSelector } from '../store';
+import { fetchOrders } from '../store/slices/ordersSlice';
+import { createBranch, toggleBranchStatus } from '../store/slices/restaurantSlice';
+import { OrderState, Branch, BranchCreateRequest } from '../core/types/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -275,51 +282,207 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
+  // Branch Management Styles
+  branchesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  branchItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  branchInfo: {
+    flex: 1,
+  },
+  branchName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  branchLocation: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  branchStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  statusDotOnline: {
+    backgroundColor: '#10b981',
+  },
+  statusDotOffline: {
+    backgroundColor: '#9ca3af',
+  },
+  addBranchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  addBranchButtonText: {
+    color: '#16a34a',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  noBranchesText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    padding: 20,
+  },
+  // Modal form styles
+  modalScrollContent: {
+    maxHeight: 400,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#111827',
+    backgroundColor: '#f9fafb',
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  formHalf: {
+    flex: 1,
+  },
+  submitButton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });
 
 export default function DashboardScreen() {
   const [addItemModalVisible, setAddItemModalVisible] = useState(false);
   const [updateHoursModalVisible, setUpdateHoursModalVisible] = useState(false);
   const [viewReportsModalVisible, setViewReportsModalVisible] = useState(false);
-  
+  const [createBranchModalVisible, setCreateBranchModalVisible] = useState(false);
+  const [branchFormData, setBranchFormData] = useState({
+    branchName: '',
+    branchPhone: '',
+    branchEmail: '',
+    city: '',
+    area: '',
+    state: '',
+    pincode: '',
+  });
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+
   const navigation = useNavigation();
-  
+  const dispatch = useAppDispatch();
+
   // Feature flag hooks
   const { flags, isEnabled } = useFeatureFlags();
+
+  // Redux state
+  const { restaurant, branchStatusLoading } = useAppSelector(state => state.restaurant);
+  const { orders, isLoading } = useAppSelector(state => state.orders);
+
+  useEffect(() => {
+    // Fetch orders on mount
+    dispatch(fetchOrders());
+  }, [dispatch]);
+
+  const onRefresh = React.useCallback(() => {
+    dispatch(fetchOrders());
+  }, [dispatch]);
+
+  // Calculate stats
+  const todayOrders = orders.filter(order => {
+    const orderDate = new Date(order.createdAt);
+    const today = new Date();
+    return orderDate.getDate() === today.getDate() &&
+      orderDate.getMonth() === today.getMonth() &&
+      orderDate.getFullYear() === today.getFullYear();
+  });
+
+  const revenue = todayOrders.reduce((sum, order) => {
+    if (order.state !== OrderState.CANCELLED && order.state !== OrderState.REJECTED) {
+      return sum + order.totalAmount;
+    }
+    return sum;
+  }, 0);
+
+  const activeOrders = orders.filter(order =>
+    order.state !== OrderState.DELIVERED &&
+    order.state !== OrderState.CANCELLED &&
+    order.state !== OrderState.REJECTED &&
+    order.state !== OrderState.CLOSED
+  ).length;
 
   const quickStats = [
     {
       title: "Today's Revenue",
-      value: '₹12,450',
-      change: '+12.5%',
+      value: `₹${revenue.toFixed(0)}`,
+      change: 'Today',
       icon: 'cash' as const,
       color: '#10b981',
     },
     {
       title: 'Orders Today',
-      value: '47',
-      change: '+8.2%',
+      value: todayOrders.length.toString(),
+      change: 'Today',
       icon: 'receipt' as const,
       color: '#3b82f6',
     },
     {
       title: 'Avg. Order Value',
-      value: '₹264',
-      change: '-2.1%',
+      value: `₹${todayOrders.length > 0 ? (revenue / todayOrders.length).toFixed(0) : 0}`,
+      change: 'Today',
       icon: 'trending-up' as const,
       color: '#f59e0b',
     },
     {
-      title: 'Active Items',
-      value: '23',
-      change: '2 new',
+      title: 'Active Orders',
+      value: activeOrders.toString(),
+      change: 'Now',
       icon: 'restaurant' as const,
       color: '#8b5cf6',
     },
   ];
 
   const handleAddItem = () => {
-    setAddItemModalVisible(true);
+    // Navigate to Menu screen
+    navigation.navigate('Menu' as never);
   };
 
   const handleUpdateHours = () => {
@@ -334,9 +497,68 @@ export default function DashboardScreen() {
     navigation.navigate('UploadTest' as never);
   };
 
+  const handleToggleBranchStatus = async (branchId: number, currentStatus: boolean) => {
+    try {
+      await dispatch(toggleBranchStatus({ branchId, isOpen: !currentStatus })).unwrap();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update branch status');
+    }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!branchFormData.branchName || !branchFormData.branchPhone || !branchFormData.branchEmail || !branchFormData.city) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (!restaurant?.vendorId) {
+      Alert.alert('Error', 'Vendor ID not found. Please complete onboarding first.');
+      return;
+    }
+
+    setIsCreatingBranch(true);
+    try {
+      const branchData: BranchCreateRequest = {
+        branchName: branchFormData.branchName,
+        branchPhone: branchFormData.branchPhone,
+        branchEmail: branchFormData.branchEmail,
+        city: branchFormData.city,
+        address: {
+          area: branchFormData.area,
+          city: branchFormData.city,
+          state: branchFormData.state,
+          pincode: branchFormData.pincode,
+        },
+      };
+
+      await dispatch(createBranch({ vendorId: restaurant.vendorId, branchData })).unwrap();
+      Alert.alert('Success', 'Branch created successfully!');
+      setCreateBranchModalVisible(false);
+      setBranchFormData({
+        branchName: '',
+        branchPhone: '',
+        branchEmail: '',
+        city: '',
+        area: '',
+        state: '',
+        pincode: '',
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create branch');
+    } finally {
+      setIsCreatingBranch(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+        }
+      >
         {/* Header */}
         <LinearGradient
           colors={['#16a34a', '#15803d']}
@@ -345,7 +567,7 @@ export default function DashboardScreen() {
           <View style={styles.headerContent}>
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>
-                Good Morning, Chef! 👋
+                Good Morning, {restaurant?.name || 'Chef'}! 👋
               </Text>
               <Text style={styles.headerSubtitle}>
                 Here's what's happening at your restaurant today
@@ -370,7 +592,7 @@ export default function DashboardScreen() {
                   <Text style={styles.statValue}>{stat.value}</Text>
                   <Text style={[
                     styles.statChange,
-                    stat.change.startsWith('+') ? styles.statChangePositive : styles.statChangeNegative
+                    styles.statChangePositive
                   ]}>
                     {stat.change}
                   </Text>
@@ -419,37 +641,6 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* AI Insights - Gated by analytics feature */}
-          <FeatureGate feature="analytics">
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIcon}>
-                  <Ionicons name="bulb" size={20} color="#16a34a" />
-                </View>
-                <View style={styles.cardTitleContainer}>
-                  <Text style={styles.cardTitle}>AI Insights</Text>
-                  <Text style={styles.cardSubtitle}>Personalized recommendations</Text>
-                </View>
-              </View>
-
-              <View>
-                <View style={styles.insightItem}>
-                  <Text style={styles.insightTitle}>Peak Hour Analysis</Text>
-                  <Text style={styles.insightText}>
-                    Your busiest time is 7-9 PM. Consider offering express combos.
-                  </Text>
-                </View>
-
-                <View style={[styles.insightItem, { marginTop: 12 }]}>
-                  <Text style={styles.insightTitle}>Top Performer</Text>
-                  <Text style={styles.insightText}>
-                    Paneer Tikka Roll is your star dish this week!
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </FeatureGate>
-
           {/* Quick Actions */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Quick Actions</Text>
@@ -471,63 +662,94 @@ export default function DashboardScreen() {
             </FeatureGate>
           </View>
 
+          {/* Your Branches */}
+          <View style={styles.card}>
+            <View style={styles.branchesHeader}>
+              <Text style={styles.cardTitle}>Your Branches</Text>
+              <TouchableOpacity
+                style={styles.addBranchButton}
+                onPress={() => setCreateBranchModalVisible(true)}
+                accessibilityLabel="Add Branch"
+              >
+                <Ionicons name="add" size={18} color="#16a34a" />
+                <Text style={styles.addBranchButtonText}>Add Branch</Text>
+              </TouchableOpacity>
+            </View>
+
+            {(!restaurant?.branches || restaurant.branches.length === 0) ? (
+              <Text style={styles.noBranchesText}>
+                No branches yet. Add your first branch to get started.
+              </Text>
+            ) : (
+              restaurant.branches.map((branch) => (
+                <View key={branch.branchId} style={styles.branchItem}>
+                  <View style={styles.branchInfo}>
+                    <Text style={styles.branchName}>{branch.branchName}</Text>
+                    <Text style={styles.branchLocation}>
+                      {branch.city || 'No location set'}
+                    </Text>
+                  </View>
+                  <View style={styles.branchStatusContainer}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        branch.isOpen ? styles.statusDotOnline : styles.statusDotOffline,
+                      ]}
+                    />
+                    <Switch
+                      value={branch.isOpen}
+                      onValueChange={() => handleToggleBranchStatus(branch.branchId, branch.isOpen)}
+                      trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                      thumbColor={branch.isOpen ? '#16a34a' : '#9ca3af'}
+                      disabled={branchStatusLoading}
+                    />
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+
           {/* Recent Orders */}
           <View style={styles.card}>
             <View style={styles.ordersHeader}>
               <Text style={styles.ordersTitle}>Recent Orders</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('Orders' as never)}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>
 
             <View>
-              {[
-                { id: '#1234', customer: 'Rahul S.', items: 3, total: '₹420', status: 'preparing' },
-                { id: '#1235', customer: 'Priya M.', items: 2, total: '₹290', status: 'ready' },
-              ].map((order, index) => (
-                <View key={index} style={styles.orderItem}>
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderId}>{order.id} - {order.customer}</Text>
-                    <Text style={styles.orderDetails}>{order.items} items</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.orderTotal}>{order.total}</Text>
-                    <View style={[
-                      styles.statusBadge,
-                      order.status === 'preparing' ? styles.statusPreparing : styles.statusReady
-                    ]}>
-                      <Text style={[
-                        order.status === 'preparing' ? styles.statusTextPreparing : styles.statusTextReady
+              {orders.length === 0 ? (
+                <Text style={{ color: '#6b7280', textAlign: 'center', padding: 20 }}>
+                  No orders yet.
+                </Text>
+              ) : (
+                orders.slice(0, 5).map((order, index) => (
+                  <View key={index} style={styles.orderItem}>
+                    <View style={styles.orderInfo}>
+                      <Text style={styles.orderId}>#{order.orderId.substring(0, 8)}</Text>
+                      <Text style={styles.orderDetails}>{order.items.length} items</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.orderTotal}>₹{order.totalAmount}</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        order.state === OrderState.PREPARING ? styles.statusPreparing : styles.statusReady
                       ]}>
-                        {order.status}
-                      </Text>
+                        <Text style={[
+                          order.state === OrderState.PREPARING ? styles.statusTextPreparing : styles.statusTextReady
+                        ]}>
+                          {order.state}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                ))
+              )}
             </View>
           </View>
         </View>
       </ScrollView>
-
-      {/* Add Item Modal */}
-      <Modal visible={addItemModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setAddItemModalVisible(false)} accessibilityLabel="Close Add Item Modal">
-                <Ionicons name="close" size={24} color="#111827" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Add New Item</Text>
-              <View />
-            </View>
-            <Text style={styles.cardTitle}>This would open the add item form.</Text>
-            <TouchableOpacity style={styles.actionButton} onPress={() => Alert.alert('Mock', 'Navigate to MenuScreen Add Item')} accessibilityLabel="Go to Add Item">
-              <Text style={styles.actionButtonText}>Go to Menu</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Update Hours Modal */}
       <Modal visible={updateHoursModalVisible} animationType="slide" transparent={true}>
@@ -566,6 +788,110 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Create Branch Modal */}
+      <Modal visible={createBranchModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setCreateBranchModalVisible(false)} accessibilityLabel="Close Create Branch Modal">
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Add New Branch</Text>
+              <View />
+            </View>
+
+            <ScrollView style={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Branch Name *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., Downtown Branch"
+                  value={branchFormData.branchName}
+                  onChangeText={(text) => setBranchFormData({ ...branchFormData, branchName: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Phone Number *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., 9876543210"
+                  keyboardType="phone-pad"
+                  value={branchFormData.branchPhone}
+                  onChangeText={(text) => setBranchFormData({ ...branchFormData, branchPhone: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Email *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., branch@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={branchFormData.branchEmail}
+                  onChangeText={(text) => setBranchFormData({ ...branchFormData, branchEmail: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>City *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., Mumbai"
+                  value={branchFormData.city}
+                  onChangeText={(text) => setBranchFormData({ ...branchFormData, city: text })}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Area</Text>
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="e.g., Andheri West"
+                  value={branchFormData.area}
+                  onChangeText={(text) => setBranchFormData({ ...branchFormData, area: text })}
+                />
+              </View>
+
+              <View style={[styles.formRow, { marginBottom: 16 }]}>
+                <View style={styles.formHalf}>
+                  <Text style={styles.formLabel}>State</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., Maharashtra"
+                    value={branchFormData.state}
+                    onChangeText={(text) => setBranchFormData({ ...branchFormData, state: text })}
+                  />
+                </View>
+                <View style={styles.formHalf}>
+                  <Text style={styles.formLabel}>Pincode</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g., 400053"
+                    keyboardType="numeric"
+                    value={branchFormData.pincode}
+                    onChangeText={(text) => setBranchFormData({ ...branchFormData, pincode: text })}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.submitButton, isCreatingBranch && styles.submitButtonDisabled]}
+              onPress={handleCreateBranch}
+              disabled={isCreatingBranch}
+              accessibilityLabel="Create Branch"
+            >
+              <Text style={styles.submitButtonText}>
+                {isCreatingBranch ? 'Creating...' : 'Create Branch'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
+
   );
 }

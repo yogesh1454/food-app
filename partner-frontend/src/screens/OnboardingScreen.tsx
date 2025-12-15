@@ -4,26 +4,35 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Alert,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useDispatch } from 'react-redux';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { setRestaurant } from '../store/slices/restaurantSlice';
+import { useAppDispatch } from '../store';
+import { setRestaurant, registerVendor, createBranch, uploadVendorMedia } from '../store/slices/restaurantSlice';
+import { createMenuItem } from '../store/slices/menuSlice';
 import { setFirstTime } from '../store/slices/authSlice';
 import { commonStyles } from '../core/styles/commonStyles';
 import { colors } from '../core/constants/colors';
 import ImageUploadButton from '../core/components/ImageUploadButton';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
-import { sendOTP, verifyOTP, clearRecaptcha } from '../core/services/phoneAuthservice';
+import { sendOTP, verifyOTP } from '../core/services/phoneAuthservice';
+import { sendEmailVerification, updatePassword, linkWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { auth } from '../core/config/firebase';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { useRef } from 'react';
 
 type OnboardingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -48,7 +57,7 @@ const styles = StyleSheet.create({
     ...commonStyles.my4,
   },
   skipText: {
-    color: colors.text,
+    color: 'rgba(255, 255, 255, 0.8)',
     ...commonStyles.textBase,
     ...commonStyles.fontMedium,
   },
@@ -61,7 +70,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   indicatorActive: {
     backgroundColor: 'white',
@@ -73,14 +82,14 @@ const styles = StyleSheet.create({
   title: {
     ...commonStyles.text3xl,
     ...commonStyles.fontBold,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.textCenter,
     ...commonStyles.my4,
     lineHeight: 36,
   },
   subtitle: {
     ...commonStyles.textBase,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.9)',
     ...commonStyles.textCenter,
     ...commonStyles.my4,
     lineHeight: 24,
@@ -91,24 +100,30 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...commonStyles.textLg,
     ...commonStyles.fontSemibold,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.my2,
   },
   input: {
-    ...commonStyles.bgWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.my2,
     ...commonStyles.textBase,
     borderWidth: 1,
-    borderColor: colors.border,
-    ...commonStyles.shadow,
-    color: colors.text,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    color: 'white',
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
   },
   inputFocused: {
-    borderColor: colors.primary,
-    shadowOpacity: 0.2,
+    borderColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   textArea: {
     height: 120,
@@ -116,59 +131,56 @@ const styles = StyleSheet.create({
   },
   inputField: {
     flex: 1,
-    ...commonStyles.bgWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.textBase,
     borderWidth: 1,
-    borderColor: colors.border,
-    ...commonStyles.shadow,
-    color: colors.text,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    color: 'white',
   },
   dropdown: {
-    ...commonStyles.bgWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.my2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     ...commonStyles.row,
     ...commonStyles.justifyBetween,
     ...commonStyles.itemsCenter,
-    ...commonStyles.shadow,
   },
   dropdownText: {
     ...commonStyles.textBase,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.fontMedium,
   },
   dropdownPlaceholder: {
     ...commonStyles.textBase,
-    color: colors.textMuted,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   timeButton: {
-    ...commonStyles.bgWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.my2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     ...commonStyles.row,
     ...commonStyles.justifyBetween,
     ...commonStyles.itemsCenter,
-    ...commonStyles.shadow,
   },
   timeText: {
     ...commonStyles.textBase,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.fontMedium,
   },
   timePlaceholder: {
     ...commonStyles.textBase,
-    color: colors.textMuted,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   uploadButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -182,25 +194,24 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   uploadText: {
-    color: colors.text,
+    color: 'white',
     ...commonStyles.textBase,
     ...commonStyles.fontMedium,
   },
   extractedItems: {
-    ...commonStyles.bgWhite,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     ...commonStyles.roundedLg,
     ...commonStyles.p4,
     ...commonStyles.my3,
-    ...commonStyles.shadowLg,
   },
   item: {
     ...commonStyles.py3,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   itemText: {
     ...commonStyles.textBase,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.fontMedium,
   },
   navigation: {
@@ -210,7 +221,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   button: {
-    ...commonStyles.bgWhite,
+    backgroundColor: 'white',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
@@ -219,27 +230,27 @@ const styles = StyleSheet.create({
     ...commonStyles.shadowLg,
   },
   buttonText: {
-    color: 'white',
+    color: '#16a34a',
     ...commonStyles.textBase,
     ...commonStyles.fontSemibold,
   },
   buttonDisabled: {
-    backgroundColor: colors.borderLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     shadowOpacity: 0.05,
   },
   buttonTextDisabled: {
-    color: colors.textMuted,
+    color: 'rgba(22, 163, 74, 0.5)',
   },
   otpButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'white',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.itemsCenter,
     ...commonStyles.shadowLg,
   },
-  navigationButton: {
-    backgroundColor: colors.primary,
+  primaryButton: {
+    backgroundColor: 'white',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
@@ -247,15 +258,39 @@ const styles = StyleSheet.create({
     flex: 1,
     ...commonStyles.shadowLg,
   },
-  navigationButtonDisabled: {
-    backgroundColor: colors.borderLight,
-    ...commonStyles.px4,
-    ...commonStyles.py4,
-    ...commonStyles.roundedLg,
-    ...commonStyles.itemsCenter,
-    flex: 1,
-    ...commonStyles.shadowLg,
+  primaryButtonText: {
+    color: '#16a34a',
+    ...commonStyles.textBase,
+    ...commonStyles.fontSemibold,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     shadowOpacity: 0.05,
+  },
+  primaryButtonTextDisabled: {
+    color: 'rgba(22, 163, 74, 0.5)',
+  },
+  secondaryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'white',
+    ...commonStyles.px4,
+    ...commonStyles.py4,
+    ...commonStyles.roundedLg,
+    ...commonStyles.itemsCenter,
+    flex: 1,
+  },
+  secondaryButtonText: {
+    color: 'white',
+    ...commonStyles.textBase,
+    ...commonStyles.fontSemibold,
+  },
+  secondaryButtonDisabled: {
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'transparent',
+  },
+  secondaryButtonTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.3)',
   },
   modalOverlay: {
     flex: 1,
@@ -305,23 +340,23 @@ const styles = StyleSheet.create({
     ...commonStyles.px4,
     ...commonStyles.py3,
     ...commonStyles.roundedLg,
-    borderWidth: 2,
-    borderColor: colors.border,
-    ...commonStyles.bgWhite,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     flex: 1,
     ...commonStyles.itemsCenter,
   },
   menuOptionButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#f0fdf4', // Light green background for active state
+    borderColor: 'white',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   menuOptionText: {
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     ...commonStyles.textSm,
     ...commonStyles.fontMedium,
   },
   menuOptionTextActive: {
-    color: colors.primary,
+    color: 'white',
     ...commonStyles.fontSemibold,
   },
   inputContainer: {
@@ -331,27 +366,29 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   verifyButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'white',
     ...commonStyles.px4,
     ...commonStyles.py4,
     ...commonStyles.roundedLg,
     ...commonStyles.shadow,
   },
   verifiedButton: {
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'white',
   },
   verifyText: {
-    ...commonStyles.textWhite,
+    color: '#16a34a',
     ...commonStyles.textSm,
     ...commonStyles.fontSemibold,
   },
   verifiedText: {
-    ...commonStyles.textWhite,
+    color: 'white',
   },
   headerTitle: {
     ...commonStyles.text2xl,
     ...commonStyles.fontBold,
-    color: colors.text,
+    color: 'white',
     ...commonStyles.textCenter,
   },
   dropdownItem: {
@@ -381,7 +418,7 @@ const styles = StyleSheet.create({
     ...commonStyles.my4,
   },
   progressText: {
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.8)',
     ...commonStyles.textSm,
     ...commonStyles.my1,
   },
@@ -402,6 +439,12 @@ const styles = StyleSheet.create({
   },
 });
 
+interface DocumentUpload {
+  uri: string;
+  type: 'gst' | 'fssai';
+  documentNumber: string;
+}
+
 interface OnboardingData {
   name: string;
   cuisineType: string;
@@ -412,13 +455,22 @@ interface OnboardingData {
   email: string;
   gstNumber: string;
   fssaiNumber: string;
-  licenseDocuments: string[];
+  licenseDocuments: DocumentUpload[];
   logoUrl: string;
   coverPhotoUrl: string;
   menuText: string;
   extractedItems: string[];
+  panNumber: string;
+  legalEntityName: string;
   phoneVerified: boolean;
   emailVerified: boolean;
+  password?: string;
+  confirmPassword?: string;
+  // Branch details
+  branchCity: string;
+  branchState: string;
+  branchPincode: string;
+  branchArea: string;
 }
 
 const cuisines = [
@@ -435,6 +487,9 @@ export default function OnboardingScreen() {
   const [otpType, setOtpType] = useState<'phone' | 'email'>('phone');
   const [otp, setOtp] = useState('');
   const [menuOption, setMenuOption] = useState<'photo' | 'pdf' | 'manual'>('manual');
+  const [verificationId, setVerificationId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [data, setData] = useState<OnboardingData>({
     name: '',
     cuisineType: '',
@@ -450,11 +505,21 @@ export default function OnboardingScreen() {
     coverPhotoUrl: '',
     menuText: '',
     extractedItems: [],
+    panNumber: '',
+    legalEntityName: '',
     phoneVerified: false,
     emailVerified: false,
+    password: '',
+    confirmPassword: '',
+    // Branch details
+    branchCity: '',
+    branchState: '',
+    branchPincode: '',
+    branchArea: '',
   });
   const navigation = useNavigation<OnboardingScreenNavigationProp>();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
+  const recaptchaVerifier = useRef(null);
 
   const pages = [
     { title: 'Restaurant Details' },
@@ -464,11 +529,89 @@ export default function OnboardingScreen() {
     { title: 'Menu Upload' },
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (currentPage === 1) {
+      // Validation for Contact Information Page
+      if (!data.phoneVerified) {
+        Alert.alert('Error', 'Please verify your phone number first.');
+        return;
+      }
+      if (!data.email || !data.email.includes('@')) {
+        Alert.alert('Error', 'Please enter a valid email address.');
+        return;
+      }
+      if (!data.password || data.password.length < 6) {
+        Alert.alert('Error', 'Please set a password (min 6 chars).');
+        return;
+      }
+      if (data.password !== data.confirmPassword) {
+        Alert.alert('Error', 'Passwords do not match.');
+        return;
+      }
+
+      // Link Email and Set Password
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          // Check if email is already linked or set
+          if (user.email !== data.email) {
+            // Create a credential with the email and password
+            const credential = EmailAuthProvider.credential(data.email, data.password);
+
+            // Link this credential to the current user
+            // This adds the email/password provider to the account AND sets the email address on the user object
+            await linkWithCredential(user, credential);
+
+            // Send verification email
+            await sendEmailVerification(user);
+            Alert.alert('Success', 'Account linked! A verification email has been sent.');
+          } else {
+            // If email is already set (maybe they came back), just update password if needed
+            await updatePassword(user, data.password);
+          }
+        }
+      } catch (error: any) {
+        console.error('Failed to setup account:', error);
+        if (error.code === 'auth/email-already-in-use') {
+          Alert.alert('Error', 'This email is already in use by another account.');
+        } else if (error.code === 'auth/credential-already-in-use') {
+          Alert.alert('Error', 'This email is already linked to another account.');
+        } else if (error.code === 'auth/requires-recent-login') {
+          Alert.alert('Error', 'Security update required. Please sign in again.');
+        } else if (error.code === 'auth/provider-already-linked') {
+          // If already linked, maybe just update password?
+          try {
+            if (auth.currentUser) {
+              await updatePassword(auth.currentUser, data.password);
+              Alert.alert('Success', 'Password updated.');
+            }
+          } catch (pwError: any) {
+            Alert.alert('Error', 'Failed to update password: ' + pwError.message);
+          }
+        } else {
+          Alert.alert('Error', 'Failed to setup account. ' + error.message);
+        }
+        return;
+      }
+    }
+
     if (currentPage < pages.length - 1) {
       setCurrentPage(currentPage + 1);
     } else {
-      handleComplete();
+      // Last page - complete onboarding
+      if (isSubmitting) {
+        console.log('[Onboarding] Already submitting, ignoring duplicate click');
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        await handleComplete();
+      } catch (error: any) {
+        console.error('[Onboarding] handleComplete failed:', error);
+        Alert.alert('Error', error?.message || 'Failed to complete onboarding. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -478,34 +621,226 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleComplete = () => {
-    // Mock completion: set restaurant data and mark as not first time
-    dispatch(setRestaurant({
-      id: '1',
-      name: data.name,
-      cuisineType: data.cuisineType,
-      description: '',
-      address: data.address,
-      phone: data.phone,
-      email: data.email,
-      logoUrl: data.logoUrl,
-      coverPhotoUrl: data.coverPhotoUrl,
-      isOpen: true,
-      operatingHours: {
-        Monday: { open: data.openingTime, close: data.closingTime, isOpen: true },
-      },
-      gstNumber: data.gstNumber,
-      fssaiNumber: data.fssaiNumber,
-      licenseDocuments: data.licenseDocuments,
-      menuItems: data.extractedItems,
-      staff: [],
-    }));
-    dispatch(setFirstTime(false));
-    navigation.navigate('PostOnboarding');
+  const handleComplete = async () => {
+    // Validate PAN Format
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (data.panNumber && !panRegex.test(data.panNumber)) {
+      Alert.alert('Invalid Input', 'Please enter a valid PAN Number (e.g., ABCDE1234F)');
+      return;
+    }
+
+    // Validate GST Format
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (data.gstNumber && !gstRegex.test(data.gstNumber)) {
+      Alert.alert('Invalid Input', 'Please enter a valid GST Number (e.g., 29ABCDE1234F1Z5)');
+      return;
+    }
+
+    try {
+      let vendorId: number;
+
+      // 1. Try to register vendor OR handle if already exists
+      try {
+        console.log('[Onboarding] Attempting to register vendor...');
+        const vendorResult = await dispatch(registerVendor({
+          companyName: data.name,
+          brandName: data.name,
+          legalEntityName: data.legalEntityName || undefined,
+          companyEmail: data.email,
+          companyPhone: data.phone,
+          panNumber: data.panNumber || undefined,
+          gstNumber: data.gstNumber || undefined,
+        })).unwrap();
+
+        console.log('[Onboarding] Vendor result:', JSON.stringify(vendorResult, null, 2));
+        vendorId = vendorResult.vendorId;
+
+        if (!vendorId) {
+          console.error('[Onboarding] vendorId not found in response, trying to extract...');
+          // Try alternate field names (use any to bypass type checking for unknown fields)
+          vendorId = (vendorResult as any).id || (vendorResult as any).vendor_id;
+        }
+
+        console.log('[Onboarding] Vendor created with ID:', vendorId);
+
+        // Save vendorId to AsyncStorage immediately
+        if (vendorId) {
+          await AsyncStorage.setItem('vendorId', vendorId.toString());
+        } else {
+          throw new Error('Vendor created but vendorId not found in response');
+        }
+
+      } catch (vendorError: any) {
+        // Check if vendor already exists (409 error)
+        // Redux Toolkit unwrap() throws serialized error, check message for 409 indicators
+        const errorMessage = vendorError?.message || JSON.stringify(vendorError) || '';
+        const is409Error = errorMessage.includes('409') ||
+          errorMessage.includes('already') ||
+          errorMessage.includes('Conflict') ||
+          errorMessage.includes('User already has a vendor');
+
+        console.log('[Onboarding] Vendor error:', errorMessage, 'is409:', is409Error);
+
+        if (is409Error) {
+          console.log('[Onboarding] Vendor already exists, continuing with existing vendor...');
+
+          // Try to get vendorId from AsyncStorage
+          const storedVendorId = await AsyncStorage.getItem('vendorId');
+          if (storedVendorId) {
+            vendorId = parseInt(storedVendorId, 10);
+            console.log('[Onboarding] Using stored vendorId:', vendorId);
+          } else {
+            // Fallback to vendorId 1 for dev (or could try to fetch from API)
+            vendorId = 1;
+            await AsyncStorage.setItem('vendorId', '1');
+            console.warn('[Onboarding] Could not find stored vendorId, using default: 1');
+          }
+        } else {
+          // Re-throw if it's a different error
+          throw vendorError;
+        }
+      }
+
+      console.log('[Onboarding] Proceeding to branch creation with vendorId:', vendorId);
+
+      // 2. Create Branch (always attempt, will fail if already exists)
+      let branchId: number;
+      try {
+        const branchResult = await dispatch(createBranch({
+          vendorId: vendorId,
+          branchData: {
+            branchName: data.name || 'Main Branch',
+            branchPhone: data.phone,
+            branchEmail: data.email,
+            city: data.branchCity,
+            address: {
+              street: data.address || 'Street not provided',
+              area: data.branchArea || '',
+              city: data.branchCity,
+              state: data.branchState,
+              pincode: data.branchPincode,
+            },
+            latitude: 0, // Can be updated via profile later
+            longitude: 0,
+          }
+        })).unwrap();
+
+        branchId = branchResult.branchId;
+        console.log('[Onboarding] Branch created with ID:', branchId);
+
+        // Save branchId to AsyncStorage
+        await AsyncStorage.setItem('branchId', branchId.toString());
+
+      } catch (branchError: any) {
+        const branchErrorStatus = branchError?.response?.status || branchError?.status;
+
+        if (branchErrorStatus === 409) {
+          // Branch already exists, try to get from storage
+          const storedBranchId = await AsyncStorage.getItem('branchId');
+          if (storedBranchId) {
+            branchId = parseInt(storedBranchId, 10);
+            console.log('[Onboarding] Using stored branchId:', branchId);
+          } else {
+            branchId = 1; // Default fallback
+            console.warn('[Onboarding] Could not find stored branchId, using default: 1');
+          }
+        } else {
+          console.error('[Onboarding] Branch creation failed:', branchError);
+          throw branchError;
+        }
+      }
+
+      console.log('[Onboarding] Branch created/found, branchId:', branchId);
+      console.log('[Onboarding] Now running optional steps (non-blocking)...');
+
+      // 3-5. Run optional uploads in background (don't block navigation)
+      // Using Promise.allSettled to ensure we continue even if uploads fail
+      const optionalUploads: Promise<any>[] = [];
+
+      // 3. Upload Media (Logo) - optional
+      if (data.logoUrl) {
+        optionalUploads.push(
+          dispatch(uploadVendorMedia({
+            vendorId: vendorId,
+            file: { uri: data.logoUrl, name: 'logo.jpg', type: 'image/jpeg' },
+            target: 'VENDOR',
+            fileType: 'logo'
+          })).catch(err => console.warn('[Onboarding] Logo upload failed:', err))
+        );
+      }
+
+      // 4. Upload Media (Cover) - optional
+      if (data.coverPhotoUrl) {
+        optionalUploads.push(
+          dispatch(uploadVendorMedia({
+            vendorId: vendorId,
+            file: { uri: data.coverPhotoUrl, name: 'cover.jpg', type: 'image/jpeg' },
+            target: 'VENDOR',
+            fileType: 'cover'
+          })).catch(err => console.warn('[Onboarding] Cover upload failed:', err))
+        );
+      }
+
+      // 5. Upload Documents (GST and FSSAI) - optional
+      for (const doc of data.licenseDocuments) {
+        optionalUploads.push(
+          dispatch(uploadVendorMedia({
+            vendorId: vendorId,
+            file: { uri: doc.uri, name: `${doc.type}_document.jpg`, type: 'image/jpeg' },
+            target: 'branch',
+            fileType: doc.type,
+            branchId: branchId,
+            additionalData: { documentNumber: doc.documentNumber }
+          })).catch(err => console.warn(`[Onboarding] Document upload failed for ${doc.type}:`, err))
+        );
+      }
+
+      // 6. Create Menu Items - optional
+      if (data.extractedItems.length > 0) {
+        for (const itemName of data.extractedItems) {
+          optionalUploads.push(
+            dispatch(createMenuItem({
+              branchId: branchId,
+              menuItemData: {
+                name: itemName,
+                price: 0,
+                category: 'Main Course',
+                preparationTimeMinutes: 15,
+              }
+            })).catch(err => console.warn(`[Onboarding] Menu item creation failed for ${itemName}:`, err))
+          );
+        }
+      }
+
+      // Wait for optional uploads with 10 second timeout, then navigate
+      if (optionalUploads.length > 0) {
+        console.log(`[Onboarding] Waiting up to 10s for ${optionalUploads.length} optional uploads...`);
+        await Promise.race([
+          Promise.allSettled(optionalUploads),
+          new Promise(resolve => setTimeout(resolve, 10000))
+        ]);
+        console.log('[Onboarding] Optional uploads complete or timed out');
+      }
+
+      console.log('[Onboarding] SUCCESS! Navigating to Main screen...');
+      dispatch(setFirstTime(false));
+      // Navigate directly to Main, skipping PostOnboarding loading screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+
+    } catch (error: any) {
+      console.error('Onboarding failed:', error);
+      Alert.alert('Registration Failed', error.message || 'Please try again.');
+    }
   };
 
   const handleSkip = () => {
-    navigation.navigate('Main');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main' }],
+    });
   };
 
   const extractMenuItems = () => {
@@ -514,28 +849,20 @@ export default function OnboardingScreen() {
     setData({ ...data, extractedItems: items });
   };
 
-  const handleVerifyPhone = async () => {
+  const handleSendOTP = async () => {
     if (!data.phone || data.phone.length < 10) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
-
     try {
-      const formattedPhone = data.phone.startsWith('+91') ? data.phone : `+91${data.phone}`;
-      const confirmationResult = await sendOTP(formattedPhone);
-      setConfirmation(confirmationResult);
-      setOtpType('phone');
+      // @ts-ignore
+      const confirmation = await sendOTP(`+91${data.phone}`, recaptchaVerifier.current);
+      setConfirmation(confirmation);
+      setVerificationId(confirmation.verificationId);
       setOtpModalVisible(true);
-      Alert.alert('Success', 'OTP sent to your phone!');
     } catch (error: any) {
-      console.error(error);
-      Alert.alert('Error', error.message || 'Failed to send OTP');
+      Alert.alert('Error', error.message);
     }
-  };
-
-  const handleVerifyEmail = () => {
-    setOtpType('email');
-    setOtpModalVisible(true);
   };
 
   const handleOtpSubmit = async () => {
@@ -552,23 +879,12 @@ export default function OnboardingScreen() {
         setOtpModalVisible(false);
         setOtp('');
         setConfirmation(null);
-        clearRecaptcha();
+        // clearRecaptcha(); // Not needed with modal
         Alert.alert('Success', 'Phone verified successfully!');
         console.log('User:', userCredential.user);
       } catch (error: any) {
         console.error(error);
         Alert.alert('Error', 'Invalid OTP. Please try again.');
-      }
-    }
-    // Keep email as mock for now (or implement email OTP similarly)
-    else if (otpType === 'email') {
-      if (otp === '1234') { // Mock OTP for email
-        setData({ ...data, emailVerified: true });
-        setOtpModalVisible(false);
-        setOtp('');
-        Alert.alert('Success', 'Email verified successfully!');
-      } else {
-        Alert.alert('Error', 'Invalid OTP');
       }
     }
   };
@@ -591,7 +907,7 @@ export default function OnboardingScreen() {
             <TextInput
               style={styles.input}
               placeholder="Enter your restaurant's full name"
-              placeholderTextColor="#6b7280"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
               value={data.name}
               onChangeText={(text) => setData({ ...data, name: text })}
               accessibilityLabel="Restaurant Name Input"
@@ -604,15 +920,52 @@ export default function OnboardingScreen() {
               <Text style={data.cuisineType ? styles.dropdownText : styles.dropdownPlaceholder}>
                 {data.cuisineType || 'Select Cuisine Type'}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#6b7280" />
+              <Ionicons name="chevron-down" size={20} color="rgba(255, 255, 255, 0.6)" />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
               placeholder="Enter complete restaurant address with landmark"
-              placeholderTextColor="#6b7280"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
               value={data.address}
               onChangeText={(text) => setData({ ...data, address: text })}
               accessibilityLabel="Restaurant Address Input"
+            />
+            <Text style={styles.sectionTitle}>Branch Location</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="City (e.g., Bangalore)"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              value={data.branchCity}
+              onChangeText={(text) => setData({ ...data, branchCity: text })}
+              accessibilityLabel="City Input"
+            />
+            <View style={styles.rowInputs}>
+              <TextInput
+                style={[styles.input, styles.halfInput]}
+                placeholder="State"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={data.branchState}
+                onChangeText={(text) => setData({ ...data, branchState: text })}
+                accessibilityLabel="State Input"
+              />
+              <TextInput
+                style={[styles.input, styles.halfInput]}
+                placeholder="Pincode"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                value={data.branchPincode}
+                onChangeText={(text) => setData({ ...data, branchPincode: text })}
+                keyboardType="numeric"
+                maxLength={6}
+                accessibilityLabel="Pincode Input"
+              />
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Area/Locality (optional)"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              value={data.branchArea}
+              onChangeText={(text) => setData({ ...data, branchArea: text })}
+              accessibilityLabel="Area Input"
             />
             <Text style={styles.sectionTitle}>Operating Hours</Text>
             <TouchableOpacity
@@ -626,7 +979,7 @@ export default function OnboardingScreen() {
               <Text style={data.openingTime ? styles.timeText : styles.timePlaceholder}>
                 {data.openingTime || 'Select Opening Time'}
               </Text>
-              <Ionicons name="time" size={20} color="#6b7280" />
+              <Ionicons name="time" size={20} color="rgba(255, 255, 255, 0.6)" />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.timeButton}
@@ -639,7 +992,7 @@ export default function OnboardingScreen() {
               <Text style={data.closingTime ? styles.timeText : styles.timePlaceholder}>
                 {data.closingTime || 'Select Closing Time'}
               </Text>
-              <Ionicons name="time" size={20} color="#6b7280" />
+              <Ionicons name="time" size={20} color="rgba(255, 255, 255, 0.6)" />
             </TouchableOpacity>
           </View>
         );
@@ -652,7 +1005,7 @@ export default function OnboardingScreen() {
               <TextInput
                 style={styles.inputField}
                 placeholder="Phone Number"
-                placeholderTextColor="#6b7280"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={data.phone}
                 onChangeText={(text) => setData({ ...data, phone: text })}
                 keyboardType="phone-pad"
@@ -660,7 +1013,7 @@ export default function OnboardingScreen() {
               />
               <TouchableOpacity
                 style={[styles.verifyButton, data.phoneVerified && styles.verifiedButton]}
-                onPress={handleVerifyPhone}
+                onPress={handleSendOTP}
                 disabled={data.phoneVerified}
                 accessibilityLabel="Verify Phone Number"
               >
@@ -673,23 +1026,43 @@ export default function OnboardingScreen() {
               <TextInput
                 style={styles.inputField}
                 placeholder="Email Address"
-                placeholderTextColor="#6b7280"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={data.email}
                 onChangeText={(text) => setData({ ...data, email: text })}
                 keyboardType="email-address"
                 accessibilityLabel="Email Address Input"
               />
-              <TouchableOpacity
-                style={[styles.verifyButton, data.emailVerified && styles.verifiedButton]}
-                onPress={handleVerifyEmail}
-                disabled={data.emailVerified}
-                accessibilityLabel="Verify Email Address"
-              >
-                <Text style={[styles.verifyText, data.emailVerified && styles.verifiedText]}>
-                  {data.emailVerified ? '✓' : 'Verify'}
-                </Text>
-              </TouchableOpacity>
             </View>
+
+            {/* Password Fields - Only show after Phone Verification (Account Created) */}
+            {data.phoneVerified && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Create Password</Text>
+                <Text style={styles.subtitle}>Set a password to login with email later</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                  value={data.password}
+                  onChangeText={(text) => setData({ ...data, password: text })}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="Password Input"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                  value={data.confirmPassword}
+                  onChangeText={(text) => setData({ ...data, confirmPassword: text })}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="Confirm Password Input"
+                />
+              </>
+            )}
           </View>
         );
       case 2:
@@ -699,8 +1072,25 @@ export default function OnboardingScreen() {
             <Text style={styles.subtitle}>Enter your business registration details</Text>
             <TextInput
               style={styles.input}
+              placeholder="Legal Entity Name"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              value={data.legalEntityName}
+              onChangeText={(text) => setData({ ...data, legalEntityName: text })}
+              accessibilityLabel="Legal Entity Name Input"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="PAN Number"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
+              value={data.panNumber}
+              onChangeText={(text) => setData({ ...data, panNumber: text })}
+              accessibilityLabel="PAN Number Input"
+              autoCapitalize="characters"
+            />
+            <TextInput
+              style={styles.input}
               placeholder="GST Number"
-              placeholderTextColor="#6b7280"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
               value={data.gstNumber}
               onChangeText={(text) => setData({ ...data, gstNumber: text })}
               accessibilityLabel="GST Number Input"
@@ -708,7 +1098,7 @@ export default function OnboardingScreen() {
             <TextInput
               style={styles.input}
               placeholder="FSSAI License Number"
-              placeholderTextColor="#6b7280"
+              placeholderTextColor="rgba(255, 255, 255, 0.6)"
               value={data.fssaiNumber}
               onChangeText={(text) => setData({ ...data, fssaiNumber: text })}
               accessibilityLabel="FSSAI License Number Input"
@@ -716,14 +1106,16 @@ export default function OnboardingScreen() {
             <Text style={styles.sectionTitle}>Supporting Documents</Text>
             <DocumentUploadButton
               onDocumentUploaded={(uri, fileName) => {
-                setData({ ...data, licenseDocuments: [...data.licenseDocuments, uri] });
+                const newDoc: DocumentUpload = { uri, type: 'gst', documentNumber: data.gstNumber };
+                setData({ ...data, licenseDocuments: [...data.licenseDocuments, newDoc] });
               }}
               buttonText="Upload GST Document"
               style={{ marginBottom: 16 }}
             />
             <DocumentUploadButton
               onDocumentUploaded={(uri, fileName) => {
-                setData({ ...data, licenseDocuments: [...data.licenseDocuments, uri] });
+                const newDoc: DocumentUpload = { uri, type: 'fssai', documentNumber: data.fssaiNumber };
+                setData({ ...data, licenseDocuments: [...data.licenseDocuments, newDoc] });
               }}
               buttonText="Upload FSSAI Document"
               style={{ marginBottom: 16 }}
@@ -791,7 +1183,7 @@ export default function OnboardingScreen() {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Paste or type your menu here..."
-                placeholderTextColor="#6b7280"
+                placeholderTextColor="rgba(255, 255, 255, 0.6)"
                 value={data.menuText}
                 onChangeText={(text) => setData({ ...data, menuText: text })}
                 multiline
@@ -842,11 +1234,11 @@ export default function OnboardingScreen() {
   const isFormValid = () => {
     switch (currentPage) {
       case 0:
-        return data.name && data.cuisineType && data.address && data.openingTime && data.closingTime;
+        return data.name && data.cuisineType && data.address && data.openingTime && data.closingTime && data.branchCity && data.branchState && data.branchPincode;
       case 1:
-        return data.phone && data.email && data.phoneVerified && data.emailVerified;
+        return data.phone && data.email && data.phoneVerified && data.password && data.confirmPassword;
       case 2:
-        return data.gstNumber && data.fssaiNumber;
+        return data.gstNumber && data.fssaiNumber && data.panNumber && data.legalEntityName;
       case 3:
         return true; // Optional
       case 4:
@@ -858,56 +1250,78 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#ffffff', '#ffffff']} style={styles.gradient}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleSkip} accessibilityLabel="Skip Onboarding">
-                <Text style={styles.skipText}>Skip</Text>
-              </TouchableOpacity>
-              <View style={styles.indicators}>
-                {pages.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.indicator,
-                      index === currentPage && styles.indicatorActive,
-                    ]}
-                  />
-                ))}
+      <LinearGradient colors={['#16a34a', '#15803d']} style={styles.gradient}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.content}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={handleSkip} accessibilityLabel="Skip Onboarding">
+                  <Text style={styles.skipText}>Skip</Text>
+                </TouchableOpacity>
+                <View style={styles.indicators}>
+                  {pages.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.indicator,
+                        index === currentPage && styles.indicatorActive,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+              <View style={styles.progressContainer}>
+                <Text style={styles.title}>{pages[currentPage].title}</Text>
+                <Text style={styles.progressText}>
+                  Step {currentPage + 1} of {pages.length}
+                </Text>
+              </View>
+              <View style={styles.pageContent}>{renderPage()}</View>
+              <View style={styles.navigation}>
+                <TouchableOpacity
+                  style={[
+                    styles.secondaryButton,
+                    currentPage === 0 && styles.secondaryButtonDisabled
+                  ]}
+                  onPress={handlePrevious}
+                  disabled={currentPage === 0}
+                  accessibilityLabel="Previous Step"
+                >
+                  <Text style={[
+                    styles.secondaryButtonText,
+                    currentPage === 0 && styles.secondaryButtonTextDisabled
+                  ]}>
+                    Previous
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    (!isFormValid() || isSubmitting) && styles.primaryButtonDisabled
+                  ]}
+                  onPress={() => { handleNext(); }}
+                  disabled={!isFormValid() || isSubmitting}
+                  accessibilityLabel={currentPage === pages.length - 1 ? "Complete Onboarding" : "Next Step"}
+                >
+                  <Text style={[
+                    styles.primaryButtonText,
+                    (!isFormValid() || isSubmitting) && styles.primaryButtonTextDisabled
+                  ]}>
+                    {isSubmitting ? 'Please wait...' : (currentPage === pages.length - 1 ? 'Complete' : 'Next')}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.progressContainer}>
-              <Text style={styles.title}>{pages[currentPage].title}</Text>
-              <Text style={styles.progressText}>
-                Step {currentPage + 1} of {pages.length}
-              </Text>
-            </View>
-            <View style={styles.pageContent}>{renderPage()}</View>
-            <View style={styles.navigation}>
-              <TouchableOpacity
-                style={[styles.navigationButton, currentPage === 0 && styles.navigationButtonDisabled]}
-                onPress={handlePrevious}
-                disabled={currentPage === 0}
-                accessibilityLabel="Previous Step"
-              >
-                <Text style={[styles.buttonText, currentPage === 0 && styles.buttonTextDisabled]}>
-                  Previous
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.navigationButton, !isFormValid() && styles.navigationButtonDisabled]}
-                onPress={handleNext}
-                disabled={!isFormValid()}
-                accessibilityLabel={currentPage === pages.length - 1 ? "Complete Onboarding" : "Next Step"}
-              >
-                <Text style={[styles.buttonText, !isFormValid() && styles.buttonTextDisabled]}>
-                  {currentPage === pages.length - 1 ? 'Complete' : 'Next'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </LinearGradient>
 
       {/* Cuisine Dropdown Modal */}
@@ -969,8 +1383,11 @@ export default function OnboardingScreen() {
           </View>
         </View>
       </Modal>
-      {/* Recaptcha Container - Must be outside modal and always rendered */}
-      <View id="recaptcha-container" style={{ position: 'absolute', top: -1000 }} />
+      {/* Recaptcha Modal */}
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={auth.app.options}
+      />
 
       {/* OTP Modal */}
       <Modal visible={otpModalVisible} animationType="slide" transparent={true}>

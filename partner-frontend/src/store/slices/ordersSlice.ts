@@ -1,12 +1,12 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { Order, OrderStatusUpdateRequest } from '../../core/types/api';
-import { apiService } from '../../core/api/unifiedApiService';
+import { Order, OrderResponse, OrderState } from '../../core/types/api';
+import { vendorOrdersApiService } from '../../core/api/vendorOrdersApiService';
 
 interface OrdersState {
-  orders: Order[];
+  orders: OrderResponse[];
   isLoading: boolean;
   error: string | null;
-  filter: Order['status'] | 'all';
+  filter: OrderState | 'all';
   currentBranchId: number | null;
   dashboardStats: any | null;
 }
@@ -20,58 +20,48 @@ const initialState: OrdersState = {
   dashboardStats: null,
 };
 
-// Async thunks for API operations - NOT IMPLEMENTED YET
+// Async thunks for vendor order operations
 export const fetchOrders = createAsyncThunk(
   'orders/fetchOrders',
-  async (params: {
-    branchId: number;
-    status?: Order['status'];
-    page?: number;
-    size?: number;
-  }) => {
-    const response = await apiService.getOrders(params.branchId, {
-      status: params.status,
-      page: params.page,
-      size: params.size,
-    });
-    return response.data; // Will throw error since not implemented
+  async () => {
+    const response = await vendorOrdersApiService.listPendingOrders();
+    return response.data;
   }
 );
 
-export const updateOrderStatus = createAsyncThunk(
-  'orders/updateOrderStatus',
+export const acceptOrder = createAsyncThunk(
+  'orders/acceptOrder',
   async (params: {
     orderId: string;
-    statusData: OrderStatusUpdateRequest;
+    estimatedPrepTime: number;
   }) => {
-    const response = await apiService.updateOrderStatus(params.orderId, params.statusData);
-    return response.data; // Will throw error since not implemented
+    const response = await vendorOrdersApiService.acceptOrder(
+      params.orderId,
+      params.estimatedPrepTime
+    );
+    return response.data;
   }
 );
 
-export const fetchDashboardStats = createAsyncThunk(
-  'orders/fetchDashboardStats',
+export const rejectOrder = createAsyncThunk(
+  'orders/rejectOrder',
   async (params: {
-    branchId: number;
-    dateRange?: string;
+    orderId: string;
+    reason: string;
   }) => {
-    const response = await apiService.getDashboardStats(params.branchId, params.dateRange);
-    return response.data; // Will throw error since not implemented
+    const response = await vendorOrdersApiService.rejectOrder(
+      params.orderId,
+      params.reason
+    );
+    return response.data;
   }
 );
 
-export const fetchTopItems = createAsyncThunk(
-  'orders/fetchTopItems',
-  async (params: {
-    branchId: number;
-    period?: string;
-    limit?: number;
-  }) => {
-    const response = await apiService.getTopItems(params.branchId, {
-      period: params.period,
-      limit: params.limit,
-    });
-    return response.data; // Will throw error since not implemented
+export const markOrderReady = createAsyncThunk(
+  'orders/markReady',
+  async (orderId: string) => {
+    const response = await vendorOrdersApiService.markOrderReady(orderId);
+    return response.data;
   }
 );
 
@@ -98,55 +88,56 @@ const ordersSlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.orders = action.payload.orders;
-        state.currentBranchId = action.payload.branchId;
+        state.orders = action.payload;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || 'Failed to fetch orders';
       });
 
-    // Update order status
+    // Accept order
     builder
-      .addCase(updateOrderStatus.pending, (state) => {
+      .addCase(acceptOrder.pending, (state) => {
         state.error = null;
       })
-      .addCase(updateOrderStatus.fulfilled, (state, action) => {
+      .addCase(acceptOrder.fulfilled, (state, action) => {
         const index = state.orders.findIndex(order => order.orderId === action.payload.orderId);
         if (index !== -1) {
           state.orders[index] = action.payload;
         }
       })
-      .addCase(updateOrderStatus.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to update order status';
+      .addCase(acceptOrder.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to accept order';
       });
 
-    // Fetch dashboard stats
+    // Reject order
     builder
-      .addCase(fetchDashboardStats.pending, (state) => {
+      .addCase(rejectOrder.pending, (state) => {
         state.error = null;
       })
-      .addCase(fetchDashboardStats.fulfilled, (state, action) => {
-        state.dashboardStats = action.payload;
-      })
-      .addCase(fetchDashboardStats.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to fetch dashboard stats';
-      });
-
-    // Fetch top items
-    builder
-      .addCase(fetchTopItems.pending, (state) => {
-        state.error = null;
-      })
-      .addCase(fetchTopItems.fulfilled, (state, action) => {
-        // Store top items in dashboard stats for now
-        if (!state.dashboardStats) {
-          state.dashboardStats = {};
+      .addCase(rejectOrder.fulfilled, (state, action) => {
+        const index = state.orders.findIndex(order => order.orderId === action.payload.orderId);
+        if (index !== -1) {
+          state.orders[index] = action.payload;
         }
-        state.dashboardStats.topItems = action.payload;
       })
-      .addCase(fetchTopItems.rejected, (state, action) => {
-        state.error = action.error.message || 'Failed to fetch top items';
+      .addCase(rejectOrder.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to reject order';
+      });
+
+    // Mark order ready
+    builder
+      .addCase(markOrderReady.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(markOrderReady.fulfilled, (state, action) => {
+        const index = state.orders.findIndex(order => order.orderId === action.payload.orderId);
+        if (index !== -1) {
+          state.orders[index] = action.payload;
+        }
+      })
+      .addCase(markOrderReady.rejected, (state, action) => {
+        state.error = action.error.message || 'Failed to mark order ready';
       });
   },
 });

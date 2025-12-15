@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,30 +11,41 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { sendOTP, verifyOTP } from '../core/services/phoneAuthservice';
+import { useAppDispatch } from '../store';
+import { hydrateRestaurant } from '../store/slices/restaurantSlice';
+import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+import { firebaseConfig } from '../core/config/firebase';
 
 type PhoneLoginNavigationProp = StackNavigationProp<RootStackParamList, 'PhoneLogin'>;
+type PhoneLoginRouteProp = RouteProp<RootStackParamList, 'PhoneLogin'>;
 
 export default function PhoneLoginScreen() {
   const navigation = useNavigation<PhoneLoginNavigationProp>();
+  const route = useRoute<PhoneLoginRouteProp>();
+  const { intent } = route.params;
+  const dispatch = useAppDispatch();
+
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmation, setConfirmation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const handleSendOTP = async () => {
     if (!phone || phone.length < 10) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
-    
+
     setLoading(true);
     try {
       const formattedPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
-      const confirmationResult = await sendOTP(formattedPhone);
+      // @ts-ignore - Firebase types mismatch with Expo Recaptcha
+      const confirmationResult = await sendOTP(formattedPhone, recaptchaVerifier.current!);
       setConfirmation(confirmationResult);
       Alert.alert('Success', 'OTP sent to your phone!');
     } catch (error: any) {
@@ -56,8 +67,19 @@ export default function PhoneLoginScreen() {
       const userCredential = await verifyOTP(confirmation, otp);
       Alert.alert('Success', 'Phone verified successfully!');
       console.log('User:', userCredential.user);
-      // Navigate to main app
-      navigation.navigate('Main');
+
+      if (intent === 'signup') {
+        navigation.navigate('Onboarding');
+      } else {
+        // Try to hydrate restaurant data
+        try {
+          // @ts-ignore - Dispatching thunk
+          await dispatch(hydrateRestaurant());
+        } catch (e) {
+          console.log('Hydration failed (expected if first login on new device):', e);
+        }
+        navigation.navigate('Main');
+      }
     } catch (error: any) {
       console.error(error);
       Alert.alert('Error', 'Invalid OTP. Please try again.');
@@ -72,11 +94,25 @@ export default function PhoneLoginScreen() {
         colors={['#16a34a', '#15803d']}
         style={styles.gradient}
       >
-        <View id="recaptcha-container" />
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={firebaseConfig}
+          // @ts-ignore
+          attemptInvisibleVerification={true}
+        />
 
         <View style={styles.content}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+
           <Ionicons name="phone-portrait" size={64} color="white" />
-          <Text style={styles.title}>Phone Verification</Text>
+          <Text style={styles.title}>
+            {intent === 'signup' ? 'Create Account' : 'Welcome Back'}
+          </Text>
           <Text style={styles.subtitle}>
             {!confirmation
               ? 'Enter your phone number to receive OTP'
@@ -139,7 +175,18 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   gradient: { flex: 1, justifyContent: 'center', padding: 24 },
-  content: { alignItems: 'center' },
+  content: { alignItems: 'center', width: '100%' },
+  backButton: {
+    position: 'absolute',
+    top: -40,
+    left: 0,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+  },
   title: { fontSize: 32, fontWeight: 'bold', color: 'white', marginTop: 16 },
   subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 8, marginBottom: 32 },
   input: { backgroundColor: 'rgba(255,255,255,0.2)', width: '100%', padding: 16, borderRadius: 12, color: 'white', fontSize: 16, marginBottom: 16 },

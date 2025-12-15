@@ -21,6 +21,11 @@ export interface ApiResponse<T = any> {
 class HttpClient {
   private instance: AxiosInstance;
 
+  // Header-based authentication (temporary, will be replaced by JWT)
+  private customerId?: string;
+  private riderId?: string;
+  private restaurantId?: string;
+
   constructor() {
     this.instance = axios.create({
       baseURL: config.apiUrl,
@@ -34,19 +39,77 @@ class HttpClient {
     this.setupInterceptors();
   }
 
+  /**
+   * Set authentication headers for API requests
+   * These will be automatically injected into all requests
+   * 
+   * @param customerId - Customer ID (for customer operations)
+   * @param riderId - Rider ID (for rider operations)
+   * @param restaurantId - Restaurant/Vendor ID (for vendor operations)
+   */
+  setAuthHeaders(customerId?: string, riderId?: string, restaurantId?: string) {
+    this.customerId = customerId;
+    this.riderId = riderId;
+    this.restaurantId = restaurantId;
+  }
+
+  /**
+   * Clear all authentication headers
+   */
+  clearAuthHeaders() {
+    this.customerId = undefined;
+    this.riderId = undefined;
+    this.restaurantId = undefined;
+  }
+
+  /**
+   * Set customer ID for customer-specific requests
+   */
+  setCustomerId(customerId: string) {
+    this.customerId = customerId;
+  }
+
+  /**
+   * Set rider ID for rider-specific requests
+   */
+  setRiderId(riderId: string) {
+    this.riderId = riderId;
+  }
+
+  /**
+   * Set restaurant/vendor ID for vendor-specific requests
+   */
+  setRestaurantId(restaurantId: string) {
+    this.restaurantId = restaurantId;
+  }
+
   private setupInterceptors() {
     // Request interceptor
     this.instance.interceptors.request.use(
       (config) => {
-        // Add auth token if available
+        // Add JWT token if available (for future use)
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-        
-        if (config.enableLogging) {
-      console.log(`[HTTP] ${config.method?.toUpperCase()} ${config.url}`);
-    }
+
+        // Add header-based authentication (current approach)
+        if (this.customerId) {
+          config.headers['X-Customer-Id'] = this.customerId;
+        }
+        if (this.riderId) {
+          config.headers['X-Rider-Id'] = this.riderId;
+        }
+        if (this.restaurantId) {
+          config.headers['X-Restaurant-Id'] = this.restaurantId;
+          // Also set X-Vendor-Id as some endpoints might expect this
+          config.headers['X-Vendor-Id'] = this.restaurantId;
+        }
+
+        // Log if enabled (check environment config, not axios config)
+        if ((config as any).enableLogging !== false) {
+          console.log(`[HTTP] ${config.method?.toUpperCase()} ${config.url}`);
+        }
         return config;
       },
       (error) => {
@@ -69,17 +132,17 @@ class HttpClient {
         if (config.enableLogging) {
           console.error('[HTTP] Response Error:', error.response?.status, error.message);
         }
-        
+
         // Handle common HTTP errors
         this.handleHttpError(error);
-        
+
         return Promise.reject(error);
       }
     );
   }
 
   private getAuthToken(): string | null {
-    // TODO: Implement token retrieval from secure storage
+    // TODO: Implement JWT token retrieval from secure storage
     // This is a mock implementation
     return null;
   }
@@ -101,7 +164,7 @@ class HttpClient {
         // Unauthorized - redirect to login
         this.handleUnauthorized();
         break;
-      
+
       case 403:
         // Forbidden
         Alert.alert(
@@ -109,7 +172,7 @@ class HttpClient {
           'You do not have permission to perform this action.'
         );
         break;
-      
+
       case 404:
         // Not Found
         Alert.alert(
@@ -117,20 +180,20 @@ class HttpClient {
           'The requested resource was not found.'
         );
         break;
-      
+
       case 422:
         // Validation Error
         if (data && typeof data === 'object' && 'errors' in data) {
           const errors = (data as any).errors;
-          const errorMessage = Array.isArray(errors) 
-            ? errors.join('\n') 
+          const errorMessage = Array.isArray(errors)
+            ? errors.join('\n')
             : 'Validation failed';
           Alert.alert('Validation Error', errorMessage);
         } else {
           Alert.alert('Validation Error', 'Please check your input.');
         }
         break;
-      
+
       case 429:
         // Too Many Requests
         Alert.alert(
@@ -138,7 +201,7 @@ class HttpClient {
           'Too many requests. Please try again later.'
         );
         break;
-      
+
       case 500:
       case 502:
       case 503:
@@ -149,7 +212,7 @@ class HttpClient {
           'Something went wrong on our end. Please try again later.'
         );
         break;
-      
+
       default:
         // Generic error
         const errorData = data as any;
@@ -211,8 +274,8 @@ class HttpClient {
 
   // File upload methods
   async uploadFile<T = any>(
-    url: string, 
-    file: { uri: string; name: string; type: string }, 
+    url: string,
+    file: { uri: string; name: string; type: string },
     additionalData?: Record<string, string>
   ): Promise<AxiosResponse<T>> {
     const formData = new FormData();

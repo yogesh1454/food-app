@@ -12,9 +12,9 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../store';
-import { addStaff, updateStaff, removeStaff, updateRestaurant } from '../store/slices/restaurantSlice';
+import { useSelector } from 'react-redux';
+import { RootState, useAppDispatch } from '../store';
+import { addStaff, updateStaff, removeStaff, updateVendorProfile, uploadVendorMedia } from '../store/slices/restaurantSlice';
 import ImageUploadButton from '../core/components/ImageUploadButton';
 import DocumentUploadButton from '../core/components/DocumentUploadButton';
 import FeatureGate from '../core/components/FeatureGate';
@@ -300,12 +300,12 @@ export default function ProfileScreen() {
   const [profileForm, setProfileForm] = useState({ name: '', description: '', address: '', phone: '', email: '' });
   const [documentsModalVisible, setDocumentsModalVisible] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<Array<{ name: string; uri: string }>>([]);
-  
+
   // Feature flag hooks
   const { flags, isEnabled } = useFeatureFlags();
-  
+
   const restaurant = useSelector((state: RootState) => state.restaurant.restaurant);
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   const handleStaffManagement = () => {
     setStaffModalVisible(true);
@@ -375,17 +375,23 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleUpdateProfile = () => {
+  const handleUpdateProfile = async () => {
     if (restaurant) {
-      dispatch(updateRestaurant({
-        name: profileForm.name,
-        description: profileForm.description,
-        address: profileForm.address,
-        phone: profileForm.phone,
-        email: profileForm.email,
-      }));
-      setEditProfileModalVisible(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      try {
+        await dispatch(updateVendorProfile({
+          vendorId: restaurant.vendorId,
+          data: {
+            companyName: profileForm.name,
+            description: profileForm.description,
+            companyPhone: profileForm.phone,
+            companyEmail: profileForm.email,
+          }
+        })).unwrap();
+        setEditProfileModalVisible(false);
+        Alert.alert('Success', 'Profile updated successfully!');
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to update profile');
+      }
     }
   };
 
@@ -394,13 +400,13 @@ export default function ProfileScreen() {
       title: 'Restaurant Info',
       subtitle: 'Update your restaurant details',
       icon: 'restaurant' as const,
-      action: () => {},
+      action: () => { },
     },
     {
       title: 'Operating Hours',
       subtitle: 'Set your business hours',
       icon: 'time' as const,
-      action: () => {},
+      action: () => { },
     },
     {
       title: 'Staff Management',
@@ -418,25 +424,25 @@ export default function ProfileScreen() {
       title: 'Payment Settings',
       subtitle: 'Configure payment methods',
       icon: 'card' as const,
-      action: () => {},
+      action: () => { },
     },
     {
       title: 'Notifications',
       subtitle: 'Manage notification preferences',
       icon: 'notifications' as const,
-      action: () => {},
+      action: () => { },
     },
     {
       title: 'Support',
       subtitle: 'Get help and contact support',
       icon: 'help-circle' as const,
-      action: () => {},
+      action: () => { },
     },
     {
       title: 'Logout',
       subtitle: 'Sign out of your account',
       icon: 'log-out' as const,
-      action: () => {},
+      action: () => { },
       danger: true,
     },
   ];
@@ -458,10 +464,20 @@ export default function ProfileScreen() {
                 <Ionicons name="restaurant" size={32} color="white" />
               </View>
               <ImageUploadButton
-                onImageUploaded={(uri) => {
+                onImageUploaded={async (uri) => {
                   // Handle logo upload
                   if (restaurant) {
-                    dispatch(updateRestaurant({ logoUrl: uri }));
+                    try {
+                      await dispatch(uploadVendorMedia({
+                        vendorId: restaurant.vendorId,
+                        file: { uri, name: 'logo.jpg', type: 'image/jpeg' },
+                        target: 'VENDOR',
+                        fileType: 'logo'
+                      })).unwrap();
+                      Alert.alert('Success', 'Logo updated successfully');
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to upload logo');
+                    }
                   }
                 }}
                 buttonText="Change Logo"
@@ -686,13 +702,27 @@ export default function ProfileScreen() {
                 Upload License Documents
               </Text>
               <DocumentUploadButton
-                onDocumentUploaded={(uri, fileName) => {
-                  setUploadedDocuments([...uploadedDocuments, { name: fileName, uri }]);
+                onDocumentUploaded={async (uri, fileName) => {
+                  if (restaurant) {
+                    try {
+                      await dispatch(uploadVendorMedia({
+                        vendorId: restaurant.vendorId,
+                        file: { uri, name: fileName, type: 'image/jpeg' },
+                        target: 'VENDOR',
+                        fileType: 'gst', // Defaulting to GST for now
+                        additionalData: { documentNumber: restaurant.gstNumber || 'PENDING' }
+                      })).unwrap();
+                      setUploadedDocuments([...uploadedDocuments, { name: fileName, uri }]);
+                      Alert.alert('Success', 'Document uploaded successfully');
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to upload document');
+                    }
+                  }
                 }}
                 buttonText="Upload Document"
                 style={{ marginBottom: 16 }}
               />
-              
+
               {uploadedDocuments.length > 0 && (
                 <View style={{ marginTop: 16 }}>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 12 }}>
@@ -717,7 +747,7 @@ export default function ProfileScreen() {
                   ))}
                 </View>
               )}
-              
+
               <TouchableOpacity
                 style={[styles.profileButton, { marginTop: 24 }]}
                 onPress={() => setDocumentsModalVisible(false)}

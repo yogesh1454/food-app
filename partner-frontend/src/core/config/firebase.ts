@@ -1,6 +1,8 @@
-// src/core/config/firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// @ts-ignore - getReactNativePersistence exists at runtime but not in TS types for Firebase v12
+import { initializeAuth, getReactNativePersistence, Auth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAOUROmucGAXYdS0BCFjnXMtE2KD_QzFo",
@@ -14,6 +16,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 
-export { app, auth };
+// Initialize Auth with AsyncStorage persistence for React Native
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+} catch (error) {
+  // Auth might already be initialized (hot reload scenario)
+  const { getAuth } = require("firebase/auth");
+  auth = getAuth(app);
+}
+
+const db = getFirestore(app);
+
+export { app, auth, db, firebaseConfig };

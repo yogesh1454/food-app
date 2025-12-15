@@ -11,12 +11,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchOrders,
-  updateOrderStatus,
+  acceptOrder,
+  rejectOrder,
+  markOrderReady,
   setFilter,
   clearError,
 } from '../store/slices/ordersSlice';
 import { RootState } from '../store';
-import { Order } from '../core/types/api';
+import { OrderResponse, OrderState, canAcceptOrder, canMarkOrderReady, getOrderStateDescription } from '../core/api';
 import ScreenLayout, { Section, EmptyState } from '../core/components/ScreenLayout';
 import { Card, OrderCard } from '../core/components/Card';
 import { Button } from '../core/components/Button';
@@ -32,19 +34,19 @@ const OrdersScreenImproved = () => {
 
   // Local state
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
 
-  // Status options
+  // Status options using new OrderState enum
   const statusOptions = [
     { key: 'all', label: 'All Orders', icon: 'list-outline' },
-    { key: 'PENDING', label: 'Pending', icon: 'time-outline' },
-    { key: 'CONFIRMED', label: 'Confirmed', icon: 'checkmark-circle-outline' },
-    { key: 'PREPARING', label: 'Preparing', icon: 'restaurant-outline' },
-    { key: 'READY', label: 'Ready', icon: 'checkmark-done-outline' },
-    { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: 'bicycle-outline' },
-    { key: 'DELIVERED', label: 'Delivered', icon: 'home-outline' },
-    { key: 'CANCELLED', label: 'Cancelled', icon: 'close-circle-outline' },
+    { key: OrderState.PENDING_ACCEPTANCE, label: 'Pending', icon: 'time-outline' },
+    { key: OrderState.ACCEPTED, label: 'Accepted', icon: 'checkmark-circle-outline' },
+    { key: OrderState.PREPARING, label: 'Preparing', icon: 'restaurant-outline' },
+    { key: OrderState.READY_FOR_PICKUP, label: 'Ready', icon: 'checkmark-done-outline' },
+    { key: OrderState.PICKED_UP, label: 'Out for Delivery', icon: 'bicycle-outline' },
+    { key: OrderState.DELIVERED, label: 'Delivered', icon: 'home-outline' },
+    { key: OrderState.CANCELLED, label: 'Cancelled', icon: 'close-circle-outline' },
   ];
 
   // Load data on component mount
@@ -55,11 +57,8 @@ const OrdersScreenImproved = () => {
   // Load orders
   const loadOrders = async () => {
     try {
-      await dispatch(fetchOrders({
-        branchId: CURRENT_BRANCH_ID,
-        status: filter === 'all' ? undefined : filter,
-        size: 50,
-      })).unwrap();
+      // New fetchOrders doesn't take parameters - it calls vendor orders API
+      await dispatch(fetchOrders()).unwrap();
     } catch (error) {
       console.error('Failed to load orders:', error);
     }
@@ -80,33 +79,43 @@ const OrdersScreenImproved = () => {
     dispatch(setFilter(newFilter as any));
   };
 
-  // Handle order status update
-  const handleStatusUpdate = async (order: Order, newStatus: Order['status']) => {
+  // Handle accept order
+  const handleAcceptOrder = async (order: OrderResponse) => {
     try {
-      await dispatch(updateOrderStatus({
+      await dispatch(acceptOrder({
         orderId: order.orderId,
-        statusData: { status: newStatus },
+        estimatedPrepTime: 15, // Default 15 minutes
       })).unwrap();
       setShowStatusModal(false);
       setSelectedOrder(null);
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      console.error('Failed to accept order:', error);
     }
   };
 
-  // Get next status options for an order
-  const getNextStatusOptions = (currentStatus: Order['status']) => {
-    const statusFlow: Record<string, Order['status'][]> = {
-      'PENDING': ['CONFIRMED', 'CANCELLED'],
-      'CONFIRMED': ['PREPARING', 'CANCELLED'],
-      'PREPARING': ['READY'],
-      'READY': ['OUT_FOR_DELIVERY'],
-      'OUT_FOR_DELIVERY': ['DELIVERED'],
-      'DELIVERED': [],
-      'CANCELLED': [],
-    };
+  // Handle reject order
+  const handleRejectOrder = async (order: OrderResponse) => {
+    try {
+      await dispatch(rejectOrder({
+        orderId: order.orderId,
+        reason: 'Not available',
+      })).unwrap();
+      setShowStatusModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error('Failed to reject order:', error);
+    }
+  };
 
-    return statusFlow[currentStatus] || [];
+  // Handle mark order ready
+  const handleMarkReady = async (order: OrderResponse) => {
+    try {
+      await dispatch(markOrderReady(order.orderId)).unwrap();
+      setShowStatusModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error('Failed to mark order ready:', error);
+    }
   };
 
   // Render status filter
@@ -145,17 +154,18 @@ const OrdersScreenImproved = () => {
     </ScrollView>
   );
 
-  // Render status update modal
-  const renderStatusModal = () => {
+  // Render action modal
+  const renderActionModal = () => {
     if (!selectedOrder) return null;
 
-    const nextStatuses = getNextStatusOptions(selectedOrder.status);
+    const canAccept = canAcceptOrder(selectedOrder.state);
+    const canMarkReady = canMarkOrderReady(selectedOrder.state);
 
     return (
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Update Order Status</Text>
+            <Text style={styles.modalTitle}>Order Actions</Text>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
@@ -168,21 +178,37 @@ const OrdersScreenImproved = () => {
           </View>
 
           <Text style={styles.orderInfo}>
-            Order #{selectedOrder.orderId} - {selectedOrder.customerName}
+            Order #{selectedOrder.orderId}
+          </Text>
+          <Text style={styles.orderState}>
+            {getOrderStateDescription(selectedOrder.state)}
           </Text>
 
           <View style={styles.statusOptions}>
-            {nextStatuses.map((status) => (
+            {canAccept && (
+              <>
+                <TouchableOpacity
+                  style={[styles.statusOption, styles.acceptButton]}
+                  onPress={() => handleAcceptOrder(selectedOrder)}
+                >
+                  <Text style={styles.statusOptionText}>Accept Order (15 min)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.statusOption, styles.rejectButton]}
+                  onPress={() => handleRejectOrder(selectedOrder)}
+                >
+                  <Text style={styles.statusOptionText}>Reject Order</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {canMarkReady && (
               <TouchableOpacity
-                key={status}
                 style={styles.statusOption}
-                onPress={() => handleStatusUpdate(selectedOrder, status)}
+                onPress={() => handleMarkReady(selectedOrder)}
               >
-                <Text style={styles.statusOptionText}>
-                  {status.replace('_', ' ')}
-                </Text>
+                <Text style={styles.statusOptionText}>Mark Ready for Pickup</Text>
               </TouchableOpacity>
-            ))}
+            )}
           </View>
         </View>
       </View>
@@ -213,7 +239,8 @@ const OrdersScreenImproved = () => {
           // Navigate to order details
         }}
         onUpdateStatus={() => {
-          if (getNextStatusOptions(order.status).length > 0) {
+          // Show actions if order can be accepted or marked ready
+          if (canAcceptOrder(order.state) || canMarkOrderReady(order.state)) {
             setSelectedOrder(order);
             setShowStatusModal(true);
           }
@@ -254,8 +281,8 @@ const OrdersScreenImproved = () => {
         </Section>
       </ScrollView>
 
-      {/* Status Update Modal */}
-      {showStatusModal && renderStatusModal()}
+      {/* Action Modal */}
+      {showStatusModal && renderActionModal()}
     </ScreenLayout>
   );
 };
@@ -328,9 +355,22 @@ const styles = StyleSheet.create({
   },
   orderInfo: {
     fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  orderState: {
+    fontSize: 14,
     color: colors.textSecondary,
     marginBottom: spacing.lg,
     textAlign: 'center',
+  },
+  acceptButton: {
+    backgroundColor: colors.success,
+  },
+  rejectButton: {
+    backgroundColor: colors.error,
   },
   statusOptions: {
     gap: spacing.sm,

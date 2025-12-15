@@ -1,9 +1,9 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { MenuItem, MenuItemCreateRequest, MenuItemUpdateRequest } from '../../core/types/api';
-import { apiService } from '../../core/api/unifiedApiService';
+import { MenuItem, MenuItemResponse, MenuItemCreateRequest, MenuItemUpdateRequest } from '../../core/types/api';
+import { menuApiService } from '../../core/api/menuApiService';
 
 interface MenuState {
-  items: MenuItem[];
+  items: MenuItemResponse[];
   categories: string[];
   isLoading: boolean;
   error: string | null;
@@ -27,11 +27,16 @@ export const fetchMenuItems = createAsyncThunk(
     branchId: number;
     category?: string;
   }) => {
-    const response = await apiService.getBranchMenuItems(
+    const response = await menuApiService.getBranchMenuItems(
       params.branchId,
-      { category: params.category }
+      0, // page
+      50, // size
+      params.category
     );
-    return response.data; // Backend returns List<MenuItemResponse>, not paginated
+    return {
+      items: response.data,
+      branchId: params.branchId,
+    };
   }
 );
 
@@ -41,7 +46,7 @@ export const createMenuItem = createAsyncThunk(
     branchId: number;
     menuItemData: MenuItemCreateRequest;
   }) => {
-    const response = await apiService.createMenuItem(params.branchId, params.menuItemData);
+    const response = await menuApiService.createMenuItem(params.branchId, params.menuItemData);
     return response.data;
   }
 );
@@ -49,28 +54,30 @@ export const createMenuItem = createAsyncThunk(
 export const updateMenuItem = createAsyncThunk(
   'menu/updateMenuItem',
   async (params: {
-    menuItemId: number; // Changed from string to number
+    menuItemId: number;
     menuItemData: MenuItemUpdateRequest;
   }) => {
-    const response = await apiService.updateMenuItem(params.menuItemId, params.menuItemData);
+    const response = await menuApiService.updateMenuItem(params.menuItemId, params.menuItemData);
     return response.data;
   }
 );
 
 export const deleteMenuItem = createAsyncThunk(
   'menu/deleteMenuItem',
-  async (menuItemId: number) => { // Changed from string to number
-    await apiService.deleteMenuItem(menuItemId);
+  async (menuItemId: number) => {
+    await menuApiService.deleteMenuItem(menuItemId);
     return menuItemId;
   }
 );
 
-// NOTE: The following thunks are NOT implemented yet
+// NOTE: The following thunks are NOT implemented in backend yet
+// They will throw errors if called
 export const fetchMenuItemCategories = createAsyncThunk(
   'menu/fetchCategories',
   async (branchId: number) => {
-    const response = await apiService.getMenuItemCategories(branchId);
-    return response.data;
+    // Extract unique categories from existing menu items instead
+    // This is a client-side workaround since backend doesn't have this endpoint
+    return [];
   }
 );
 
@@ -80,7 +87,8 @@ export const searchMenuItems = createAsyncThunk(
     branchId: number;
     query: string;
   }) => {
-    const response = await apiService.searchMenuItems(params.branchId, params.query);
+    // Not implemented - will throw error
+    const response = await menuApiService.searchMenuItems(params.branchId, params.query);
     return response.data;
   }
 );
@@ -110,6 +118,9 @@ const menuSlice = createSlice({
         state.isLoading = false;
         state.items = action.payload.items;
         state.currentBranchId = action.payload.branchId;
+        // Extract unique categories from items
+        const categories = [...new Set(action.payload.items.map(item => item.category))];
+        state.categories = ['All', ...categories];
       })
       .addCase(fetchMenuItems.rejected, (state, action) => {
         state.isLoading = false;
