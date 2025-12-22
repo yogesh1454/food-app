@@ -184,6 +184,72 @@ export class VendorApiService {
     }
   }
 
+  /**
+   * Activate a branch - makes it visible to customers
+   * PUT /api/v1/branches/{branchId}/activate
+   */
+  async activateBranch(branchId: number): Promise<ApiResponse<Branch>> {
+    console.log('[Branch] Activating branch:', branchId);
+
+    const { getUserUUID } = await import('../utils/userUuidService');
+    const userId = await getUserUUID();
+    console.log('[Branch] Using X-User-Id:', userId);
+
+    try {
+      const response = await httpClient.put(`/branches/${branchId}/activate`, {}, {
+        headers: {
+          'X-User-Id': userId
+        }
+      });
+      console.log('[Branch] Branch activated successfully:', response.data);
+      return {
+        data: response.data,
+        success: true,
+        status: response.status,
+      };
+    } catch (error: any) {
+      console.error('[Branch] Error activating branch:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Deactivate a branch - removes it from customer visibility
+   * PUT /api/v1/branches/{branchId}/deactivate
+   */
+  async deactivateBranch(branchId: number): Promise<ApiResponse<Branch>> {
+    console.log('[Branch] Deactivating branch:', branchId);
+
+    const { getUserUUID } = await import('../utils/userUuidService');
+    const userId = await getUserUUID();
+    console.log('[Branch] Using X-User-Id:', userId);
+
+    try {
+      const response = await httpClient.put(`/branches/${branchId}/deactivate`, {}, {
+        headers: {
+          'X-User-Id': userId
+        }
+      });
+      console.log('[Branch] Branch deactivated successfully:', response.data);
+      return {
+        data: response.data,
+        success: true,
+        status: response.status,
+      };
+    } catch (error: any) {
+      console.error('[Branch] Error deactivating branch:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      throw error;
+    }
+  }
+
   // ============================================================================
   // DEPRECATED METHODS - These endpoints do NOT exist in the Swagger spec
   // They should be removed in a future update

@@ -36,7 +36,7 @@ export class VendorOrdersApiService {
 
     /**
      * Accept an order and start preparation
-     * POST /api/v1/vendor/orders/{orderId}/accept
+     * POST /api/v1/orders/{orderId}/accept
      * 
      * @param orderId - Order ID (UUID)
      * @param estimatedPrepTime - Estimated preparation time in minutes (5-120)
@@ -51,7 +51,7 @@ export class VendorOrdersApiService {
         };
 
         const response = await httpClient.post<OrderResponse>(
-            `/vendor/orders/${orderId}/accept`,
+            `/orders/${orderId}/accept`,
             request
         );
 
@@ -64,7 +64,7 @@ export class VendorOrdersApiService {
 
     /**
      * Reject an order with a reason
-     * POST /api/v1/vendor/orders/{orderId}/reject
+     * POST /api/v1/orders/{orderId}/reject
      * 
      * @param orderId - Order ID (UUID)
      * @param reason - Rejection reason
@@ -79,7 +79,7 @@ export class VendorOrdersApiService {
         };
 
         const response = await httpClient.post<OrderResponse>(
-            `/vendor/orders/${orderId}/reject`,
+            `/orders/${orderId}/reject`,
             request
         );
 
@@ -92,14 +92,14 @@ export class VendorOrdersApiService {
 
     /**
      * Mark order as ready for pickup
-     * POST /api/v1/vendor/orders/{orderId}/ready
+     * POST /api/v1/orders/{orderId}/ready
      * 
      * @param orderId - Order ID (UUID)
      * @returns Updated order
      */
     async markOrderReady(orderId: string): Promise<ApiResponse<OrderResponse>> {
         const response = await httpClient.post<OrderResponse>(
-            `/vendor/orders/${orderId}/ready`
+            `/orders/${orderId}/ready`
         );
 
         return {

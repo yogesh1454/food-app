@@ -518,11 +518,17 @@ export default function DashboardScreen() {
 
     setIsCreatingBranch(true);
     try {
+      // Default Bangalore center coordinates - branches without location won't show in customer search
+      const DEFAULT_BANGALORE_LAT = 12.9716;
+      const DEFAULT_BANGALORE_LNG = 77.5946;
+
       const branchData: BranchCreateRequest = {
         branchName: branchFormData.branchName,
         branchPhone: branchFormData.branchPhone,
         branchEmail: branchFormData.branchEmail,
         city: branchFormData.city,
+        latitude: DEFAULT_BANGALORE_LAT,
+        longitude: DEFAULT_BANGALORE_LNG,
         address: {
           area: branchFormData.area,
           city: branchFormData.city,
@@ -531,8 +537,21 @@ export default function DashboardScreen() {
         },
       };
 
-      await dispatch(createBranch({ vendorId: restaurant.vendorId, branchData })).unwrap();
-      Alert.alert('Success', 'Branch created successfully!');
+      const result = await dispatch(createBranch({ vendorId: restaurant.vendorId, branchData })).unwrap();
+
+      // Activate the branch immediately after creation
+      if (result?.branchId) {
+        try {
+          const { vendorApiService } = await import('../core/api/vendorApiService');
+          await vendorApiService.activateBranch(result.branchId);
+          console.log('[Dashboard] Branch', result.branchId, 'activated successfully');
+        } catch (activateError) {
+          console.warn('[Dashboard] Failed to activate branch:', activateError);
+          // Continue anyway - branch was created
+        }
+      }
+
+      Alert.alert('Success', 'Branch created and activated!');
       setCreateBranchModalVisible(false);
       setBranchFormData({
         branchName: '',
@@ -543,6 +562,10 @@ export default function DashboardScreen() {
         state: '',
         pincode: '',
       });
+
+      // Refresh the restaurant data to get updated branches
+      const { hydrateRestaurant } = await import('../store/slices/restaurantSlice');
+      dispatch(hydrateRestaurant());
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to create branch');
     } finally {
@@ -686,7 +709,9 @@ export default function DashboardScreen() {
                   <View style={styles.branchInfo}>
                     <Text style={styles.branchName}>{branch.branchName}</Text>
                     <Text style={styles.branchLocation}>
-                      {branch.city || 'No location set'}
+                      {branch.address?.area
+                        ? `${branch.address.area}, ${branch.city}`
+                        : branch.city || 'No location set'}
                     </Text>
                   </View>
                   <View style={styles.branchStatusContainer}>

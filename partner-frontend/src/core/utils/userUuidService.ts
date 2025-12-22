@@ -154,8 +154,73 @@ export async function clearUserUUID(): Promise<void> {
     console.log('[UserUUID] Cleared local UUID cache (Firestore retained for recovery)');
 }
 
+/**
+ * Save vendorId to Firestore for the current user.
+ * This allows recovery of vendor association across app reinstalls.
+ * 
+ * @param vendorId The vendor ID to save
+ */
+export async function saveVendorId(vendorId: number): Promise<void> {
+    const firebaseUid = auth.currentUser?.uid;
+
+    if (!firebaseUid) {
+        console.warn('[UserUUID] Cannot save vendorId - user not authenticated');
+        return;
+    }
+
+    console.log('[UserUUID] Saving vendorId to Firestore:', vendorId);
+
+    try {
+        const docRef = doc(db, USER_UUID_COLLECTION, firebaseUid);
+        await setDoc(docRef, {
+            vendorId: vendorId,
+            vendorIdSavedAt: new Date().toISOString(),
+        }, { merge: true }); // Use merge to not overwrite existing uuid field
+        console.log('[UserUUID] Successfully saved vendorId to Firestore');
+    } catch (error) {
+        console.error('[UserUUID] Failed to save vendorId to Firestore:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get vendorId from Firestore for the current user.
+ * Used for recovering vendor association after app reinstall.
+ * 
+ * @returns The vendor ID or null if not found
+ */
+export async function getVendorId(): Promise<number | null> {
+    const firebaseUid = auth.currentUser?.uid;
+
+    if (!firebaseUid) {
+        console.warn('[UserUUID] Cannot get vendorId - user not authenticated');
+        return null;
+    }
+
+    console.log('[UserUUID] Getting vendorId from Firestore for user:', firebaseUid);
+
+    try {
+        const docRef = doc(db, USER_UUID_COLLECTION, firebaseUid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists() && docSnap.data()?.vendorId) {
+            const vendorId = docSnap.data().vendorId;
+            console.log('[UserUUID] Found vendorId in Firestore:', vendorId);
+            return vendorId;
+        }
+
+        console.log('[UserUUID] No vendorId found in Firestore');
+        return null;
+    } catch (error) {
+        console.error('[UserUUID] Error getting vendorId from Firestore:', error);
+        return null;
+    }
+}
+
 export default {
     getUserUUID,
     hasUserUUID,
     clearUserUUID,
+    saveVendorId,
+    getVendorId,
 };

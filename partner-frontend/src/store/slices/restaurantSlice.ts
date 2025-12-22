@@ -65,9 +65,29 @@ export const registerVendor = createAsyncThunk(
     const response = await vendorApiService.createVendor(data);
     console.log('[registerVendor] Vendor created, response:', JSON.stringify(response.data, null, 2));
 
-    // Persist vendorId to AsyncStorage only (no Firestore needed)
-    await AsyncStorage.setItem('vendorId', response.data.vendorId.toString());
-    console.log('[registerVendor] Saved vendorId to AsyncStorage:', response.data.vendorId);
+    // Get Firebase UID for per-user storage
+    const { auth } = await import('../../core/config/firebase');
+    const firebaseUid = auth.currentUser?.uid;
+
+    if (firebaseUid) {
+      // Persist vendorId with per-user key
+      await AsyncStorage.setItem(`vendorId_${firebaseUid}`, response.data.vendorId.toString());
+      console.log('[registerVendor] Saved vendorId to AsyncStorage for user', firebaseUid, ':', response.data.vendorId);
+
+      // Also save to Firestore for recovery across reinstalls
+      try {
+        const { saveVendorId } = await import('../../core/utils/userUuidService');
+        await saveVendorId(response.data.vendorId);
+        console.log('[registerVendor] Saved vendorId to Firestore for recovery');
+      } catch (firestoreError) {
+        console.warn('[registerVendor] Failed to save vendorId to Firestore:', firestoreError);
+        // Don't fail registration if Firestore save fails - AsyncStorage is still the primary cache
+      }
+    } else {
+      // Fallback to legacy global key (shouldn't happen in normal flow)
+      await AsyncStorage.setItem('vendorId', response.data.vendorId.toString());
+      console.log('[registerVendor] Saved vendorId to AsyncStorage (legacy):', response.data.vendorId);
+    }
 
     return response.data;
   }
@@ -77,18 +97,57 @@ export const hydrateRestaurant = createAsyncThunk(
   'restaurant/hydrate',
   async (_, { rejectWithValue }) => {
     try {
-      const storedVendorId = await AsyncStorage.getItem('vendorId');
-      console.log('[hydrateRestaurant] Loaded vendorId from storage:', storedVendorId);
+      // Get the current Firebase user to key storage by their UID
+      const { auth } = await import('../../core/config/firebase');
+      const firebaseUid = auth.currentUser?.uid;
 
-      // DEV FALLBACK: Use vendorId = 1 for development if no real vendorId exists
-      const isDevFallback = !storedVendorId;
-      const vendorIdStr = storedVendorId || '1';
-      if (isDevFallback) {
-        console.warn('[DEV] No vendor ID found, using vendorId = 1 for development');
-        await AsyncStorage.setItem('vendorId', vendorIdStr);
+      if (!firebaseUid) {
+        console.warn('[hydrateRestaurant] No Firebase user found');
+        return rejectWithValue('User not authenticated');
       }
 
-      const vendorId = parseInt(vendorIdStr, 10);
+      // Use per-user storage key instead of global key
+      const vendorIdKey = `vendorId_${firebaseUid}`;
+      const storedVendorId = await AsyncStorage.getItem(vendorIdKey);
+      console.log('[hydrateRestaurant] Loaded vendorId from storage for user', firebaseUid, ':', storedVendorId);
+
+      // Also check legacy global key and migrate if found
+      if (!storedVendorId) {
+        const legacyVendorId = await AsyncStorage.getItem('vendorId');
+        if (legacyVendorId) {
+          console.log('[hydrateRestaurant] Found legacy vendorId, migrating to per-user key:', legacyVendorId);
+          await AsyncStorage.setItem(vendorIdKey, legacyVendorId);
+          await AsyncStorage.removeItem('vendorId'); // Clean up legacy key
+        }
+      }
+
+      const finalVendorId = storedVendorId || (await AsyncStorage.getItem(vendorIdKey));
+
+      // If still no vendorId in AsyncStorage, try to recover from Firestore
+      let recoveredVendorId = finalVendorId;
+      if (!recoveredVendorId) {
+        console.log('[hydrateRestaurant] No vendorId in AsyncStorage, checking Firestore for recovery...');
+        try {
+          const { getVendorId } = await import('../../core/utils/userUuidService');
+          const firestoreVendorId = await getVendorId();
+          if (firestoreVendorId) {
+            console.log('[hydrateRestaurant] Recovered vendorId from Firestore:', firestoreVendorId);
+            // Cache it back to AsyncStorage
+            await AsyncStorage.setItem(vendorIdKey, firestoreVendorId.toString());
+            recoveredVendorId = firestoreVendorId.toString();
+          }
+        } catch (firestoreError) {
+          console.warn('[hydrateRestaurant] Failed to recover vendorId from Firestore:', firestoreError);
+        }
+      }
+
+      if (!recoveredVendorId) {
+        console.log('[hydrateRestaurant] No vendorId found for user, need to complete onboarding');
+        return rejectWithValue('No vendor found. Please complete onboarding.');
+      }
+
+      const vendorId = parseInt(recoveredVendorId, 10);
+      console.log('[hydrateRestaurant] Fetching vendor:', vendorId);
 
       try {
         const response = await vendorApiService.getVendor(vendorId);
@@ -97,40 +156,15 @@ export const hydrateRestaurant = createAsyncThunk(
         const errorStatus = apiError?.response?.status || apiError?.status;
 
         // If vendor not found (404), clear stale data so user can re-register
-        if (errorStatus === 404 && !isDevFallback) {
+        if (errorStatus === 404) {
           console.warn('[hydrateRestaurant] Vendor not found (404), clearing stale data...');
-          await AsyncStorage.removeItem('vendorId');
-          await AsyncStorage.removeItem('branchId');
-          // Also clear the user UUID mapping for this Firebase user
-          const { auth } = await import('../../core/config/firebase');
-          const firebaseUid = auth.currentUser?.uid;
-          if (firebaseUid) {
-            await AsyncStorage.removeItem(`user_uuid_${firebaseUid}`);
-          }
+          await AsyncStorage.removeItem(vendorIdKey);
+          await AsyncStorage.removeItem(`branchId_${firebaseUid}`);
+          await AsyncStorage.removeItem(`user_uuid_${firebaseUid}`);
           console.warn('[hydrateRestaurant] Stale data cleared. User will need to complete onboarding again.');
           return rejectWithValue('Vendor not found. Please complete onboarding.');
         }
 
-        // If API call fails and this is a dev fallback, return a mock vendor
-        if (isDevFallback || vendorId === 1) {
-          console.warn('[DEV] API call failed for vendorId=1, using mock vendor data for development');
-          // Return a mock vendor response so the app can continue
-          return {
-            vendorId: 1,
-            companyName: 'Dev Restaurant',
-            brandName: 'Dev Restaurant',
-            legalEntityName: '',
-            companyEmail: 'dev@example.com',
-            companyPhone: '9999999999',
-            panNumber: '',
-            gstNumber: '',
-            images: {},
-            metadata: {},
-            tags: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          } as Vendor;
-        }
         throw apiError;
       }
     } catch (error: any) {
@@ -240,24 +274,31 @@ const restaurantSlice = createSlice({
     });
     builder.addCase(hydrateRestaurant.fulfilled, (state, action) => {
       state.isLoading = false;
+
+      // Get branches from vendor response (API includes branches in vendor details)
+      const vendorBranches = action.payload.branches || [];
+      const firstBranch = vendorBranches.length > 0 ? vendorBranches[0] : null;
+
       state.restaurant = {
         vendorId: action.payload.vendorId,
-        branchId: 1, // Default to 1 for dev fallback
+        branchId: firstBranch?.branchId || 0,
         name: action.payload.companyName,
         brandName: action.payload.brandName,
         cuisineType: '',
         description: '',
-        address: '',
-        phone: action.payload.companyPhone,
-        email: action.payload.companyEmail,
-        isOpen: false,
-        operatingHours: {},
+        address: firstBranch?.address?.street || '',
+        phone: firstBranch?.branchPhone || action.payload.companyPhone,
+        email: firstBranch?.branchEmail || action.payload.companyEmail,
+        isOpen: firstBranch?.isOpen || false,
+        operatingHours: firstBranch?.operatingHours || {},
         gstNumber: action.payload.gstNumber,
         staff: [],
         vendorData: action.payload,
-        branchData: null,
-        branches: [],
+        branchData: firstBranch,
+        branches: vendorBranches,
       };
+
+      console.log('[restaurantSlice] Hydrated with', vendorBranches.length, 'branches');
     });
     builder.addCase(hydrateRestaurant.rejected, (state, action) => {
       state.isLoading = false;

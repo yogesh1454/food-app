@@ -24,6 +24,7 @@ import { useAppDispatch } from '../store';
 import { setRestaurant, registerVendor, createBranch, uploadVendorMedia } from '../store/slices/restaurantSlice';
 import { createMenuItem } from '../store/slices/menuSlice';
 import { setFirstTime } from '../store/slices/authSlice';
+import { vendorApiService } from '../core/api/vendorApiService';
 import { commonStyles } from '../core/styles/commonStyles';
 import { colors } from '../core/constants/colors';
 import ImageUploadButton from '../core/components/ImageUploadButton';
@@ -751,6 +752,27 @@ export default function OnboardingScreen() {
       }
 
       console.log('[Onboarding] Branch created/found, branchId:', branchId);
+
+      // CRITICAL: Activate the branch so vendor is visible on sign-in
+      try {
+        console.log('[Onboarding] Activating branch to make vendor visible...');
+        await vendorApiService.activateBranch(branchId);
+        console.log('[Onboarding] Branch activated successfully');
+      } catch (activateError: any) {
+        console.error('[Onboarding] Failed to activate branch:', activateError);
+        // Non-blocking - continue with onboarding
+      }
+
+      // Also toggle the branch to open so it accepts orders
+      try {
+        console.log('[Onboarding] Setting branch to OPEN...');
+        await vendorApiService.toggleBranchStatus(branchId, { isOpen: true });
+        console.log('[Onboarding] Branch set to OPEN');
+      } catch (toggleError: any) {
+        console.error('[Onboarding] Failed to toggle branch open:', toggleError);
+        // Non-blocking - continue with onboarding
+      }
+
       console.log('[Onboarding] Now running optional steps (non-blocking)...');
 
       // 3-5. Run optional uploads in background (don't block navigation)

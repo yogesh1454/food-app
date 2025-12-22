@@ -35,6 +35,8 @@ import { LoadingSpinner } from '../core/components/LoadingSpinner';
 import { ErrorHandler, useErrorHandler } from '../core/components/ErrorHandler';
 import { colors, spacing } from '../core/constants';
 import { apiService } from '../core/api/unifiedApiService';
+import { menuApiService } from '../core/api/menuApiService';
+import * as ImagePicker from 'expo-image-picker';
 import useFeatureFlags from '../core/hooks/useFeatureFlags';
 import FeatureGate from '../core/components/FeatureGate';
 import ImageUploadButton from '../core/components/ImageUploadButton';
@@ -274,6 +276,74 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  branchSelectorContainer: {
+    marginBottom: 16,
+  },
+  branchSelectorLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  branchOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+  },
+  branchOptionSelected: {
+    borderColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
+  },
+  branchOptionIcon: {
+    marginRight: 12,
+  },
+  branchOptionContent: {
+    flex: 1,
+  },
+  branchOptionName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  branchOptionCity: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  branchOptionCheck: {
+    marginLeft: 8,
+  },
+  headerBranchSelector: {
+    marginTop: 12,
+  },
+  headerBranchPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#16a34a',
+  },
+  headerBranchPickerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#16a34a',
+    marginLeft: 8,
+  },
+  branchModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    width: '85%',
+    maxHeight: '60%',
+  },
 });
 
 export default function MenuScreen() {
@@ -282,6 +352,7 @@ export default function MenuScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [branchPickerVisible, setBranchPickerVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [newItem, setNewItem] = useState({
     name: '',
@@ -292,7 +363,8 @@ export default function MenuScreen() {
     addons: '',
     complimentaryItems: '',
     imageUrl: '',
-    nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    selectedBranchId: null as number | null,
   });
 
   // Feature flag hooks
@@ -302,12 +374,19 @@ export default function MenuScreen() {
   const categories = useSelector((state: RootState) => state.menu.categories);
   const currentBranchId = useSelector((state: RootState) => state.menu.currentBranchId);
   const restaurant = useSelector((state: RootState) => state.restaurant.restaurant);
+  const branches = useSelector((state: RootState) => state.restaurant.restaurant?.branches || []);
 
   const filteredItems = selectedCategory === 'All' ? menuItems : menuItems.filter(item => item.category === selectedCategory);
 
   useEffect(() => {
     const initializeMenu = async () => {
-      // Get stored branchId from AsyncStorage
+      // If we already have a branchId set in Redux, use it (don't reset user's selection)
+      if (currentBranchId) {
+        dispatch(fetchMenuItems({ branchId: currentBranchId }));
+        return;
+      }
+
+      // Get stored branchId from AsyncStorage (only for initial load)
       const storedBranchId = await AsyncStorage.getItem('branchId');
       let branchIdToUse = storedBranchId ? parseInt(storedBranchId, 10) : null;
 
@@ -327,15 +406,13 @@ export default function MenuScreen() {
         return;
       }
 
-      if (branchIdToUse !== currentBranchId) {
-        dispatch(setCurrentBranchId(branchIdToUse));
-      }
-
+      dispatch(setCurrentBranchId(branchIdToUse));
       dispatch(fetchMenuItems({ branchId: branchIdToUse }));
     };
 
     initializeMenu();
-  }, [dispatch, currentBranchId, restaurant?.branchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, restaurant?.branchId]); // Removed currentBranchId to prevent resetting user's selection
 
   const handleImageUpload = async (uri: string) => {
     setNewItem({ ...newItem, imageUrl: uri });
@@ -357,11 +434,35 @@ export default function MenuScreen() {
     }, 2000);
   };
 
-  const handleAddItem = async () => {
-    if (!currentBranchId) {
-      Alert.alert('Error', 'No branch selected. Please select a branch first.');
+  // Pick image from gallery
+  const handlePickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library to upload images.');
       return;
     }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setNewItem({ ...newItem, imageUrl: result.assets[0].uri });
+    }
+  };
+
+  const handleAddItem = async () => {
+    if (!currentBranchId && !newItem.selectedBranchId) {
+      Alert.alert('Error', 'Please select a branch first.');
+      return;
+    }
+
+    // Use selected branch or fall back to current branch
+    const branchIdToUse = newItem.selectedBranchId || currentBranchId;
 
     if (newItem.name && newItem.price) {
       try {
@@ -370,7 +471,7 @@ export default function MenuScreen() {
 
         const item: MenuItemCreateRequest = {
           name: newItem.name,
-          description: 'Mock description', // You might want to add a description field to the form
+          description: 'Mock description',
           price: parseFloat(newItem.price),
           category: newItem.category,
           preparationTimeMinutes: 15,
@@ -380,16 +481,28 @@ export default function MenuScreen() {
             spiceLevel: 'medium',
             addons: addons.length > 0 ? addons : undefined,
             complimentaryItems: complimentaryItems.length > 0 ? complimentaryItems : undefined,
-            imageUrl: newItem.imageUrl || undefined,
             nutritionInfo: newItem.nutritionInfo,
             isAvailable: newItem.isAvailable
           }
         };
 
-        await dispatch(createMenuItem({
-          branchId: currentBranchId,
+        // Create the menu item first
+        const result = await dispatch(createMenuItem({
+          branchId: branchIdToUse!,
           menuItemData: item
         })).unwrap();
+
+        // If there's a local image, upload it to the server
+        if (newItem.imageUrl && newItem.imageUrl.startsWith('file://')) {
+          try {
+            console.log('[Menu] Uploading image for newly created item:', result.menuItemId);
+            await menuApiService.uploadMenuItemImage(result.menuItemId, newItem.imageUrl, 'primary');
+            console.log('[Menu] Image uploaded successfully');
+          } catch (uploadError: any) {
+            console.error('[Menu] Failed to upload image:', uploadError);
+            Alert.alert('Warning', 'Item created but image upload failed. You can add the image later.');
+          }
+        }
 
         setNewItem({
           name: '',
@@ -400,10 +513,14 @@ export default function MenuScreen() {
           addons: '',
           complimentaryItems: '',
           imageUrl: '',
-          nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 }
+          nutritionInfo: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          selectedBranchId: null,
         });
         setAddModalVisible(false);
         Alert.alert('Success', 'Item added successfully!');
+
+        // Refresh menu items for the selected branch
+        dispatch(fetchMenuItems({ branchId: branchIdToUse! }));
       } catch (error: any) {
         console.error('Failed to add item:', error);
         Alert.alert('Error', error.message || 'Failed to add item. Please try again.');
@@ -513,6 +630,26 @@ export default function MenuScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
+
+          {/* Branch Selector for Viewing */}
+          {branches.length > 1 && (
+            <View style={styles.headerBranchSelector}>
+              <TouchableOpacity
+                style={styles.headerBranchPicker}
+                onPress={() => setBranchPickerVisible(true)}
+                accessibilityLabel="Select branch to view menu"
+              >
+                <Ionicons name="storefront-outline" size={18} color="#16a34a" />
+                <Text style={styles.headerBranchPickerText}>
+                  {branches.find(b => b.branchId === currentBranchId)?.branchName || 'Select Branch'}
+                  {branches.find(b => b.branchId === currentBranchId)?.address?.area &&
+                    ` (${branches.find(b => b.branchId === currentBranchId)?.address?.area})`
+                  }
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#16a34a" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Categories */}
@@ -627,6 +764,46 @@ export default function MenuScreen() {
               <View />
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Branch Selector - only show if multiple branches exist */}
+              {branches.length > 0 && (
+                <View style={styles.branchSelectorContainer}>
+                  <Text style={styles.branchSelectorLabel}>
+                    <Ionicons name="location-outline" size={14} color="#374151" /> Select Branch
+                  </Text>
+                  {branches.map((branch) => (
+                    <TouchableOpacity
+                      key={branch.branchId}
+                      style={[
+                        styles.branchOption,
+                        newItem.selectedBranchId === branch.branchId && styles.branchOptionSelected,
+                      ]}
+                      onPress={() => setNewItem({ ...newItem, selectedBranchId: branch.branchId })}
+                      accessibilityLabel={`Select ${branch.branchName} branch`}
+                    >
+                      <Ionicons
+                        name="storefront-outline"
+                        size={20}
+                        color={newItem.selectedBranchId === branch.branchId ? '#16a34a' : '#6b7280'}
+                        style={styles.branchOptionIcon}
+                      />
+                      <View style={styles.branchOptionContent}>
+                        <Text style={styles.branchOptionName}>{branch.branchName}</Text>
+                        <Text style={styles.branchOptionCity}>
+                          {branch.address?.area ? `${branch.address.area}, ${branch.city}` : branch.city}
+                        </Text>
+                      </View>
+                      {newItem.selectedBranchId === branch.branchId && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color="#16a34a"
+                          style={styles.branchOptionCheck}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
               <TextInput
                 style={styles.input}
                 placeholder="Enter dish name (e.g., Butter Chicken, Paneer Tikka)"
@@ -668,57 +845,60 @@ export default function MenuScreen() {
                 onChangeText={(text) => setNewItem({ ...newItem, complimentaryItems: text })}
                 accessibilityLabel="Item Complimentary Items Input"
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Image URL (or upload)"
-                placeholderTextColor="#6b7280"
-                value={newItem.imageUrl}
-                onChangeText={(text) => setNewItem({ ...newItem, imageUrl: text })}
-                accessibilityLabel="Item Image URL Input"
-              />
-              {/* TEMPORARILY COMMENTED OUT - DEBUG TEXT NODE ERROR
-              <FeatureGate feature="imageUpload">
-                <ImageUploadButton
-                  onImageUploaded={handleImageUpload}
-                  buttonText="Upload Image"
-                  style={{ marginTop: 8 }}
-                />
-              </FeatureGate>
-              */}
-              {newItem.imageUrl && (
+              {/* Image Upload Section */}
+              <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 }}>Item Image</Text>
+              {!newItem.imageUrl ? (
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: '#6b7280' }]}
+                  onPress={handlePickImage}
+                  accessibilityLabel="Upload Item Image"
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="camera" size={20} color="white" />
+                    <Text style={styles.buttonText}>Upload Image</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
                 <View style={{ marginTop: 12, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 }}>
-                    Preview:
-                  </Text>
                   <View style={{
-                    width: 120,
-                    height: 120,
-                    borderRadius: 8,
+                    width: 150,
+                    height: 150,
+                    borderRadius: 12,
                     borderWidth: 1,
                     borderColor: '#e5e7eb',
                     overflow: 'hidden',
                     backgroundColor: '#f9fafb'
                   }}>
                     <Image
-                      source={{ uri: newItem.imageUrl.startsWith('local_file_') ? 'https://via.placeholder.com/120x120.png?text=Image+Uploaded' : newItem.imageUrl }}
+                      source={{ uri: newItem.imageUrl }}
                       style={{ width: '100%', height: '100%' }}
                       resizeMode="cover"
                     />
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setNewItem({ ...newItem, imageUrl: '' })}
-                    style={{ marginTop: 8 }}
-                    accessibilityLabel="Remove Image"
-                  >
-                    <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '500' }}>
-                      Remove Image
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
+                    <TouchableOpacity
+                      onPress={handlePickImage}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      accessibilityLabel="Change Image"
+                    >
+                      <Ionicons name="refresh" size={16} color="#6b7280" />
+                      <Text style={{ color: '#6b7280', fontSize: 14, fontWeight: '500' }}>
+                        Change
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setNewItem({ ...newItem, imageUrl: '' })}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      accessibilityLabel="Remove Image"
+                    >
+                      <Ionicons name="trash" size={16} color="#ef4444" />
+                      <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: '500' }}>
+                        Remove
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
-              <TouchableOpacity style={styles.button} onPress={handleNutritionAnalysis} accessibilityLabel="Analyze Nutrition">
-                <Text style={styles.buttonText}>Analyze Nutrition (AI)</Text>
-              </TouchableOpacity>
               <Text style={{ fontSize: 16, fontWeight: 'semibold', color: '#111827', marginBottom: 8 }}>Nutrition Info (per serving)</Text>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 4 }}>Calories</Text>
               <TextInput
@@ -947,6 +1127,59 @@ export default function MenuScreen() {
             <TouchableOpacity style={styles.optionButton} onPress={handleDeleteItem} accessibilityLabel="Delete Item Option">
               <Text style={styles.optionText}>Delete Item</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Branch Picker Modal */}
+      <Modal visible={branchPickerVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.branchModalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setBranchPickerVisible(false)} accessibilityLabel="Close Branch Picker">
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Select Branch</Text>
+              <View />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {branches.map((branch) => (
+                <TouchableOpacity
+                  key={branch.branchId}
+                  style={[
+                    styles.branchOption,
+                    currentBranchId === branch.branchId && styles.branchOptionSelected,
+                  ]}
+                  onPress={() => {
+                    dispatch(setCurrentBranchId(branch.branchId));
+                    dispatch(fetchMenuItems({ branchId: branch.branchId }));
+                    setBranchPickerVisible(false);
+                  }}
+                  accessibilityLabel={`View ${branch.branchName} menu`}
+                >
+                  <Ionicons
+                    name="storefront-outline"
+                    size={20}
+                    color={currentBranchId === branch.branchId ? '#16a34a' : '#6b7280'}
+                    style={styles.branchOptionIcon}
+                  />
+                  <View style={styles.branchOptionContent}>
+                    <Text style={styles.branchOptionName}>{branch.branchName}</Text>
+                    <Text style={styles.branchOptionCity}>
+                      {branch.address?.area ? `${branch.address.area}, ${branch.city}` : branch.city}
+                    </Text>
+                  </View>
+                  {currentBranchId === branch.branchId && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#16a34a"
+                      style={styles.branchOptionCheck}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>

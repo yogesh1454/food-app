@@ -5,7 +5,8 @@ import {
   MenuItemCreateRequest,
   MenuItemUpdateRequest,
   MenuItemResponse,
-  PaginatedResponse
+  PaginatedResponse,
+  ImageUploadResponse
 } from '../types/api';
 import { getUserUUID } from '../utils/userUuidService';
 
@@ -140,12 +141,71 @@ export class MenuApiService {
     throw new Error('Menu analytics endpoint not implemented in backend yet');
   }
 
+  /**
+   * Upload image for a menu item
+   * POST /api/v1/menu-items/{menuItemId}/images
+   * @param menuItemId - The menu item ID
+   * @param imageUri - Local file URI of the image
+   * @param imageType - 'primary' for main image, 'gallery' for additional images
+   */
   async uploadMenuItemImage(
     menuItemId: number,
-    file: { uri: string; name: string; type: string }
-  ) {
-    // NOT IMPLEMENTED - This endpoint doesn't exist in backend yet
-    throw new Error('Menu item image upload not implemented in backend yet');
+    imageUri: string,
+    imageType: 'primary' | 'gallery' = 'primary'
+  ): Promise<ApiResponse<ImageUploadResponse>> {
+    console.log('[Menu] Uploading image for menuItemId:', menuItemId, 'type:', imageType);
+    const userId = await getUserUUID();
+
+    // Create form data for multipart upload
+    const formData = new FormData();
+
+    // Extract filename from URI
+    const filename = imageUri.split('/').pop() || 'image.jpg';
+    const fileExtension = filename.split('.').pop()?.toLowerCase() || 'jpg';
+
+    // Determine MIME type
+    const mimeTypes: { [key: string]: string } = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp'
+    };
+    const mimeType = mimeTypes[fileExtension] || 'image/jpeg';
+
+    // Append file to form data
+    formData.append('file', {
+      uri: imageUri,
+      name: filename,
+      type: mimeType
+    } as any);
+
+    try {
+      const response = await httpClient.post(
+        `/menu-items/${menuItemId}/images?imageType=${imageType}`,
+        formData,
+        {
+          headers: {
+            'X-User-Id': userId,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      console.log('[Menu] Image uploaded successfully:', response.data);
+      return {
+        data: response.data,
+        success: true,
+        status: response.status,
+      };
+    } catch (error: any) {
+      console.error('[Menu] Error uploading image:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message
+      });
+      throw error;
+    }
   }
 
   async deleteMenuItemImage(menuItemId: number): Promise<ApiResponse<void>> {

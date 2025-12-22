@@ -122,6 +122,25 @@ export interface OperatingHoursResponse {
   isOpen: boolean;
 }
 
+// Image Upload types (matching backend ImageUploadResponse)
+export interface ImageUploadResponse {
+  status: string;
+  message: string;
+  entityId: number;
+  entityType: string;
+  imageType: string;
+  fileKey: string;
+  urls: Record<string, string>;
+  processing?: {
+    status: string;
+    message: string;
+    startedAt?: string;
+    completedAt?: string;
+  };
+  uploadedAt: string;
+}
+
+
 // Document types
 export interface Document {
   documentId: number;
