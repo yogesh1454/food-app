@@ -124,6 +124,19 @@ export class VendorOrdersApiService {
             status: response.status,
         };
     }
+
+    /**
+     * Register device push token
+     * POST /api/v1/vendor/push-token
+     */
+    async registerPushToken(token: string): Promise<void> {
+        try {
+            await httpClient.post('/vendor/push-token', { token });
+        } catch (error) {
+            console.error('Failed to register push token:', error);
+            // Fail silently as this is not critical for app function
+        }
+    }
 }
 
 // Export singleton instance

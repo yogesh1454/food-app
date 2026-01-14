@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
-       "**/*"
-     ],
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nashtto.restaurant",
@@ -24,7 +24,17 @@
       "expo-asset",
       "expo-font",
       "expo-image-picker",
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/favicon.png",
+          "color": "#ffffff",
+          "sounds": [
+            "./assets/favicon.png"
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {

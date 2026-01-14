@@ -14,8 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
-import { useAppDispatch } from '../store';
-import { RootState } from '../store';
+import { RootState, useAppDispatch, useAppSelector } from '../store';
 import {
   fetchOrders,
   acceptOrder,
@@ -369,24 +368,19 @@ export default function OrdersScreen() {
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [prepTime, setPrepTime] = useState('15');
   const [rejectReason, setRejectReason] = useState('');
+  const { currentBranchId, orders, isLoading, error, filter } = useAppSelector((state) => state.orders);
+  const { lastNotification } = useAppSelector((state) => state.notification);
   const [refreshing, setRefreshing] = useState(false);
 
   const { isEnabled } = useFeatureFlags();
   const dispatch = useAppDispatch();
 
-  // Redux state
-  const orders = useSelector((state: RootState) => state.orders.orders);
-  const isLoading = useSelector((state: RootState) => state.orders.isLoading);
-  const error = useSelector((state: RootState) => state.orders.error);
-  const filter = useSelector((state: RootState) => state.orders.filter);
-
   const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'PENDING_ACCEPTANCE', label: 'New' },
-    { key: 'PREPARING', label: 'Preparing' },
-    { key: 'READY_FOR_PICKUP', label: 'Ready' },
-    { key: 'PICKED_UP', label: 'Out for Delivery' },
-    { key: 'DELIVERED', label: 'Delivered' },
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'preparing', label: 'Preparing' },
+    { id: 'ready', label: 'Ready' },
+    { id: 'completed', label: 'Completed' },
   ];
 
   // Fetch orders on mount
@@ -523,20 +517,22 @@ export default function OrdersScreen() {
             style={styles.filtersScroll}
             contentContainerStyle={styles.filtersContent}
           >
-            {filters.map((f) => (
+            {filters.map((item) => (
               <TouchableOpacity
-                key={f.key}
+                key={item.id}
                 style={[
                   styles.filterButton,
-                  filter === f.key && styles.filterButtonActive,
+                  filter === item.id && styles.filterButtonActive,
                 ]}
-                onPress={() => dispatch(setFilter(f.key as any))}
+                onPress={() => dispatch(setFilter(item.id as any))}
               >
-                <Text style={[
-                  styles.filterText,
-                  filter === f.key && styles.filterTextActive,
-                ]}>
-                  {f.label}
+                <Text
+                  style={[
+                    styles.filterText,
+                    filter === item.id && styles.filterTextActive,
+                  ]}
+                >
+                  {item.label}
                 </Text>
               </TouchableOpacity>
             ))}
